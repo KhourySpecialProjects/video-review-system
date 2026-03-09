@@ -14,6 +14,7 @@ import (
 	"github.com/KhourySpecialProjects/video-review-system/config"
 	"github.com/KhourySpecialProjects/video-review-system/db"
 	"github.com/KhourySpecialProjects/video-review-system/internal/health"
+	"github.com/KhourySpecialProjects/video-review-system/internal/videos"
 	"github.com/KhourySpecialProjects/video-review-system/middleware"
 )
 
@@ -42,6 +43,10 @@ func main() {
 	healthService := health.NewService(healthRepo)
 	healthHandler := health.NewHandler(healthService)
 
+	videoRepo := videos.NewRepository(pool)
+	videoService := videos.NewService(videoRepo)
+	videoHandler := videos.NewHandler(videoService)
+
 	// ── Configure router ────────────────────────────────────────────
 	r := chi.NewRouter()
 
@@ -51,6 +56,7 @@ func main() {
 
 	// Mount domain routes
 	r.Mount("/api/health", healthHandler.Routes())
+	r.Mount("/api/videos", videoHandler.Routes())
 
 	// ── Start server with graceful shutdown ──────────────────────────
 	srv := &http.Server{
