@@ -15,6 +15,7 @@ services:
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - ALLOWED_ORIGIN=${ALLOWED_ORIGIN}
+      - PORT=${PORT}
     depends_on:
       postgres:
         condition: service_healthy
@@ -31,7 +32,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-TO-CHECK", "pg_isready", "-U", "${POSTGRES_USER}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
       interval: 5s
       timeout: 5s
       retries: 5
