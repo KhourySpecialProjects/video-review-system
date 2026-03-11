@@ -1,5 +1,5 @@
+import { reactRouter } from "@react-router/dev/vite";
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from "path"
 import basicSsl from '@vitejs/plugin-basic-ssl'
@@ -7,12 +7,10 @@ import basicSsl from '@vitejs/plugin-basic-ssl'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    react({
-      babel: {
-        plugins: [['babel-plugin-react-compiler']],
-      },
-    }),
-    tailwindcss(), basicSsl()],
+    reactRouter(),
+    tailwindcss(),
+    basicSsl(),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -25,8 +23,13 @@ export default defineConfig({
       'Cross-Origin-Embedder-Policy': 'require-corp',
     },
     proxy: {
-      // Forward /api/* to the Go backend during local development
-      '/api': {
+      // Forward specific Go backend endpoints only
+      // /api/auth/* is handled by React Router server (Better Auth)
+      '/api/health': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/api/videos': {
         target: 'http://localhost:8080',
         changeOrigin: true,
       },

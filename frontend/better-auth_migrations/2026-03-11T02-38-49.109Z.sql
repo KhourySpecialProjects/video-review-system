@@ -1,9 +1,3 @@
--- +goose Up
-CREATE TABLE IF NOT EXISTS health_checks (
-    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    checked_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
 create table "user" ("id" text not null primary key, "name" text not null, "email" text not null unique, "emailVerified" boolean not null, "image" text, "createdAt" timestamptz default CURRENT_TIMESTAMP not null, "updatedAt" timestamptz default CURRENT_TIMESTAMP not null);
 
 create table "session" ("id" text not null primary key, "expiresAt" timestamptz not null, "token" text not null unique, "createdAt" timestamptz default CURRENT_TIMESTAMP not null, "updatedAt" timestamptz not null, "ipAddress" text, "userAgent" text, "userId" text not null references "user" ("id") on delete cascade);
@@ -17,10 +11,3 @@ create index "session_userId_idx" on "session" ("userId");
 create index "account_userId_idx" on "account" ("userId");
 
 create index "verification_identifier_idx" on "verification" ("identifier");
-
--- +goose Down
-DROP TABLE IF EXISTS health_checks;
-DROP TABLE IF EXISTS "user";
-DROP TABLE IF EXISTS "session";
-DROP TABLE IF EXISTS "account";
-DROP TABLE IF EXISTS "verification";

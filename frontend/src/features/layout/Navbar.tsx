@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import {
     Sun,
     Moon,
@@ -9,10 +9,40 @@ import {
 import { useTheme } from "@/hooks/use-theme";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { authClient } from "@/lib/auth-client";
 
-export function Navbar() {
+interface NavbarProps {
+    user: {
+        name: string;
+        email: string;
+    };
+}
+
+export function Navbar({ user }: NavbarProps) {
     const { theme, toggleTheme } = useTheme();
     const [menuOpen, setMenuOpen] = useState(false);
+    const [isSigningOut, setIsSigningOut] = useState(false);
+    const navigate = useNavigate();
+
+    const handleSignOut = async () => {
+        setIsSigningOut(true);
+        await authClient.signOut({
+            fetchOptions: {
+                onSuccess: () => {
+                    navigate("/sign-in");
+                },
+            },
+        });
+        setIsSigningOut(false);
+    };
+
+    // Get initials from user name
+    const initials = user.name
+        .split(" ")
+        .map(w => w[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2);
 
     return (
         <nav className="sticky top-0 z-50 flex items-center justify-between border-b border-border bg-bg-dark px-4 py-2">
@@ -23,7 +53,7 @@ export function Navbar() {
                 aria-label="Home"
             >
                 <div className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold text-sm">
-                    CV
+                    {initials}
                 </div>
             </Link>
 
@@ -52,6 +82,8 @@ export function Navbar() {
                     size="icon"
                     className="text-text-muted"
                     aria-label="Log out"
+                    onClick={handleSignOut}
+                    disabled={isSigningOut}
                 >
                     <LogOut className="size-4" />
                 </Button>
@@ -107,9 +139,11 @@ export function Navbar() {
                         <button
                             className="flex items-center rounded-md px-2.5 py-2 text-sm font-medium text-text-muted hover:bg-muted transition-all"
                             aria-label="Log out"
+                            onClick={handleSignOut}
+                            disabled={isSigningOut}
                         >
                             <LogOut className="mr-2 size-4" />
-                            Log out
+                            {isSigningOut ? "Signing out..." : "Log out"}
                         </button>
                     </div>
                 </div>
