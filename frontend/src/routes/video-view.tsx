@@ -1,4 +1,5 @@
-import { useNavigation, useSubmit, Link } from "react-router";
+import { useNavigation, Link } from "react-router";
+import { z } from "zod";
 import { VideoPlayer, VideoPlayerSkeleton } from "@/features/video/videoPlayer/VideoPlayer";
 import {
     VideoDetailsSidebar,
@@ -7,6 +8,11 @@ import {
 import { ArrowLeft } from "lucide-react";
 import { fetchVideoById, updateVideo } from "@/lib/mock-data";
 import type { Route } from "./+types/video-view";
+
+const editVideoSchema = z.object({
+    title: z.string().min(1, "Title is required."),
+    description: z.string().optional().default(""),
+});
 
 // ── Route Module Exports ──────────────────────────────────────────────────
 
@@ -20,9 +26,24 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
 
 export async function clientAction({ params, request }: Route.ClientActionArgs) {
     const formData = await request.formData();
-    const title = formData.get("title") as string;
-    const description = formData.get("description") as string;
-    await updateVideo(params.videoId, { title, description });
+    const data = Object.fromEntries(formData);
+
+    const result = editVideoSchema.safeParse(data);
+    if (!result.success) {
+        const errors: Record<string, string> = {};
+        result.error.issues.forEach((issue) => {
+            if (issue.path[0]) {
+                errors[issue.path[0].toString()] = issue.message;
+            }
+        });
+        return { fieldErrors: errors };
+    }
+
+    await updateVideo(params.videoId, {
+        title: result.data.title,
+        description: result.data.description
+    });
+
     return { success: true };
 }
 
@@ -31,16 +52,8 @@ export async function clientAction({ params, request }: Route.ClientActionArgs) 
 export default function VideoView({ loaderData }: Route.ComponentProps) {
     const { video } = loaderData;
     const navigation = useNavigation();
-    const submit = useSubmit();
 
-    const isSaving = navigation.state === "submitting";
-
-    const handleSave = (data: { title: string; description: string }) => {
-        submit(
-            { title: data.title, description: data.description },
-            { method: "post" }
-        );
-    };
+    const isSaving = navigation.state === "submitting" || navigation.state === "loading";
 
     return (
         <div className="flex flex-col gap-6">
@@ -62,7 +75,6 @@ export default function VideoView({ loaderData }: Route.ComponentProps) {
                 />
                 <VideoDetailsSidebar
                     video={video}
-                    onSave={handleSave}
                     isSaving={isSaving}
                 />
             </div>

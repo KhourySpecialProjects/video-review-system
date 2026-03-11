@@ -21,27 +21,27 @@ const mockVideo: Video = {
 
 describe("VideoDetailsSidebar", () => {
     it("renders video title", () => {
-        render(<VideoDetailsSidebar video={mockVideo} onSave={() => { }} />);
+        render(<VideoDetailsSidebar video={mockVideo} />);
         expect(screen.getByText("Test Video")).toBeInTheDocument();
     });
 
     it("renders video description", () => {
-        render(<VideoDetailsSidebar video={mockVideo} onSave={() => { }} />);
+        render(<VideoDetailsSidebar video={mockVideo} />);
         expect(screen.getByText("A test video description")).toBeInTheDocument();
     });
 
     it("renders caregiver name", () => {
-        render(<VideoDetailsSidebar video={mockVideo} onSave={() => { }} />);
+        render(<VideoDetailsSidebar video={mockVideo} />);
         expect(screen.getByText("Caregiver A")).toBeInTheDocument();
     });
 
     it("shows received status", () => {
-        render(<VideoDetailsSidebar video={mockVideo} onSave={() => { }} />);
+        render(<VideoDetailsSidebar video={mockVideo} />);
         expect(screen.getByText("Received")).toBeInTheDocument();
     });
 
     it("enters edit mode when pencil button is clicked", () => {
-        render(<VideoDetailsSidebar video={mockVideo} onSave={() => { }} />);
+        render(<VideoDetailsSidebar video={mockVideo} />);
         const editButton = screen.getByLabelText("Edit title and description");
         fireEvent.click(editButton);
         expect(screen.getByLabelText("Video title")).toBeInTheDocument();
@@ -50,7 +50,7 @@ describe("VideoDetailsSidebar", () => {
 
     it("calls onSave with updated data", () => {
         const onSave = vi.fn();
-        render(<VideoDetailsSidebar video={mockVideo} onSave={onSave} />);
+        render(<VideoDetailsSidebar video={mockVideo} />);
 
         fireEvent.click(screen.getByLabelText("Edit title and description"));
 
@@ -65,7 +65,7 @@ describe("VideoDetailsSidebar", () => {
     });
 
     it("cancels editing and restores original values", () => {
-        render(<VideoDetailsSidebar video={mockVideo} onSave={() => { }} />);
+        render(<VideoDetailsSidebar video={mockVideo} />);
 
         fireEvent.click(screen.getByLabelText("Edit title and description"));
 
