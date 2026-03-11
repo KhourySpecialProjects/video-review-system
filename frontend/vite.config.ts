@@ -33,6 +33,11 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      '/proxy-video': {
+        target: 'https://www.w3schools.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/proxy-video/, ''),
+      },
     },
   }
 })

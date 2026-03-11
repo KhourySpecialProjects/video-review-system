@@ -10,6 +10,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { AnimatePresence, motion } from "motion/react";
 
 interface NavbarProps {
     user: {
@@ -103,51 +104,82 @@ export function Navbar({ user }: NavbarProps) {
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="text-text"
+                    className="text-text overflow-hidden"
                     onClick={() => setMenuOpen(!menuOpen)}
                     aria-label="Toggle menu"
                 >
-                    {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+                    <AnimatePresence mode="wait" initial={false}>
+                        {menuOpen ? (
+                            <motion.div
+                                key="x"
+                                initial={{ opacity: 0, rotate: -90 }}
+                                animate={{ opacity: 1, rotate: 0 }}
+                                exit={{ opacity: 0, rotate: 90 }}
+                                transition={{ duration: 0.15 }}
+                            >
+                                <X className="size-5" />
+                            </motion.div>
+                        ) : (
+                            <motion.div
+                                key="menu"
+                                initial={{ opacity: 0, rotate: 90 }}
+                                animate={{ opacity: 1, rotate: 0 }}
+                                exit={{ opacity: 0, rotate: -90 }}
+                                transition={{ duration: 0.15 }}
+                            >
+                                <Menu className="size-5" />
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </Button>
             </div>
 
             {/* Mobile dropdown */}
-            {menuOpen && (
-                <div className="absolute left-0 top-full w-full border-b border-border bg-bg-dark p-4 md:hidden">
-                    <div className="flex flex-col gap-2">
-                        <Link
-                            to="/"
-                            onClick={() => setMenuOpen(false)}
-                            className="flex items-center rounded-md px-2.5 py-2 text-sm font-medium text-text hover:bg-muted transition-all"
-                        >
-                            Tutorial
-                        </Link>
-                        <Link
-                            to="/"
-                            onClick={() => setMenuOpen(false)}
-                            className="flex items-center rounded-md px-2.5 py-2 text-sm font-medium text-text hover:bg-muted transition-all"
-                        >
-                            Need Help?
-                        </Link>
-                        <Link
-                            to="/"
-                            onClick={() => setMenuOpen(false)}
-                            className="flex items-center rounded-md px-2.5 py-2 text-sm font-medium text-text hover:bg-muted transition-all"
-                        >
-                            Settings
-                        </Link>
-                        <button
-                            className="flex items-center rounded-md px-2.5 py-2 text-sm font-medium text-text-muted hover:bg-muted transition-all"
-                            aria-label="Log out"
-                            onClick={handleSignOut}
-                            disabled={isSigningOut}
-                        >
-                            <LogOut className="mr-2 size-4" />
-                            {isSigningOut ? "Signing out..." : "Log out"}
-                        </button>
-                    </div>
-                </div>
-            )}
+            <AnimatePresence>
+                {menuOpen && (
+                    <motion.div
+                        initial={{ opacity: 0, scaleY: 0 }}
+                        animate={{ opacity: 1, scaleY: 1 }}
+                        exit={{ opacity: 0, scaleY: 0 }}
+                        transition={{ duration: 0.25, ease: "easeOut" }}
+                        style={{ transformOrigin: "top" }}
+                        className="absolute left-0 top-full w-full border-b border-border bg-bg-dark p-4 md:hidden"
+                    >
+                        <div className="flex flex-col gap-2">
+                            <Link
+                                to="/"
+                                onClick={() => setMenuOpen(false)}
+                                className="flex items-center rounded-md px-2.5 py-2 text-sm font-medium text-text hover:bg-muted transition-all"
+                            >
+                                Tutorial
+                            </Link>
+                            <Link
+                                to="/"
+                                onClick={() => setMenuOpen(false)}
+                                className="flex items-center rounded-md px-2.5 py-2 text-sm font-medium text-text hover:bg-muted transition-all"
+                            >
+                                Need Help?
+                            </Link>
+                            <Link
+                                to="/"
+                                onClick={() => setMenuOpen(false)}
+                                className="flex items-center rounded-md px-2.5 py-2 text-sm font-medium text-text hover:bg-muted transition-all"
+                            >
+                                Settings
+                            </Link>
+                            <button
+                                className="flex items-center rounded-md px-2.5 py-2 text-sm font-medium text-text-muted hover:bg-muted transition-all"
+                                aria-label="Log out"
+                                onClick={handleSignOut}
+                                disabled={isSigningOut}
+                            >
+                                <LogOut className="mr-2 size-4" />
+                                {isSigningOut ? "Signing out..." : "Log out"}
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </nav>
     );
 }

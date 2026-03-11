@@ -25,6 +25,7 @@ import {
     CirclePlay,
 } from "lucide-react";
 import { Link } from "react-router";
+import { motion } from "motion/react";
 
 interface AllVideosProps {
     videos: Video[];
@@ -183,61 +184,68 @@ export function AllVideos({ videos }: AllVideosProps) {
                 </div>
             ) : (
                 <Accordion className="space-y-2">
-                    {filteredVideos.map((video) => (
-                        <AccordionItem
+                    {filteredVideos.map((video, index) => (
+                        <motion.div
                             key={video.id}
-                            className="rounded-xl border border-border bg-bg-light px-4 data-[open]:shadow-m"
+                            initial={{ opacity: 0, y: 15 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3, delay: index * 0.05, ease: "easeOut" }}
                         >
-                            <AccordionTrigger className="py-4 hover:no-underline">
-                                <div className="flex flex-1 items-center gap-3 text-left">
-                                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-black">
-                                        <CirclePlay className="size-5 text-primary" />
+                            <AccordionItem
+                                value={video.id}
+                                className="rounded-xl border border-border bg-bg-light px-4 data-open:shadow-m"
+                            >
+                                <AccordionTrigger className="py-4 hover:no-underline">
+                                    <div className="flex flex-1 items-center gap-3 text-left">
+                                        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-black">
+                                            <CirclePlay className="size-5 text-primary" />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="truncate font-semibold text-text">
+                                                {video.title}
+                                            </p>
+                                            <p className="truncate text-xs text-text-muted">
+                                                {formatDuration(video.duration)} • {formatDate(video.uploadedAt)}
+                                            </p>
+                                        </div>
+                                        <span className="shrink-0 text-xs font-semibold text-success">
+                                            {video.status === "received" ? "Received" : "Pending"}
+                                        </span>
                                     </div>
-                                    <div className="min-w-0 flex-1">
-                                        <p className="truncate font-semibold text-text">
-                                            {video.title}
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                    <div className="flex flex-col gap-3 pb-2">
+                                        <p className="text-sm text-text-muted">
+                                            {video.description}
                                         </p>
-                                        <p className="truncate text-xs text-text-muted">
-                                            {formatDuration(video.duration)} • {formatDate(video.uploadedAt)}
-                                        </p>
+                                        <div className="flex flex-wrap items-center gap-4 text-xs text-text-muted">
+                                            <span className="flex items-center gap-1.5">
+                                                <CalendarDays className="size-3.5" />
+                                                Uploaded: {formatDate(video.uploadedAt)}
+                                            </span>
+                                            <span className="flex items-center gap-1.5">
+                                                <CalendarDays className="size-3.5" />
+                                                Filmed: {formatDate(video.filmedAt)}
+                                            </span>
+                                            <span className="flex items-center gap-1.5">
+                                                <Clock3 className="size-3.5" />
+                                                {formatTime(video.filmedAt)}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs text-text-muted">
+                                            Filmed by: <span className="font-medium text-text">{video.filmedBy}</span>
+                                        </div>
+                                        <Link
+                                            to={`/videos/${video.id}`}
+                                            className="mt-1 inline-flex w-fit items-center gap-2 rounded-md border border-border px-2.5 h-8 text-sm font-medium text-text hover:bg-muted transition-all"
+                                        >
+                                            <CirclePlay className="size-4" />
+                                            Watch Video
+                                        </Link>
                                     </div>
-                                    <span className="shrink-0 text-xs font-semibold text-success">
-                                        {video.status === "received" ? "Received" : "Pending"}
-                                    </span>
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                                <div className="flex flex-col gap-3 pb-2">
-                                    <p className="text-sm text-text-muted">
-                                        {video.description}
-                                    </p>
-                                    <div className="flex flex-wrap items-center gap-4 text-xs text-text-muted">
-                                        <span className="flex items-center gap-1.5">
-                                            <CalendarDays className="size-3.5" />
-                                            Uploaded: {formatDate(video.uploadedAt)}
-                                        </span>
-                                        <span className="flex items-center gap-1.5">
-                                            <CalendarDays className="size-3.5" />
-                                            Filmed: {formatDate(video.filmedAt)}
-                                        </span>
-                                        <span className="flex items-center gap-1.5">
-                                            <Clock3 className="size-3.5" />
-                                            {formatTime(video.filmedAt)}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-xs text-text-muted">
-                                        Filmed by: <span className="font-medium text-text">{video.filmedBy}</span>
-                                    </div>
-                                    <Link
-                                        to={`/videos/${video.id}`}
-                                        className="mt-1 inline-flex w-fit items-center gap-2 rounded-md border border-border px-2.5 h-8 text-sm font-medium text-text hover:bg-muted transition-all"
-                                    >
-                                        <CirclePlay className="size-4" />
-                                        Watch Video
-                                    </Link>
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
+                                </AccordionContent>
+                            </AccordionItem>
+                        </motion.div>
                     ))}
                 </Accordion>
             )}
