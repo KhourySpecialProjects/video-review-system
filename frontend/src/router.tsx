@@ -2,7 +2,8 @@ import { createBrowserRouter } from "react-router";
 import Root from "./routes/root";
 import Home from "./routes/home";
 import VideoView from "./routes/video-view";
-import { fetchVideos, fetchVideoById, updateVideo } from "./lib/mock-data";
+import { fetchVideos, fetchVideoById, updateVideo, fetchTutorial } from "./lib/mock-data";
+import TutorialPage from "./routes/TutorialPage";
 
 export const router = createBrowserRouter([
     {
@@ -36,6 +37,13 @@ export const router = createBrowserRouter([
                     return { success: true };
                 },
             },
+            {
+              path: "tutorials",
+              element: <TutorialPage />,
+              loader: () => {
+                  return { tutorialPromise: fetchTutorial() };
+              },
+            }
         ],
     },
 ]);

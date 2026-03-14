@@ -29,7 +29,7 @@ export function Navbar() {
 
             {/* Desktop links */}
             <div className="hidden items-center gap-1 md:flex">
-                <Link to="/" className="inline-flex items-center justify-center rounded-md px-2.5 h-8 text-sm font-medium text-text hover:bg-muted transition-all">
+                <Link to="/tutorials" className="inline-flex items-center justify-center rounded-md px-2.5 h-8 text-sm font-medium text-text hover:bg-muted transition-all">
                     Tutorial
                 </Link>
                 <Link to="/" className="inline-flex items-center justify-center rounded-md px-2.5 h-8 text-sm font-medium text-text hover:bg-muted transition-all">
@@ -84,7 +84,7 @@ export function Navbar() {
                 <div className="absolute left-0 top-full w-full border-b border-border bg-bg-dark p-4 md:hidden">
                     <div className="flex flex-col gap-2">
                         <Link
-                            to="/"
+                            to="/tutorials"
                             onClick={() => setMenuOpen(false)}
                             className="flex items-center rounded-md px-2.5 py-2 text-sm font-medium text-text hover:bg-muted transition-all"
                         >

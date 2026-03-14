@@ -1,4 +1,4 @@
-import type { Video } from "./types";
+import type { TutorialCategory, Video } from "./types";
 
 /**
  * Mock videos for development.
@@ -112,4 +112,26 @@ export function updateVideo(
         }
         setTimeout(() => resolve(video), 300);
     });
+}
+
+export function fetchTutorial(): Promise<TutorialCategory[]> {
+    return new Promise((resolve) => {
+        setTimeout(() => resolve([
+            {
+                title: "Getting Started",
+                tutorials: [
+                    { title: "How to Upload Videos", type: "video", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+                    { title: "Best Practices for Filming", type: "article", content: "When filming videos, make sure to..." },
+                ],
+            },
+            {
+                title: "Advanced Features",
+                tutorials: [
+                    { title: "Using AI Insights", type: "video", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+                    { title: "Customizing Your Dashboard", type: "article", content: "To customize your dashboard, go to settings..." },
+                ],
+            },
+        ]), 1000);
+    });
+
 }

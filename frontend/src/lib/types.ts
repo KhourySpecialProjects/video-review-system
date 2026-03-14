@@ -24,3 +24,15 @@ export interface Video {
     filmedBy: string;
     status: VideoStatus;
 }
+
+export type TutorialCategory = {
+    title: string;
+    tutorials: Tutorial[];
+}
+
+export type Tutorial = {
+    title: string;
+    type: "video" | "article";
+    url?: string;
+    content?: string;
+}
