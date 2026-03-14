@@ -41,7 +41,7 @@ const titles: Record<UploadStep, string> = {
 
 export function VideoUpload() {
   const [open, setOpen] = useState(false)
-  const [step, setStep] = useState<UploadStep>("select")
+  const [step, setStep] = useState<UploadStep>("details")
   const [video, setVideo] = useState<Blob | null>(null)
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
@@ -62,11 +62,7 @@ export function VideoUpload() {
       if (open) {
         setOpen(open)
       } else {
-        if (step === "details") {
-          setConfirmationOpen(true)
-        } else {
-          handleClose()
-        }
+        setConfirmationOpen(true)
       }
     }} >
       <DialogTrigger render={
@@ -119,18 +115,8 @@ export function VideoUpload() {
           {step === "details" && (
             <Button
               className="w-full"
-              onClick={() => setStep("complete")}
-              disabled={!title.trim()}
-            >
-              Continue
-              <ArrowRight className="size-4" />
-            </Button>
-          )}
-          {step === "complete" && (
-            <Button
-              className="w-full"
               onClick={() => {
-                handleClose()
+                console.log("clicked")
                 toast.success("Video uploaded successfully", {
                   description: "You have 10 minutes to undo the video upload in case you uploaded the wrong video",
                   action: {
@@ -141,7 +127,18 @@ export function VideoUpload() {
                     }
                   }
                 })
-              }} >Done</Button>
+                // setStep("complete")
+              }}
+              disabled={!title.trim()}
+            >
+              Continue
+              <ArrowRight className="size-4" />
+            </Button>
+          )}
+          {step === "complete" && (
+            <Button
+              className="w-full"
+              onClick={() => handleClose()} >Done</Button>
           )}
         </DialogFooter>
       </DialogContent>

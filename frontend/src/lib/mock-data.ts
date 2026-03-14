@@ -12,7 +12,7 @@ export const MOCK_VIDEOS: Video[] = [
             "He ate breakfast for about 30 minutes and then decides to watch tv",
         duration: 72, // 1:12
         thumbnailUrl: "https://picsum.photos/seed/breakfast/640/360",
-        videoUrl: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+        videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4",
         uploadedAt: "2026-02-10T08:00:00Z",
         filmedAt: "2026-02-10T03:15:00Z",
         filmedBy: "Caregiver A",
@@ -25,7 +25,7 @@ export const MOCK_VIDEOS: Video[] = [
             "Went for a 20-minute walk around the neighborhood. Seemed cheerful and engaged with neighbors.",
         duration: 145, // 2:25
         thumbnailUrl: "https://picsum.photos/seed/walk/640/360",
-        videoUrl: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+        videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4",
         uploadedAt: "2026-02-09T10:30:00Z",
         filmedAt: "2026-02-09T07:45:00Z",
         filmedBy: "Caregiver B",
@@ -38,7 +38,7 @@ export const MOCK_VIDEOS: Video[] = [
             "Rested in the living room for about 45 minutes. Woke up and asked for water.",
         duration: 210, // 3:30
         thumbnailUrl: "https://picsum.photos/seed/nap/640/360",
-        videoUrl: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+        videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4",
         uploadedAt: "2026-02-08T15:00:00Z",
         filmedAt: "2026-02-08T13:00:00Z",
         filmedBy: "Caregiver A",
@@ -51,7 +51,7 @@ export const MOCK_VIDEOS: Video[] = [
             "Completed a full physical therapy session with the therapist. Showed improvement in range of motion.",
         duration: 356, // 5:56
         thumbnailUrl: "https://picsum.photos/seed/therapy/640/360",
-        videoUrl: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+        videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4",
         uploadedAt: "2026-02-07T11:00:00Z",
         filmedAt: "2026-02-07T09:30:00Z",
         filmedBy: "Caregiver C",
@@ -64,7 +64,7 @@ export const MOCK_VIDEOS: Video[] = [
             "Spent an hour watching a favorite cooking show. Was very engaged and commented on the recipes.",
         duration: 180, // 3:00
         thumbnailUrl: "https://picsum.photos/seed/tv/640/360",
-        videoUrl: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4",
+        videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4",
         uploadedAt: "2026-02-06T19:00:00Z",
         filmedAt: "2026-02-06T18:00:00Z",
         filmedBy: "Caregiver A",
@@ -77,7 +77,7 @@ export const MOCK_VIDEOS: Video[] = [
             "Visited the garden and helped water the plants. Enjoyed being outdoors for about 25 minutes.",
         duration: 95, // 1:35
         thumbnailUrl: "https://picsum.photos/seed/garden/640/360",
-        videoUrl: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4",
+        videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4",
         uploadedAt: "2026-02-05T16:00:00Z",
         filmedAt: "2026-02-05T14:30:00Z",
         filmedBy: "Caregiver B",

@@ -1,33 +1,15 @@
 import { useState, Suspense } from "react";
-import { Await, useMatches } from "react-router";
+import { useLoaderData, Await } from "react-router";
 import type { Video } from "@/lib/types";
 import { WelcomeCard, WelcomeCardSkeleton } from "@/features/dashboard/WelcomeCard";
 import { TabBar, type TabValue } from "@/features/dashboard/TabBar";
 import { VideoCard, VideoCardSkeleton } from "@/features/video/videoCard/VideoCard";
 import { AllVideos } from "@/features/video/allVideos/AllVideos";
 import { VideoUpload } from "@/features/video/videoUpload/VideoUpload";
-import { fetchVideos } from "@/lib/mock-data";
 
-// ── Route Module Exports ──────────────────────────────────────────────────
-
-export async function clientLoader() {
-    // Return a raw promise — React Router's <Await> handles it
-    // The route renders immediately, showing the <Suspense> skeleton
-    return { videosPromise: fetchVideos() };
-}
-
-// ── Component ─────────────────────────────────────────────────────────────
-
-import type { Route } from "./+types/home";
-
-export default function Home({ loaderData }: Route.ComponentProps) {
-    const { videosPromise } = loaderData;
+export default function Home() {
+    const { videosPromise } = useLoaderData() as { videosPromise: Promise<Video[]> };
     const [activeTab, setActiveTab] = useState<TabValue>("recent");
-
-    // Get user from parent layout's loader data
-    const matches = useMatches();
-    const rootMatch = matches.find(m => (m.data as any)?.user);
-    const userName = (rootMatch?.data as any)?.user?.name || "User";
 
     return (
         <div className="mx-auto flex w-full max-w-lg flex-col gap-6 lg:max-w-5xl">
@@ -38,7 +20,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                         return (
                             <>
                                 {/* Welcome Card */}
-                                <WelcomeCard videos={videos} userName={userName} />
+                                <WelcomeCard videos={videos} userName="John Doe" />
 
                                 {/* Tab Bar */}
                                 <TabBar

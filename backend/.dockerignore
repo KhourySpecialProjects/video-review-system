@@ -1,5 +1,0 @@
-bin
-vendor
-.git
-.env
-*.md

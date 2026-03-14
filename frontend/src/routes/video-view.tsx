@@ -1,35 +1,15 @@
-import { useNavigation, useSubmit, Link } from "react-router";
+import { useLoaderData, useNavigation, useSubmit } from "react-router";
+import type { Video } from "@/lib/types";
 import { VideoPlayer, VideoPlayerSkeleton } from "@/features/video/videoPlayer/VideoPlayer";
 import {
     VideoDetailsSidebar,
     VideoDetailsSidebarSkeleton,
 } from "@/features/video/videoDetails/VideoDetailsSidebar";
 import { ArrowLeft } from "lucide-react";
-import { fetchVideoById, updateVideo } from "@/lib/mock-data";
-import type { Route } from "./+types/video-view";
+import { Link } from "react-router";
 
-// ── Route Module Exports ──────────────────────────────────────────────────
-
-export async function clientLoader({ params }: Route.ClientLoaderArgs) {
-    const video = await fetchVideoById(params.videoId);
-    if (!video) {
-        throw new Response("Video not found", { status: 404 });
-    }
-    return { video };
-}
-
-export async function clientAction({ params, request }: Route.ClientActionArgs) {
-    const formData = await request.formData();
-    const title = formData.get("title") as string;
-    const description = formData.get("description") as string;
-    await updateVideo(params.videoId, { title, description });
-    return { success: true };
-}
-
-// ── Component ─────────────────────────────────────────────────────────────
-
-export default function VideoView({ loaderData }: Route.ComponentProps) {
-    const { video } = loaderData;
+export default function VideoView() {
+    const { video } = useLoaderData() as { video: Video };
     const navigation = useNavigation();
     const submit = useSubmit();
 
