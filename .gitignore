@@ -1,0 +1,34 @@
+# Dependencies — this is the big one. npm install downloads
+# thousands of files into node_modules/. Everyone on your
+# team runs `npm install` themselves from package.json,
+# so this folder should never be committed.
+node_modules/
+
+# Environment variables — contains your DATABASE_URL,
+# JWT_SECRET, AWS credentials, etc. Never commit secrets.
+.env
+.env.local
+.env.production
+
+# Prisma — the generated client is rebuilt from schema.prisma
+# every time someone runs `npx prisma generate`, so it
+# doesn't belong in the repo.
+prisma/generated/
+
+# Build output
+dist/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE / editor config (optional — some teams commit these)
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage output
+coverage/
