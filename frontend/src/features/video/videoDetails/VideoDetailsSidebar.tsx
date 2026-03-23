@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Form, useActionData } from "react-router";
 import type { Video } from "@/lib/types";
 import { formatDate, formatTime } from "@/lib/format";
 import { Input } from "@/components/ui/input";
@@ -17,107 +18,116 @@ import {
 
 interface VideoDetailsSidebarProps {
     video: Video;
-    onSave: (data: { title: string; description: string }) => void;
     isSaving?: boolean;
 }
 
 export function VideoDetailsSidebar({
     video,
-    onSave,
     isSaving = false,
 }: VideoDetailsSidebarProps) {
     const [isEditing, setIsEditing] = useState(false);
-    const [title, setTitle] = useState(video.title);
-    const [description, setDescription] = useState(video.description);
-
-    const handleSave = () => {
-        onSave({ title, description });
-        setIsEditing(false);
-    };
-
-    const handleCancel = () => {
-        setTitle(video.title);
-        setDescription(video.description);
-        setIsEditing(false);
-    };
+    const actionData = useActionData() as { fieldErrors?: Record<string, string> } | undefined;
 
     return (
         <div className="flex flex-col gap-5 rounded-xl border border-border bg-bg-light p-5">
-            {/* Title */}
-            <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                    <label className="text-xs font-medium uppercase tracking-wide text-text-muted">
-                        Title
-                    </label>
-                    {!isEditing && (
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-7 text-text-muted hover:text-text"
-                            onClick={() => setIsEditing(true)}
-                            aria-label="Edit title and description"
-                        >
-                            <Pencil className="size-3.5" />
-                        </Button>
+            <Form method="post" className="flex flex-col gap-5" onSubmit={() => { }}>
+                {/* Title */}
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                            Title
+                        </label>
+                        {!isEditing && (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="size-7 text-text-muted hover:text-text"
+                                onClick={() => setIsEditing(true)}
+                                aria-label="Edit title and description"
+                            >
+                                <Pencil className="size-3.5" />
+                            </Button>
+                        )}
+                    </div>
+                    {isEditing ? (
+                        <div className="space-y-1">
+                            <Input
+                                name="title"
+                                defaultValue={video.title}
+                                className="bg-bg-dark border-border text-text text-lg font-semibold"
+                                aria-label="Video title"
+                                required
+                            />
+                            {actionData?.fieldErrors?.title && (
+                                <p className="text-xs text-destructive">{actionData.fieldErrors.title}</p>
+                            )}
+                        </div>
+                    ) : (
+                        <h2 className="text-lg font-semibold text-text">{video.title}</h2>
                     )}
                 </div>
-                {isEditing ? (
-                    <Input
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        className="bg-bg-dark border-border text-text text-lg font-semibold"
-                        aria-label="Video title"
-                    />
-                ) : (
-                    <h2 className="text-lg font-semibold text-text">{video.title}</h2>
-                )}
-            </div>
 
-            <Separator className="bg-border" />
+                <Separator className="bg-border" />
 
-            {/* Description */}
-            <div className="space-y-2">
-                <label className="text-xs font-medium uppercase tracking-wide text-text-muted">
-                    Description
-                </label>
-                {isEditing ? (
-                    <Textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        rows={4}
-                        className="bg-bg-dark border-border text-text resize-none"
-                        aria-label="Video description"
-                    />
-                ) : (
-                    <p className="text-sm leading-relaxed text-text-muted">
-                        {video.description}
-                    </p>
-                )}
-            </div>
-
-            {/* Action buttons when editing */}
-            {isEditing && (
-                <div className="flex gap-2">
-                    <Button
-                        onClick={handleSave}
-                        disabled={!title.trim() || isSaving}
-                        className="flex-1 gap-2"
-                        size="sm"
-                    >
-                        <Check className="size-4" />
-                        {isSaving ? "Saving..." : "Save"}
-                    </Button>
-                    <Button
-                        onClick={handleCancel}
-                        variant="outline"
-                        className="flex-1 gap-2 border-border text-text"
-                        size="sm"
-                    >
-                        <X className="size-4" />
-                        Cancel
-                    </Button>
+                {/* Description */}
+                <div className="space-y-2">
+                    <label className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                        Description
+                    </label>
+                    {isEditing ? (
+                        <div className="space-y-1">
+                            <Textarea
+                                name="description"
+                                defaultValue={video.description}
+                                rows={4}
+                                className="bg-bg-dark border-border text-text resize-none"
+                                aria-label="Video description"
+                            />
+                            {actionData?.fieldErrors?.description && (
+                                <p className="text-xs text-destructive">{actionData.fieldErrors.description}</p>
+                            )}
+                        </div>
+                    ) : (
+                        <p className="text-sm leading-relaxed text-text-muted">
+                            {video.description}
+                        </p>
+                    )}
                 </div>
-            )}
+
+                {/* Action buttons when editing */}
+                {isEditing && (
+                    <div className="flex gap-2">
+                        <Button
+                            type="submit"
+                            disabled={isSaving}
+                            className="flex-1 gap-2"
+                            size="sm"
+                            onClick={() => {
+                                // Wait for next tick to see if we navigate or fail validation
+                                setTimeout(() => {
+                                    if (!actionData?.fieldErrors) {
+                                        setIsEditing(false);
+                                    }
+                                }, 100);
+                            }}
+                        >
+                            <Check className="size-4" />
+                            {isSaving ? "Saving..." : "Save"}
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={() => setIsEditing(false)}
+                            variant="outline"
+                            className="flex-1 gap-2 border-border text-text"
+                            size="sm"
+                        >
+                            <X className="size-4" />
+                            Cancel
+                        </Button>
+                    </div>
+                )}
+            </Form>
 
             <Separator className="bg-border" />
 

@@ -1,13 +1,12 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useFetcher } from "react-router"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogFooter,
-  DialogClose,
   DialogTrigger,
 } from "@/components/ui/dialog"
 import {
@@ -24,7 +23,6 @@ import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import { Download, CircleCheckBig, ArrowRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { downscaleVideo } from "../downscaler/downscale"
 import { convert } from "../downscaler/convert"
 import { SelectStep } from "./SelectStep"
 import { DetailsStep } from "./DetailsStep"
@@ -38,24 +36,30 @@ const titles: Record<UploadStep, string> = {
   complete: "",
 }
 
-
 export function VideoUpload() {
   const [open, setOpen] = useState(false)
-  const [step, setStep] = useState<UploadStep>("details")
-  const [video, setVideo] = useState<Blob | null>(null)
+  const [step, setStep] = useState<UploadStep>("select")
+
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [confirmationOpen, setConfirmationOpen] = useState(false)
 
+  const fetcher = useFetcher()
+
   const handleClose = () => {
     setOpen(false)
     setStep("select")
-    setVideo(null)
     setTitle("")
     setDescription("")
     setConfirmationOpen(false)
   }
 
+  // Handle successful form submission
+  useEffect(() => {
+    if (fetcher.data && (fetcher.data as any).success && fetcher.state === "idle" && step === "details") {
+      setStep("complete")
+    }
+  }, [fetcher.data, fetcher.state, step])
 
   return (
     <Dialog open={open} onOpenChange={(open) => {
@@ -64,7 +68,7 @@ export function VideoUpload() {
       } else {
         setConfirmationOpen(true)
       }
-    }} >
+    }}>
       <DialogTrigger render={
         <Button className="fixed bottom-4 left-4 right-4 z-50 md:static md:bottom-auto md:left-auto md:right-auto md:z-auto w-auto md:w-1/2 bg-primary text-bg-dark" variant="outline">
           <Download className="size-5 text-bg-dark text-2xl font-bold" /> Upload Video
@@ -91,56 +95,56 @@ export function VideoUpload() {
             downscaleVideo={(file, onProgress) =>
               convert(file, { onProgress })
             }
-            onVideoSelected={(file) => {
-              setVideo(file)
+            onVideoSelected={() => {
               setStep("details")
             }}
           />
         )}
 
         {step === "details" && (
-          <DetailsStep
-            title={title}
-            description={description}
-            onTitleChange={setTitle}
-            onDescriptionChange={setDescription}
-          />
+          <fetcher.Form method="post" action="/" className="space-y-4">
+            <DetailsStep
+              title={title}
+              description={description}
+              onTitleChange={setTitle}
+              onDescriptionChange={setDescription}
+              fetcher={fetcher}
+            />
+            <DialogFooter>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={fetcher.state !== "idle" || !title.trim()}
+              >
+                {fetcher.state !== "idle" ? "Saving..." : "Continue"}
+                <ArrowRight className="size-4" />
+              </Button>
+            </DialogFooter>
+          </fetcher.Form>
         )}
 
         {step === "complete" && (
-          <CompletedStep />
-        )}
-
-        <DialogFooter>
-          {step === "details" && (
-            <Button
-              className="w-full"
-              onClick={() => {
-                console.log("clicked")
-                toast.success("Video uploaded successfully", {
-                  description: "You have 10 minutes to undo the video upload in case you uploaded the wrong video",
-                  action: {
-                    label: "Undo",
-                    onClick: () => {
-                      console.log("Video has been deleted")
-                      toast.dismiss()
+          <>
+            <CompletedStep />
+            <DialogFooter>
+              <Button
+                className="w-full"
+                onClick={() => {
+                  handleClose()
+                  toast.success("Video uploaded successfully", {
+                    description: "You have 10 minutes to undo the video upload in case you uploaded the wrong video",
+                    action: {
+                      label: "Undo",
+                      onClick: () => {
+                        console.log("Video has been deleted")
+                        toast.dismiss()
+                      }
                     }
-                  }
-                })
-                // setStep("complete")
-              }}
-              disabled={!title.trim()}
-            >
-              Continue
-              <ArrowRight className="size-4" />
-            </Button>
-          )}
-          {step === "complete" && (
-            <Button
-              className="w-full"
-              onClick={() => handleClose()} >Done</Button>
-          )}
-        </DialogFooter>
+                  })
+                }} >Done</Button>
+            </DialogFooter>
+          </>
+        )}
       </DialogContent>
       <AlertDialog open={confirmationOpen} onOpenChange={setConfirmationOpen}>
         <AlertDialogContent>

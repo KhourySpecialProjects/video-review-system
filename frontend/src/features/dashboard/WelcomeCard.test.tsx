@@ -35,7 +35,7 @@ describe("WelcomeCard", () => {
     it("renders welcome text", () => {
         render(
             <MemoryRouter>
-                <WelcomeCard videos={mockVideos} />
+                <WelcomeCard videos={mockVideos} userName="Test User" />
             </MemoryRouter>
         );
         expect(screen.getByText("Welcome Back")).toBeInTheDocument();
@@ -44,7 +44,7 @@ describe("WelcomeCard", () => {
     it("renders video titles", () => {
         render(
             <MemoryRouter>
-                <WelcomeCard videos={mockVideos} />
+                <WelcomeCard videos={mockVideos} userName="Test User" />
             </MemoryRouter>
         );
         expect(screen.getByText("Test Video 1")).toBeInTheDocument();
@@ -54,7 +54,7 @@ describe("WelcomeCard", () => {
     it("shows received status for received videos", () => {
         render(
             <MemoryRouter>
-                <WelcomeCard videos={mockVideos} />
+                <WelcomeCard videos={mockVideos} userName="Test User" />
             </MemoryRouter>
         );
         expect(screen.getByText("Received")).toBeInTheDocument();
