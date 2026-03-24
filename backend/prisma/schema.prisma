@@ -1,13 +1,52 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
-generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
-}
+// TODO - db structure still the same? (from "Updated database schema and added zod for type validation" commit)
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl= env("DIRECT_DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// video ENUM status
+enum VideoStatus {
+  UPLOADING
+  PROCESSING
+  READY
+  FAILED
+}
+
+// video table
+model Video {
+  id               String      @id @default(uuid())
+  patientId        String      @map("patient_id")
+  uploadedByUserId String      @map("uploaded_by_user_id")
+  status           VideoStatus @default(UPLOADING)
+  durationSeconds  Int?        @map("duration_seconds")  // nullable
+  createdAt        DateTime    @default(now()) @map("created_at")
+  takenAt          DateTime?   @map("taken_at")          // nullable
+
+  // Relationships
+  caregiverMetadata CaregiverVideoMetadata[]
+
+  @@map("videos") // actual Postgres table name
+}
+
+// Caregiver private metadata — from your ER diagram
+model CaregiverVideoMetadata {
+  videoId         String @map("video_id")
+  caregiverUserId String @map("caregiver_user_id")
+  privateTitle    String @default("") @map("private_title")
+  privateNotes    String @default("") @map("private_notes")
+  tags            Json   @default("[]")
+
+  // Relationship back to video
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  // Composite primary key — one metadata entry per caregiver per video
+  @@id([videoId, caregiverUserId])
+  @@map("caregiver_video_metadata")
 }
