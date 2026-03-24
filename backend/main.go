@@ -2,49 +2,90 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"github.com/KhourySpecialProjects/video-review-system/secrets"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/go-chi/chi/v5"
+
+	"github.com/KhourySpecialProjects/video-review-system/config"
+	"github.com/KhourySpecialProjects/video-review-system/db"
+	"github.com/KhourySpecialProjects/video-review-system/internal/health"
+	"github.com/KhourySpecialProjects/video-review-system/internal/videos"
+	"github.com/KhourySpecialProjects/video-review-system/middleware"
 )
-
-var db *pgxpool.Pool
 
 func main() {
 	ctx := context.Background()
 
-	s, err := secrets.Load(ctx)
+	// ── Load configuration ──────────────────────────────────────────
+	cfg := config.Load()
+
+	// ── Connect to database ─────────────────────────────────────────
+	pool, err := db.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
-		log.Fatal("Failed to load secrets:", err)
+		slog.Error("failed to connect to database", "error", err)
+		os.Exit(1)
+	}
+	defer pool.Close()
+
+	// ── Run migrations ──────────────────────────────────────────────
+	if err := db.RunMigrations(ctx, cfg.DatabaseURL); err != nil {
+		slog.Error("failed to run migrations", "error", err)
+		os.Exit(1)
 	}
 
-	db, err = pgxpool.New(ctx, s.DatabaseURL)
-	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
+	// ── Build dependency graph ──────────────────────────────────────
+	healthRepo := health.NewRepository(pool)
+	healthService := health.NewService(healthRepo)
+	healthHandler := health.NewHandler(healthService)
+
+	videoRepo := videos.NewRepository(pool)
+	videoService := videos.NewService(videoRepo)
+	videoHandler := videos.NewHandler(videoService)
+
+	// ── Configure router ────────────────────────────────────────────
+	r := chi.NewRouter()
+
+	// Global middleware
+	r.Use(middleware.CORS(cfg.AllowedOrigin))
+	r.Use(middleware.Logger)
+
+	// Mount domain routes
+	r.Mount("/api/health", healthHandler.Routes())
+	r.Mount("/api/videos", videoHandler.Routes())
+
+	// ── Start server with graceful shutdown ──────────────────────────
+	srv := &http.Server{
+		Addr:    ":" + cfg.Port,
+		Handler: r,
 	}
-	defer db.Close()
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
-	})
+	// Listen for shutdown signals in a separate goroutine
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	log.Println("Server running on :8080")
-	log.Fatal(http.ListenAndServe(":8080", corsMiddleware(s.AllowedOrigin, mux)))
-}
-
-func corsMiddleware(allowedOrigin string, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return
+	go func() {
+		slog.Info("server starting", "port", cfg.Port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("server failed", "error", err)
+			os.Exit(1)
 		}
-		next.ServeHTTP(w, r)
-	})
+	}()
+
+	<-quit
+	slog.Info("shutting down server...")
+
+	shutdownCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		slog.Error("server forced to shutdown", "error", err)
+		os.Exit(1)
+	}
+
+	slog.Info("server stopped gracefully")
 }

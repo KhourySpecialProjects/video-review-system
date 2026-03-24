@@ -4,121 +4,208 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@theme inline {
-    --radius-sm: calc(var(--radius) - 4px);
-    --radius-md: calc(var(--radius) - 2px);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) + 4px);
-    --radius-2xl: calc(var(--radius) + 8px);
-    --radius-3xl: calc(var(--radius) + 12px);
-    --radius-4xl: calc(var(--radius) + 16px);
-    --color-background: var(--background);
-    --color-foreground: var(--foreground);
-    --color-card: var(--card);
-    --color-card-foreground: var(--card-foreground);
-    --color-popover: var(--popover);
-    --color-popover-foreground: var(--popover-foreground);
-    --color-primary: var(--primary);
-    --color-primary-foreground: var(--primary-foreground);
-    --color-secondary: var(--secondary);
-    --color-secondary-foreground: var(--secondary-foreground);
-    --color-muted: var(--muted);
-    --color-muted-foreground: var(--muted-foreground);
-    --color-accent: var(--accent);
-    --color-accent-foreground: var(--accent-foreground);
-    --color-destructive: var(--destructive);
-    --color-border: var(--border);
-    --color-input: var(--input);
-    --color-ring: var(--ring);
-    --color-chart-1: var(--chart-1);
-    --color-chart-2: var(--chart-2);
-    --color-chart-3: var(--chart-3);
-    --color-chart-4: var(--chart-4);
-    --color-chart-5: var(--chart-5);
-    --color-sidebar: var(--sidebar);
-    --color-sidebar-foreground: var(--sidebar-foreground);
-    --color-sidebar-primary: var(--sidebar-primary);
-    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-    --color-sidebar-accent: var(--sidebar-accent);
-    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-    --color-sidebar-border: var(--sidebar-border);
-    --color-sidebar-ring: var(--sidebar-ring);
-}
+/* ─── Your custom design tokens ─────────────────────────────────────────── */
+/* These are YOUR variables — use them freely in your own components.        */
+/* They don't interfere with shadcn at all.                                  */
 
 :root {
-    --radius: 0.625rem;
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.147 0.004 49.25);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.147 0.004 49.25);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.147 0.004 49.25);
-    --primary: oklch(0.216 0.006 56.043);
-    --primary-foreground: oklch(0.985 0.001 106.423);
-    --secondary: oklch(0.97 0.001 106.424);
-    --secondary-foreground: oklch(0.216 0.006 56.043);
-    --muted: oklch(0.97 0.001 106.424);
-    --muted-foreground: oklch(0.553 0.013 58.071);
-    --accent: oklch(0.97 0.001 106.424);
-    --accent-foreground: oklch(0.216 0.006 56.043);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.923 0.003 48.717);
-    --input: oklch(0.923 0.003 48.717);
-    --ring: oklch(0.709 0.01 56.259);
-    --chart-1: oklch(0.646 0.222 41.116);
-    --chart-2: oklch(0.6 0.118 184.704);
-    --chart-3: oklch(0.398 0.07 227.392);
-    --chart-4: oklch(0.828 0.189 84.429);
-    --chart-5: oklch(0.769 0.188 70.08);
-    --sidebar: oklch(0.985 0.001 106.423);
-    --sidebar-foreground: oklch(0.147 0.004 49.25);
-    --sidebar-primary: oklch(0.216 0.006 56.043);
-    --sidebar-primary-foreground: oklch(0.985 0.001 106.423);
-    --sidebar-accent: oklch(0.97 0.001 106.424);
-    --sidebar-accent-foreground: oklch(0.216 0.006 56.043);
-    --sidebar-border: oklch(0.923 0.003 48.717);
-    --sidebar-ring: oklch(0.709 0.01 56.259);
+  /* oklch (hsl fallbacks omitted for brevity — add them back if needed) */
+  --bg-dark: oklch(0.1 0 45);
+  --bg: oklch(0.15 0 45);
+  --bg-light: oklch(0.2 0 45);
+  --text: oklch(0.96 0 45);
+  --text-muted: oklch(0.76 0 45);
+  --highlight: oklch(0.5 0 45);
+  --custom-border: oklch(0.4 0 45);
+  /* renamed to avoid clash */
+  --border-muted: oklch(0.3 0 45);
+  --custom-primary: oklch(0.76 0.1 45);
+  /* renamed to avoid clash */
+  --custom-secondary: oklch(0.76 0.1 225);
+  --danger: oklch(0.6628 0.208 32.27);
+  --warning: oklch(0.7 0.05 100);
+  --success: oklch(0.6663 0.1677 151.85);
+  --success-tinted: oklch(0.6997 0.0482 159.81);
+  --info: oklch(0.7 0.05 260);
+  /* shadows */
+  --shadow-s: inset 0 1px 2px #ffffff30,
+    /* top highlight */
+    0 1px 2px #00000030,
+    /* dark shadow */
+    0 2px 4px #00000015;
+  /* soft shadow */
+  --shadow-m: inset 0 1px 2px #ffffff50,
+    /* top highlight */
+    0 2px 4px #00000030,
+    /* dark shadow */
+    0 4px 8px #00000015;
+  /* soft shadow */
+  --shadow-l: inset 0 1px 2px #ffffff70,
+    /* top highlight */
+    0 4px 6px #00000030,
+    /* dark shadow */
+    0 6px 10px #00000015;
+  /* soft shadow */
 }
 
-.dark {
-    --background: oklch(0.147 0.004 49.25);
-    --foreground: oklch(0.985 0.001 106.423);
-    --card: oklch(0.216 0.006 56.043);
-    --card-foreground: oklch(0.985 0.001 106.423);
-    --popover: oklch(0.216 0.006 56.043);
-    --popover-foreground: oklch(0.985 0.001 106.423);
-    --primary: oklch(0.923 0.003 48.717);
-    --primary-foreground: oklch(0.216 0.006 56.043);
-    --secondary: oklch(0.268 0.007 34.298);
-    --secondary-foreground: oklch(0.985 0.001 106.423);
-    --muted: oklch(0.268 0.007 34.298);
-    --muted-foreground: oklch(0.709 0.01 56.259);
-    --accent: oklch(0.268 0.007 34.298);
-    --accent-foreground: oklch(0.985 0.001 106.423);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.553 0.013 58.071);
-    --chart-1: oklch(0.488 0.243 264.376);
-    --chart-2: oklch(0.696 0.17 162.48);
-    --chart-3: oklch(0.769 0.188 70.08);
-    --chart-4: oklch(0.627 0.265 303.9);
-    --chart-5: oklch(0.645 0.246 16.439);
-    --sidebar: oklch(0.216 0.006 56.043);
-    --sidebar-foreground: oklch(0.985 0.001 106.423);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0.001 106.423);
-    --sidebar-accent: oklch(0.268 0.007 34.298);
-    --sidebar-accent-foreground: oklch(0.985 0.001 106.423);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.553 0.013 58.071);
+body.light {
+  --bg-dark: oklch(0.92 0 45);
+  --bg: oklch(0.96 0 45);
+  --bg-light: oklch(1 0 45);
+  --text: oklch(0.15 0 45);
+  --text-muted: oklch(0.4 0 45);
+  --highlight: oklch(1 0 45);
+  --custom-border: oklch(0.6 0 45);
+  --border-muted: oklch(0.7 0 45);
+  --custom-primary: oklch(0.4 0.1 45);
+  --custom-secondary: oklch(0.4 0.1 225);
+  --danger: oklch(0.5 0.05 30);
+  --warning: oklch(0.5 0.05 100);
+  --success: oklch(0.55 0.8 160);
+  --success-dark: oklch(0.3 0.8 160);
+  --info: oklch(0.5 0.05 260);
+}
+
+/* ─── shadcn token overrides ─────────────────────────────────────────────  */
+/* Map YOUR design tokens → shadcn's expected variable names.                */
+/* This is where the two systems are bridged.                                 */
+
+:root {
+  --radius: 0.625rem;
+
+  /* Point shadcn's tokens at your custom values */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--bg-light);
+  --card-foreground: var(--text);
+  --popover: var(--bg-light);
+  --popover-foreground: var(--text);
+  --primary: var(--custom-primary);
+  --primary-foreground: var(--bg-dark);
+  --secondary: var(--custom-secondary);
+  --secondary-foreground: var(--bg-dark);
+  --muted: var(--bg-light);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--highlight);
+  --accent-foreground: var(--text);
+  --destructive: var(--danger);
+  --border: var(--custom-border);
+  --input: var(--custom-border);
+  --ring: var(--custom-primary);
+
+  /* Charts — swap in your palette */
+  --chart-1: var(--custom-primary);
+  --chart-2: var(--custom-secondary);
+  --chart-3: var(--success);
+  --chart-4: var(--warning);
+  --chart-5: var(--info);
+
+  /* Sidebar */
+  --sidebar: var(--bg-dark);
+  --sidebar-foreground: var(--text);
+  --sidebar-primary: var(--custom-primary);
+  --sidebar-primary-foreground: var(--bg-dark);
+  --sidebar-accent: var(--bg-light);
+  --sidebar-accent-foreground: var(--text);
+  --sidebar-border: var(--border-muted);
+  --sidebar-ring: var(--custom-primary);
+}
+
+/* Light mode: shadcn uses .dark class, so we mirror body.light → remove .dark  */
+body.light {
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--bg-light);
+  --card-foreground: var(--text);
+  --popover: var(--bg-light);
+  --popover-foreground: var(--text);
+  --primary: var(--custom-primary);
+  --primary-foreground: var(--bg-dark);
+  --secondary: var(--custom-secondary);
+  --secondary-foreground: var(--bg-dark);
+  --muted: var(--bg-light);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--highlight);
+  --accent-foreground: var(--text);
+  --destructive: var(--danger);
+  --border: var(--custom-border);
+  --input: var(--custom-border);
+  --ring: var(--custom-primary);
+
+  --sidebar: var(--bg-dark);
+  --sidebar-foreground: var(--text);
+  --sidebar-primary: var(--custom-primary);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: var(--bg-light);
+  --sidebar-accent-foreground: var(--text);
+  --sidebar-border: var(--border-muted);
+  --sidebar-ring: var(--custom-primary);
+}
+
+/* ─── @theme inline (Tailwind v4 bridge) ────────────────────────────────── */
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Expose your custom tokens as Tailwind utilities too */
+  --color-bg-dark: var(--bg-dark);
+  --color-bg: var(--bg);
+  --color-bg-light: var(--bg-light);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --color-success-tinted: var(--success-tinted);
+  --color-info: var(--info);
+  --shadow-s: var(--shadow-s);
+  --shadow-m: var(--shadow-m);
+  --shadow-l: var(--shadow-l);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    }
+  }
+
   body {
     @apply bg-background text-foreground;
-    }
+  }
 }

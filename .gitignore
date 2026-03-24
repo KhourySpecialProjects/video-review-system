@@ -1,0 +1,12 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Go build artifacts
+backend/server
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
