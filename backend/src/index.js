@@ -22,13 +22,18 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// health check (no auth required)
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
 // domain routes for future iterations
-app.use("/api/videos", videosRouter);
-// app.use("/api/auth", authRouter);
-// app.use("/api/annotations", annotationsRouter);
-// app.use("/api/clips", clipsRouter);
-// app.use("/api/accounts", accountsRouter);
-// app.use("/api/audit", auditRouter);
+app.use("/domain/videos", videosRouter);
+// app.use("/domain/auth", authRouter);
+// app.use("/domain/annotations", annotationsRouter);
+// app.use("/domain/clips", clipsRouter);
+// app.use("/domain/accounts", accountsRouter);
+// app.use("/domain/audit", auditRouter);
 
 app.listen(PORT, () => {
   console.log(`Listening on port ${PORT}`);
