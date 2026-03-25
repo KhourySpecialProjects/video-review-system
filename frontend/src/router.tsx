@@ -4,6 +4,12 @@ import Home from "./routes/home";
 import VideoView from "./routes/video-view";
 import { fetchVideos, fetchVideoById, updateVideo, fetchTutorial } from "./lib/mock-data";
 import TutorialPage from "./routes/TutorialPage";
+import SystemAdminLayout from "./routes/system-admin";
+import SystemAdminDashboard from "./routes/system-admin-dashboard";
+import SystemAdminUsers from "./routes/system-admin-users";
+import SystemAdminSites from "./routes/system-admin-sites";
+import SystemAdminAuditLogs from "./routes/system-admin-audit-logs";
+import SystemAdminSettings from "./routes/system-admin-settings";
 
 export const router = createBrowserRouter([
     {
@@ -44,6 +50,17 @@ export const router = createBrowserRouter([
                   return { tutorialPromise: fetchTutorial() };
               },
             }
+        ],
+    },
+    {
+        path: "system-admin",
+        element: <SystemAdminLayout />,
+        children: [
+            { index: true, element: <SystemAdminDashboard /> },
+            { path: "users", element: <SystemAdminUsers /> },
+            { path: "sites", element: <SystemAdminSites /> },
+            { path: "audit-logs", element: <SystemAdminAuditLogs /> },
+            { path: "settings", element: <SystemAdminSettings /> },
         ],
     },
 ]);
