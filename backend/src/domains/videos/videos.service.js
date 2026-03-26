@@ -26,7 +26,7 @@ export async function getVideoById(id) {
 }
 
 // create video
-export async function createVideo({ patientId, uploadedByUserId, durationSeconds, takenAt }) {
+export async function createVideo({ patientId, uploadedByUserId, durationSeconds, createdAt, takenAt }) {
   const video = await prisma.video.create({
     data: {
       patientId,
@@ -34,6 +34,7 @@ export async function createVideo({ patientId, uploadedByUserId, durationSeconds
       status: "UPLOADING",
       // if for some reason upload can't access duration/date, return null
       durationSeconds: durationSeconds ?? null,
+      createdAt: createdAt ? new Date(createdAt) : null,
       takenAt: takenAt ? new Date(takenAt) : null,
     },
   });
