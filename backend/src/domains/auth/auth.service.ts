@@ -1,45 +1,21 @@
 import crypto from "crypto";
 import prisma from "../../lib/prisma.js";
 import { auth } from "../../lib/auth.js";
-
-// validation helpers
-function validateEmail(email) {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!email || !emailRegex.test(email)) {
-    throw new Error("Invalid email format");
-  }
-}
-
-function validateActivationInput({ token, name, email, password }) {
-  if (!token || typeof token !== "string") {
-    throw new Error("Token is required");
-  }
-  if (!name || typeof name !== "string" || name.trim().length === 0) {
-    throw new Error("Name is required");
-  }
-  validateEmail(email);
-  if (!password || typeof password !== "string" || password.length < 8) {
-    throw new Error("Password must be at least 8 characters");
-  }
-}
+import {
+  createInviteSchema,
+  activateInviteSchema,
+  type CreateInviteInput,
+  type ActivateInviteInput,
+} from "./auth.types.js";
 
 // create a new invitation
 // validates email format and role
-// generate a secure random token, stores SHA-256 hask in database
+// generate a secure random token, stores SHA-256 hash in database
 // sets a 24 hour expiry
 // returns token for dev testing, in production ID is returned
-export async function createInvite({ email, role }) {
-  validateEmail(email);
-
-  const validRoles = [
-    "CAREGIVER",
-    "CLINICAL_REVIEWER",
-    "SITE_COORDINATOR",
-    "SYSADMIN",
-  ];
-  if (!validRoles.includes(role)) {
-    throw new Error("Invalid role");
-  }
+export async function createInvite(input: CreateInviteInput) {
+  // Zod parse validates and returns typed data (throws on invalid input)
+  const { email, role } = createInviteSchema.parse(input);
 
   const normalizedEmail = email.toLowerCase().trim();
 
@@ -73,8 +49,9 @@ export async function createInvite({ email, role }) {
 // uses atomic updateMany to claim the invite to prevent race conditions
 // hashes password uses Better Auth's built in hasher
 // creates user, account, and userrole records in a transaction
-export async function activateInvite({ token, name, email, password }) {
-  validateActivationInput({ token, name, email, password });
+export async function activateInvite(input: ActivateInviteInput) {
+  // Zod parse validates and returns typed data (throws on invalid input)
+  const { token, name, email, password } = activateInviteSchema.parse(input);
 
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
   const normalizedEmail = email.toLowerCase().trim();
