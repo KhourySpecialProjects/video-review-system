@@ -225,4 +225,3 @@ DROP TABLE IF EXISTS video_clips;
 DROP TABLE IF EXISTS stiched_sequences;
 DROP TABLE IF EXISTS sequence_items;
 DROP TABLE IF EXISTS audit_logs;
-

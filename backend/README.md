@@ -1,199 +1,139 @@
-# Backend — Angelman Video Portal
+# Backend
 
-Go REST API built with chi v5, pgx v5, and goose migrations.
+Express.js API server with Better Auth authentication and Prisma ORM.
 
----
+## Setup
 
-## Getting Started
+### Prerequisites
 
-### 1. Install dependencies
+- Node.js 24+
+- Docker (for PostgreSQL)
 
-```bash
-cd backend
-go mod download
-```
-
-### 2. Set up the database
-
-Make sure PostgreSQL is running locally, then run migrations:
+### Install dependencies
 
 ```bash
-make migrate-up
+npm install
 ```
 
-### 3. Set environment variables
+### Environment variables
 
-The backend loads config from AWS Secrets Manager at runtime. Set the secret name:
+Copy `.env.example` to `.env` in the `video-review-system/` directory and fill in the values. Generate secrets with:
 
 ```bash
-export SECRET_NAME=angelman-portal/local
+openssl rand -base64 32
 ```
 
-The `angelman-portal/local` secret should contain:
+### Start PostgreSQL
 
-| Key | Value |
-|---|---|
-| `DATABASE_URL` | `postgres://user:pass@localhost:5432/dbname?sslmode=disable` |
-| `ALLOWED_ORIGIN` | `http://localhost:5173` |
-
-### 4. Start the server
+From `video-review-system/`:
 
 ```bash
-go run .
+docker compose up -d postgres
 ```
 
-The API will be available at `http://localhost:8080`.
-
----
-
-## Useful Commands
-
-| Command | Description |
-|---|---|
-| `go run .` | Start the API server |
-| `go build -o server .` | Compile to a binary |
-| `go test ./...` | Run all tests |
-| `make migrate-up` | Apply all pending migrations |
-| `make migrate-down` | Roll back the last migration |
-| `make migrate-status` | Show applied and pending migrations |
-| `make migrate-create name=<name>` | Create a new migration file |
-
----
-
-## File Structure
-
-```
-backend/
-├── main.go                     # Entry point — wires chi router, pgxpool, middleware
-├── go.mod                      # Module definition — chi, pgx, goose
-├── go.sum
-├── Dockerfile                  # Multi-stage production build
-├── Makefile                    # Migration convenience targets
-│
-├── db/
-│   ├── pool.go                 # pgxpool setup and config
-│   └── migrations/             # Goose SQL migration files
-│       ├── 001_create_users.sql
-│       ├── 002_create_sites.sql
-│       ├── 003_create_videos.sql
-│       ├── 004_create_annotations.sql
-│       ├── 005_create_clips.sql
-│       └── 006_create_audit_logs.sql
-│
-├── middleware/
-│   ├── auth.go                 # JWT validation — injects role into request context
-│   ├── cors.go                 # CORS headers
-│   └── audit.go                # Logs user actions to audit_logs table
-│
-├── secrets/
-│   └── loader.go               # AWS Secrets Manager client
-│
-└── internal/                   # Domain packages
-    ├── auth/                   # POST /api/auth/login, POST /api/auth/logout
-    ├── videos/                 # GET|POST /api/videos, GET /api/videos/{id}
-    ├── annotations/            # GET|POST /api/videos/{id}/annotations
-    ├── clips/                  # GET|POST /api/videos/{id}/clips
-    ├── accounts/               # GET|POST|PUT /api/accounts
-    └── audit/                  # GET /api/audit
-```
-
-Each domain package follows the same layered structure:
-
-```
-handler.go      ← HTTP — parse request, call service, write response
-service.go      ← Business logic — no SQL, no HTTP types
-repository.go   ← Database — all pgx queries, returns domain types
-types.go        ← Domain structs and request/response shapes
-```
-
----
-
-## Key Conventions
-
-**Layered architecture**
-Business logic never lives in handlers. SQL never lives in services. Each layer has one responsibility and communicates through domain types defined in `types.go`.
-
-**Error handling**
-Each domain defines typed sentinel errors. Handlers map these to HTTP status codes — the service and repository layers never touch HTTP.
-
-```go
-// repository / service
-var ErrNotFound = errors.New("not found")
-var ErrConflict = errors.New("conflict")
-
-// handler
-switch {
-case errors.Is(err, service.ErrNotFound):
-    http.Error(w, "not found", http.StatusNotFound)
-case errors.Is(err, service.ErrConflict):
-    http.Error(w, "conflict", http.StatusConflict)
-default:
-    http.Error(w, "internal server error", http.StatusInternalServerError)
-}
-```
-
-**pgx v5**
-Use pgx-native APIs only — no `database/sql`. Use `pgxpool` for all connections. Scan rows with `pgx.CollectOneRow` and `pgx.RowToAddrOfStructByName`.
-
-**Migrations — goose**
-All schema changes are made through numbered migration files in `db/migrations/`. Never modify the database schema manually. Each file uses goose annotations:
-
-```sql
--- +goose Up
-CREATE TABLE example ( ... );
-
--- +goose Down
-DROP TABLE example;
-```
-
-**Routing — chi**
-Each domain handler exposes a `Routes()` method that returns a `chi.Router`. This is mounted in `main.go` so route registration stays close to the handler that owns it.
-
-```go
-// main.go
-r.Mount("/api/videos", videosHandler.Routes())
-r.Mount("/api/accounts", accountsHandler.Routes())
-```
-
----
-
-## API Overview
-
-| Method | Path | Description | Roles |
-|---|---|---|---|
-| POST | `/api/auth/login` | Authenticate user | Public |
-| POST | `/api/auth/logout` | Invalidate session | Authenticated |
-| GET | `/api/videos` | List accessible videos | All |
-| POST | `/api/videos` | Upload a video | Caregiver, Coordinator |
-| GET | `/api/videos/{id}` | Get single video | All |
-| GET | `/api/videos/{id}/annotations` | List annotations | Reviewer, Coordinator, Admin |
-| POST | `/api/videos/{id}/annotations` | Add annotation | Reviewer |
-| GET | `/api/videos/{id}/clips` | List clips | Reviewer, Coordinator, Admin |
-| POST | `/api/videos/{id}/clips` | Create clip | Reviewer |
-| GET | `/api/accounts` | List accounts | Coordinator, Admin |
-| POST | `/api/accounts` | Create account | Coordinator, Admin |
-| PUT | `/api/accounts/{id}` | Update account | Admin |
-| GET | `/api/audit` | Get audit log | Coordinator, Admin |
-
----
-
-## Docker
-
-Build and run the backend in Docker:
+### Run migrations and generate Prisma client
 
 ```bash
-docker build -t angelman-backend ./backend
-docker run -p 8080:8080 -e SECRET_NAME=angelman-portal/local angelman-backend
+npx prisma migrate dev
+npx prisma generate
 ```
 
----
+### Start the server
 
-## AWS App Runner Deployment
+```bash
+npm start
+```
 
-1. Push the backend image to ECR
-2. Create an App Runner service pointed at the ECR image
-3. Set environment variable: `SECRET_NAME=angelman-portal/production`
-4. Attach an IAM role with `secretsmanager:GetSecretValue` permission
-5. Enable VPC connector to reach RDS privately
+Server runs at `http://localhost:8080`
 
-Refer to the root `README.md` for full deployment steps.
+## Project structure
+
+```
+src/
+├── index.js              # Express app entry point
+├── domains/              # Feature modules
+│   ├── auth/             # Authentication (invite, activate)
+│   ├── videos/           # Video management
+│   ├── annotations/      # Video annotations
+│   ├── clips/            # Video clips
+│   ├── accounts/         # User accounts
+│   └── audit/            # Audit logging
+├── lib/                  # Shared utilities
+│   ├── auth.js           # Better Auth instance
+│   └── prisma.js         # Prisma client
+├── middleware/           # Express middleware
+└── generated/            # Generated code (gitignored)
+    └── prisma/           # Prisma client
+```
+
+## API endpoints
+
+### Health check
+
+```
+GET /health
+```
+
+### Authentication (Better Auth)
+
+```
+POST /api/auth/sign-in/email    # Sign in with email/password
+POST /api/auth/sign-out         # Sign out
+GET  /api/auth/session          # Get current session
+```
+
+### Auth domain
+
+```
+POST /domain/auth/invite        # Create invitation (requires admin-secret header)
+POST /domain/auth/activate      # Activate invitation and create account
+```
+
+## Testing authentication
+
+### 1. Create an invitation
+
+```bash
+curl -X POST http://localhost:8080/domain/auth/invite \
+  -H "Content-Type: application/json" \
+  -H "admin-secret: YOUR_ADMIN_SECRET" \
+  -d '{"email": "user@example.com", "role": "SYSADMIN"}'
+```
+
+Response: `{"id": "...", "token": "TOKEN_HERE"}`
+
+### 2. Activate the invitation
+
+```bash
+curl -X POST http://localhost:8080/domain/auth/activate \
+  -H "Content-Type: application/json" \
+  -d '{"token": "TOKEN_HERE", "name": "User Name", "email": "user@example.com", "password": "securepassword123"}'
+```
+
+Response: `{"success": true, "message": "Account created. Please sign in."}`
+
+### 3. Sign in
+
+```bash
+curl -X POST http://localhost:8080/api/auth/sign-in/email \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "securepassword123"}'
+```
+
+Response: `{"token": "...", "user": {...}}`
+
+## Database
+
+### View with psql
+
+```bash
+docker exec -it video-review-system-postgres-1 psql -U postgres -d angelman
+```
+
+### Connect with GUI (pgAdmin, TablePlus, etc.)
+
+- Host: `localhost`
+- Port: `5432`
+- Database: `angelman`
+- User: `postgres`
+- Password: `postgres`

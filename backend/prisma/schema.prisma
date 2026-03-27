@@ -1,0 +1,358 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// ENUMS — match your SQL exactly
+// ============================================================
+
+enum resource_type {
+  SITE
+  STUDY
+  VIDEO
+}
+
+enum permission_level {
+  READ
+  WRITE
+  EXPORT
+  ADMIN
+}
+
+enum video_status {
+  UPLOADING
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum annotation_type {
+  text_comment
+  drawing_box
+  freehand_drawing
+}
+
+enum action_type {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  LOGIN
+}
+
+enum entity_type {
+  VIDEO
+  ANNOTATION
+  USER
+  STUDY
+  SEQUENCE
+}
+
+enum user_role {
+  CAREGIVER
+  CLINICAL_REVIEWER
+  SITE_COORDINATOR
+  SYSADMIN
+}
+
+// ============================================================
+// AUTH — Better Auth tables (user IDs are text, not UUID)
+// ============================================================
+
+model User {
+  id            String   @id
+  name          String
+  email         String   @unique
+  emailVerified Boolean
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now())
+
+  sessions          Session[]
+  accounts          Account[]
+  caregiverPatients CaregiverPatient[]
+  userPermissions   UserPermission[]
+  userRoles         UserRole[]
+  uploadedVideos    Video[]                  @relation("uploader")
+  caregiverMetadata CaregiverVideoMetadata[]
+  annotations       Annotation[]
+  videoClips        VideoClip[]
+  stitchedSequences StitchedSequence[]
+  auditLogs         AuditLog[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now())
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model Invitation {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email     String
+  role      user_role
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdBy String    @map("created_by")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([tokenHash])
+  @@map("invitations")
+}
+
+// ============================================================
+// HIERARCHY & ACCESS CONTROL
+// ============================================================
+
+model Site {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  siteStudies SiteStudy[]
+  patients    Patient[]
+  auditLogs   AuditLog[]
+
+  @@map("sites")
+}
+
+model Study {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  siteStudies       SiteStudy[]
+  patients          Patient[]
+  stitchedSequences StitchedSequence[]
+
+  @@map("studies")
+}
+
+model SiteStudy {
+  studyId String @map("study_id") @db.Uuid
+  siteId  String @map("site_id") @db.Uuid
+
+  study Study @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  site  Site  @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@id([studyId, siteId])
+  @@map("sites_studies")
+}
+
+model Patient {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studyId    String  @map("study_id") @db.Uuid
+  siteId     String  @map("site_id") @db.Uuid
+  identifier String?
+
+  study             Study              @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  site              Site               @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  videos            Video[]
+  caregiverPatients CaregiverPatient[]
+
+  @@index([identifier])
+  @@map("patient")
+}
+
+model CaregiverPatient {
+  patientId   String @map("patient_id") @db.Uuid
+  caregiverId String @map("caregiver_id") // text FK to user
+
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  caregiver User    @relation(fields: [caregiverId], references: [id], onDelete: Cascade)
+
+  @@id([patientId, caregiverId])
+  @@map("caregiver_patient")
+}
+
+model UserPermission {
+  userId          String           @map("user_id")
+  resourceId      String           @map("resource_id") @db.Uuid
+  permissionLevel permission_level @map("permission_level")
+  resourceType    resource_type    @map("resource_type")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, resourceId])
+  @@map("user_permissions")
+}
+
+model UserRole {
+  userId String    @map("user_id")
+  role   user_role
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, role])
+  @@map("user_roles")
+}
+
+// ============================================================
+// VIDEO STORAGE & PRIVATE METADATA
+// ============================================================
+
+model Video {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patientId        String       @map("patient_id") @db.Uuid
+  uploadedByUserId String       @map("uploaded_by_user_id") // text FK to user
+  status           video_status @default(UPLOADING)
+  durationSeconds  Int?         @map("duration_seconds")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  takenAt          DateTime?    @map("taken_at")
+
+  patient           Patient                  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  uploadedBy        User                     @relation("uploader", fields: [uploadedByUserId], references: [id])
+  caregiverMetadata CaregiverVideoMetadata[]
+  annotations       Annotation[]
+  videoClips        VideoClip[]
+
+  @@map("videos")
+}
+
+model CaregiverVideoMetadata {
+  videoId         String  @map("video_id") @db.Uuid
+  caregiverUserId String  @map("caregiver_user_id") // text FK to user
+  privateTitle    String? @map("private_title")
+  privateNotes    String? @map("private_notes")
+  tags            Json?
+
+  video     Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  caregiver User  @relation(fields: [caregiverUserId], references: [id], onDelete: Cascade)
+
+  @@id([videoId, caregiverUserId])
+  @@map("caregiver_video_metadata")
+}
+
+// ============================================================
+// ANNOTATIONS, CLIPS & SEQUENCES
+// ============================================================
+
+model Annotation {
+  id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  videoId      String          @map("video_id") @db.Uuid
+  authorUserId String          @map("author_user_id") // text FK to user
+  type         annotation_type
+  timestampMs  Int             @map("timestamp_ms")
+  durationMs   Int?            @map("duration_ms")
+  payload      Json?
+  createdAt    DateTime        @default(now()) @map("created_at")
+
+  video  Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  author User  @relation(fields: [authorUserId], references: [id])
+
+  @@map("annotations")
+}
+
+model VideoClip {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sourceVideoId   String   @map("source_video_id") @db.Uuid
+  createdByUserId String   @map("created_by_user_id") // text FK to user
+  title           String?
+  startTimeMs     Int      @map("start_time_ms")
+  endTimeMs       Int      @map("end_time_ms")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  sourceVideo   Video          @relation(fields: [sourceVideoId], references: [id], onDelete: Cascade)
+  createdBy     User           @relation(fields: [createdByUserId], references: [id])
+  sequenceItems SequenceItem[]
+
+  @@map("video_clips")
+}
+
+model StitchedSequence {
+  id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studyId         String  @map("study_id") @db.Uuid
+  createdByUserId String  @map("created_by_user_id") // text FK to user
+  title           String?
+
+  study         Study          @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  createdBy     User           @relation(fields: [createdByUserId], references: [id])
+  sequenceItems SequenceItem[]
+
+  @@map("stiched_sequences") // note: matches your SQL typo "stiched"
+}
+
+model SequenceItem {
+  clipId     String @map("clip_id") @db.Uuid
+  sequenceId String @map("sequence_id") @db.Uuid
+  playOrder  Int    @map("play_order")
+
+  clip     VideoClip        @relation(fields: [clipId], references: [id], onDelete: Cascade)
+  sequence StitchedSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  @@id([clipId, sequenceId])
+  @@map("sequence_items")
+}
+
+// ============================================================
+// AUDITS
+// ============================================================
+
+model AuditLog {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorUserId String?     @map("actor_user_id") // text FK to user, nullable
+  actionType  action_type @map("action_type")
+  entityType  entity_type @map("entity_type")
+  entityId    String?     @map("entity_id") @db.Uuid
+  siteId      String?     @map("site_id") @db.Uuid
+  oldValues   Json?       @map("old_values")
+  newValues   Json?       @map("new_values")
+  ipAddress   String?     @map("ip_address")
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  site  Site? @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
