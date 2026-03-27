@@ -13,3 +13,7 @@ export const updateVideoSchema = z.object({
   durationSeconds: z.number().int().positive().optional(),
   takenAt: z.string().datetime().optional(),
 });
+
+// these can be used in your service layer for type-safe parameters.
+export type CreateVideoInput = z.infer<typeof createVideoSchema>;
+export type UpdateVideoInput = z.infer<typeof updateVideoSchema>;
