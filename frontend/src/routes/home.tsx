@@ -1,5 +1,5 @@
 import { useState, Suspense } from "react";
-import { Await, useMatches } from "react-router";
+import { Await, useMatches, useLoaderData, type ActionFunctionArgs } from "react-router";
 import { z } from "zod";
 import type { Video } from "@/lib/types";
 import { WelcomeCard, WelcomeCardSkeleton } from "@/features/dashboard/WelcomeCard";
@@ -8,7 +8,6 @@ import { VideoCard, VideoCardSkeleton } from "@/features/video/videoCard/VideoCa
 import { AllVideos } from "@/features/video/allVideos/AllVideos";
 import { VideoUpload } from "@/features/video/videoUpload/VideoUpload";
 import { fetchVideos } from "@/lib/mock-data";
-import type { Route } from "./+types/home";
 
 const uploadVideoSchema = z.object({
     title: z.string().min(1, "Title is required."),
@@ -22,7 +21,7 @@ export async function clientLoader() {
     return { videosPromise: fetchVideos() };
 }
 
-export async function clientAction({ request }: Route.ClientActionArgs) {
+export async function clientAction({ request }: ActionFunctionArgs) {
     const formData = await request.formData();
     const data = Object.fromEntries(formData);
 
@@ -48,8 +47,8 @@ export async function clientAction({ request }: Route.ClientActionArgs) {
 
 // ── Component ─────────────────────────────────────────────────────────────
 
-export default function Home({ loaderData }: Route.ComponentProps) {
-    const { videosPromise } = loaderData;
+export default function Home() {
+    const { videosPromise } = useLoaderData() as { videosPromise: Promise<Video[]> };
     const [activeTab, setActiveTab] = useState<TabValue>("recent");
 
     const matches = useMatches();

@@ -1,5 +1,6 @@
-import { useNavigation, Link } from "react-router";
+import { useNavigation, Link, useLoaderData, type LoaderFunctionArgs, type ActionFunctionArgs } from "react-router";
 import { z } from "zod";
+import { fetchVideoById, updateVideo } from "@/lib/mock-data";
 import { VideoPlayer, VideoPlayerSkeleton } from "@/features/video/videoPlayer/VideoPlayer";
 import {
     VideoDetailsSidebar,
@@ -15,15 +16,15 @@ const editVideoSchema = z.object({
 
 // ── Route Module Exports ──────────────────────────────────────────────────
 
-export async function clientLoader({ params }: Route.ClientLoaderArgs) {
-    const video = await fetchVideoById(params.videoId);
+export async function clientLoader({ params }: LoaderFunctionArgs) {
+    const video = await fetchVideoById(params.videoId!);
     if (!video) {
         throw new Response("Video not found", { status: 404 });
     }
     return { video };
 }
 
-export async function clientAction({ params, request }: Route.ClientActionArgs) {
+export async function clientAction({ params, request }: ActionFunctionArgs) {
     const formData = await request.formData();
     const data = Object.fromEntries(formData);
 
@@ -38,7 +39,7 @@ export async function clientAction({ params, request }: Route.ClientActionArgs) 
         return { fieldErrors: errors };
     }
 
-    await updateVideo(params.videoId, {
+    await updateVideo(params.videoId!, {
         title: result.data.title,
         description: result.data.description
     });
@@ -48,8 +49,8 @@ export async function clientAction({ params, request }: Route.ClientActionArgs) 
 
 // ── Component ─────────────────────────────────────────────────────────────
 
-export default function VideoView({ loaderData }: Route.ComponentProps) {
-    const { video } = loaderData;
+export default function VideoView() {
+    const { video } = useLoaderData() as any;
     const navigation = useNavigation();
 
     const isSaving = navigation.state === "submitting" || navigation.state === "loading";
