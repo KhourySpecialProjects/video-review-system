@@ -54,8 +54,8 @@ export function Tutorial({ data }: { data: TutorialCategory[] }) {
                                             </div>
                                         </AccordionTrigger>
                                         <AccordionContent>
-                                            <div className="rounded-lg border border-border bg-bg-dark p-4">
-                                                {tutorial.type === "video" ? (
+                                            {tutorial.type === "video" ? (
+                                                <div className="rounded-lg border border-border bg-bg-dark p-4">
                                                     <a
                                                         href={tutorial.url}
                                                         target="_blank"
@@ -66,10 +66,25 @@ export function Tutorial({ data }: { data: TutorialCategory[] }) {
                                                         Watch: {tutorial.title}
                                                         <ExternalLink className="size-3 shrink-0" />
                                                     </a>
-                                                ) : (
-                                                    <p className="text-sm text-text-muted">{tutorial.content}</p>
-                                                )}
-                                            </div>
+                                                </div>
+                                            ) : (
+                                                <article className="mt-2 overflow-hidden rounded-xl border border-border bg-bg-light shadow-sm">
+                                                    <header className="border-b border-border/60 bg-bg-dark/30 px-6 py-5">
+                                                        <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
+                                                            <BookOpen className="size-4" />
+                                                            <span>How-To Guide</span>
+                                                        </div>
+                                                        <h1 className="text-xl font-bold tracking-tight text-text sm:text-2xl">
+                                                            {tutorial.title}
+                                                        </h1>
+                                                    </header>
+                                                    <div className="px-6 py-8">
+                                                        <div className="max-w-none text-base leading-relaxed text-text-muted whitespace-pre-wrap sm:leading-loose">
+                                                            {tutorial.content}
+                                                        </div>
+                                                    </div>
+                                                </article>
+                                            )}
                                         </AccordionContent>
                                     </AccordionItem>
                                 ))}

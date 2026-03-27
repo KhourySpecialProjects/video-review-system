@@ -7,7 +7,7 @@ describe("Navbar", () => {
     it("renders the logo", () => {
         render(
             <MemoryRouter>
-                <Navbar user={{ name: "Test User", email: "test@example.com" }} />
+                <Navbar />
             </MemoryRouter>
         );
         expect(screen.getByText("CV")).toBeInTheDocument();
@@ -16,7 +16,7 @@ describe("Navbar", () => {
     it("renders desktop nav links", () => {
         render(
             <MemoryRouter>
-                <Navbar user={{ name: "Test User", email: "test@example.com" }} />
+                <Navbar />
             </MemoryRouter>
         );
         expect(screen.getByText("Tutorial")).toBeInTheDocument();
@@ -27,7 +27,7 @@ describe("Navbar", () => {
     it("has a theme toggle button", () => {
         render(
             <MemoryRouter>
-                <Navbar user={{ name: "Test User", email: "test@example.com" }} />
+                <Navbar />
             </MemoryRouter>
         );
         const toggleButtons = screen.getAllByLabelText("Toggle theme");
@@ -37,7 +37,7 @@ describe("Navbar", () => {
     it("toggles the mobile menu when hamburger is clicked", () => {
         render(
             <MemoryRouter>
-                <Navbar user={{ name: "Test User", email: "test@example.com" }} />
+                <Navbar />
             </MemoryRouter>
         );
         const menuButton = screen.getByLabelText("Toggle menu");
