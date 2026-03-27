@@ -15,6 +15,7 @@ services:
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - ALLOWED_ORIGIN=${ALLOWED_ORIGIN}
+      - PORT=${PORT}
     depends_on:
       postgres:
         condition: service_healthy

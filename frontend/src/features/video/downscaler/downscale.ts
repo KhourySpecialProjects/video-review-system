@@ -80,6 +80,7 @@ export async function downscaleVideo(
 
   // ── 2. Extract encoded packets ──
   const decoderConfig = await videoTrack.getDecoderConfig();
+  console.log("decoderConfig:", decoderConfig)
   if (!decoderConfig) throw new Error("Could not extract decoder config");
 
   const sink = new EncodedPacketSink(videoTrack);
@@ -103,23 +104,33 @@ export async function downscaleVideo(
   if (!scaler) throw new Error("No GPU scaler available");
 
   // ── 5. Configure H.264 encoder ──
-  const encCfg: VideoEncoderConfig = {
-    codec: "avc1.640028", // H.264 High Profile 4.0
-    width: outW,
-    height: outH,
-    bitrate,
-    framerate: targetFps,
-    latencyMode: "realtime",
-    hardwareAcceleration: "prefer-hardware",
-    avc: { format: "avc" },
-  };
-
-  let encSupport = await VideoEncoder.isConfigSupported(encCfg);
-  if (!encSupport.supported) {
-    delete encCfg.hardwareAcceleration;
-    encSupport = await VideoEncoder.isConfigSupported(encCfg);
-    if (!encSupport.supported) throw new Error("H.264 encoder not supported");
+  const profiles = [
+    "avc1.640033", // High Profile 5.1 — supports up to 4K
+    "avc1.640028", // High Profile 4.0
+    "avc1.4d0028", // Main Profile 4.0
+    "avc1.420028", // Baseline Profile 4.0
+  ]
+  
+  let encCfg: VideoEncoderConfig | null = null
+  for (const codec of profiles) {
+    const cfg: VideoEncoderConfig = {
+      codec,
+      width: outW,
+      height: outH,
+      bitrate,
+      framerate: targetFps,
+      latencyMode: "realtime",
+      avc: { format: "avc" },
+    }
+    const support = await VideoEncoder.isConfigSupported(cfg)
+    console.log(codec, support)
+    if (support.supported) {
+      encCfg = cfg
+      break
+    }
   }
+  
+  if (!encCfg) throw new Error("H.264 encoder not supported")
 
   // ── 6. Set up Mediabunny muxer ──
   const target = new BufferTarget();
@@ -230,7 +241,18 @@ export async function downscaleVideo(
     });
 
     decoder.configure(decCfg);
-    for (const c of chunks) decoder.decode(c);
+    
+    let firstTimestamp: number | null = null
+    for (const c of chunks) {
+      if (firstTimestamp === null) firstTimestamp = c.timestamp
+      const normalized = new EncodedVideoChunk({
+        type: c.type,
+        timestamp: c.timestamp - firstTimestamp,
+        duration: c.duration ?? undefined,
+        data: (() => { const b = new ArrayBuffer(c.byteLength); c.copyTo(b); return b })(),
+      })
+      decoder.decode(normalized)
+    }
 
     decoder.flush()
       .then(() => { decoder.close(); return encoder.flush(); })
@@ -244,14 +266,22 @@ export async function downscaleVideo(
     const audioConfig = await audioTrack.getDecoderConfig();
     let firstAudio = true;
 
-    for await (const packet of audioSink.packets()) {
-      const meta = firstAudio && audioConfig ? { decoderConfig: audioConfig } : undefined;
-      audioSource.add(
-        new EncodedPacket(packet.data, packet.type, packet.timestamp, packet.duration),
-        meta,
-      );
-      firstAudio = false;
-    }
+    let audioOffset: number | null = null
+
+for await (const packet of audioSink.packets()) {
+  if (audioOffset === null) audioOffset = packet.timestamp
+
+  const normalized = new EncodedPacket(
+    packet.data,
+    packet.type,
+    packet.timestamp - audioOffset,
+    packet.duration,
+  )
+
+  const meta = firstAudio && audioConfig ? { decoderConfig: audioConfig } : undefined
+  audioSource.add(normalized, meta)
+  firstAudio = false
+}
   }
 
   // ── 12. Finalize and return ──
