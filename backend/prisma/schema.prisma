@@ -1,11 +1,10 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_DATABASE_URL")
+  provider = "postgresql"
 }
 
 // ============================================================
@@ -74,17 +73,17 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @default(now())
 
-  sessions             Session[]
-  accounts             Account[]
-  caregiverPatients    CaregiverPatient[]
-  userPermissions      UserPermission[]
-  userRoles            UserRole[]
-  uploadedVideos       Video[]                  @relation("uploader")
-  caregiverMetadata    CaregiverVideoMetadata[]
-  annotations          Annotation[]
-  videoClips           VideoClip[]
-  stitchedSequences    StitchedSequence[]
-  auditLogs            AuditLog[]
+  sessions          Session[]
+  accounts          Account[]
+  caregiverPatients CaregiverPatient[]
+  userPermissions   UserPermission[]
+  userRoles         UserRole[]
+  uploadedVideos    Video[]                  @relation("uploader")
+  caregiverMetadata CaregiverVideoMetadata[]
+  annotations       Annotation[]
+  videoClips        VideoClip[]
+  stitchedSequences StitchedSequence[]
+  auditLogs         AuditLog[]
 
   @@map("user")
 }
@@ -136,6 +135,20 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+model Invitation {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email     String
+  role      user_role
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdBy String    @map("created_by")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([tokenHash])
+  @@map("invitations")
 }
 
 // ============================================================
@@ -196,8 +209,8 @@ model CaregiverPatient {
   patientId   String @map("patient_id") @db.Uuid
   caregiverId String @map("caregiver_id") // text FK to user
 
-  patient  Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  caregiver User   @relation(fields: [caregiverId], references: [id], onDelete: Cascade)
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  caregiver User    @relation(fields: [caregiverId], references: [id], onDelete: Cascade)
 
   @@id([patientId, caregiverId])
   @@map("caregiver_patient")

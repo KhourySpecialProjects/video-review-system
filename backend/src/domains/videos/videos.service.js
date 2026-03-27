@@ -1,4 +1,4 @@
-import prisma from "../../lib/prisma";
+import prisma from "../../lib/prisma.js";
 
 // service layer for video business logic
 
