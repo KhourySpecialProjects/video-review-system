@@ -3,15 +3,15 @@ import { z } from "zod";
 
 // only need what the client can send, not all video fields
 export const createVideoSchema = z.object({
-  patientId: z.string().uuid("patient_id must be a valid UUID"),
+  patientId: z.uuid("patient_id must be a valid UUID"),
   durationSeconds: z.number().int().positive().optional(),
-  takenAt: z.string().datetime().optional(),
+  takenAt: z.iso.datetime().optional(),
 });
 
 export const updateVideoSchema = z.object({
   status: z.enum(["UPLOADING", "PROCESSING", "READY", "FAILED"]).optional(),
   durationSeconds: z.number().int().positive().optional(),
-  takenAt: z.string().datetime().optional(),
+  takenAt: z.iso.datetime().optional(),
 });
 
 // these can be used in your service layer for type-safe parameters.
