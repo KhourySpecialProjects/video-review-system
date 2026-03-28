@@ -35,7 +35,7 @@ router.post("/invite", async (req, res) => {
   } catch (err: unknown) {
     // ZodError = validation failed, return structured error details
     if (err instanceof ZodError) {
-      return res.status(400).json({ error: err.errors[0].message });
+      return res.status(400).json({ error: err.issues[0].message });
     }
     // Other errors (e.g., database errors from service)
     if (err instanceof Error) {
@@ -62,7 +62,7 @@ router.post("/activate", async (req, res) => {
   } catch (err: unknown) {
     // ZodError = validation failed, return structured error details
     if (err instanceof ZodError) {
-      return res.status(400).json({ error: err.errors[0].message });
+      return res.status(400).json({ error: err.issues[0].message });
     }
     // Other errors (e.g., database errors from service)
     if (err instanceof Error) {
