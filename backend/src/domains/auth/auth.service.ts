@@ -8,11 +8,17 @@ import {
   type ActivateInviteInput,
 } from "./auth.types.js";
 
-// create a new invitation
-// validates email format and role
-// generate a secure random token, stores SHA-256 hash in database
-// sets a 24 hour expiry
-// returns token for dev testing, in production ID is returned
+/**
+ * Creates a new user invitation.
+ *
+ * Generates a secure random token and stores its SHA-256 hash in the database.
+ * The invitation expires after 24 hours.
+ *
+ * @param input - The invitation details (email and role)
+ * @returns The invitation ID, and token in non-production environments
+ * @throws {ZodError} If input validation fails
+ * @throws {Error} If database operation fails
+ */
 export async function createInvite(input: CreateInviteInput) {
   // Zod parse validates and returns typed data (throws on invalid input)
   const { email, role } = createInviteSchema.parse(input);
@@ -44,11 +50,19 @@ export async function createInvite(input: CreateInviteInput) {
   return { id: invitation.id };
 }
 
-// activate an invitation and create the user account
-// validates all inputs (password min 8 characters)
-// uses atomic updateMany to claim the invite to prevent race conditions
-// hashes password uses Better Auth's built in hasher
-// creates user, account, and userrole records in a transaction
+/**
+ * Activates an invitation and creates the user account.
+ *
+ * Uses an atomic updateMany to claim the invite, preventing race conditions.
+ * Creates user, account, and userRole records in a single transaction.
+ * Password is hashed using Better Auth's built-in hasher.
+ *
+ * @param input - The activation details (token, name, email, password)
+ * @returns Success message prompting user to sign in
+ * @throws {ZodError} If input validation fails
+ * @throws {Error} "Invalid or expired invitation" if token is invalid/expired/already used
+ * @throws {Error} "Email already registered" if email exists in the system
+ */
 export async function activateInvite(input: ActivateInviteInput) {
   // Zod parse validates and returns typed data (throws on invalid input)
   const { token, name, email, password } = activateInviteSchema.parse(input);

@@ -1,11 +1,13 @@
 import { z } from "zod";
 
-// ============================================================
-// ROLE SCHEMA
-// ============================================================
-// This Zod enum defines all valid roles in the system.
-// By defining it here, we avoid hardcoding role strings in multiple places.
-// z.enum() creates a schema that only accepts these exact string values.
+/**
+ * Zod schema for valid user roles in the system.
+ * This is the single source of truth for role validation.
+ *
+ * @example
+ * roleSchema.parse("CAREGIVER"); // OK
+ * roleSchema.parse("INVALID");   // throws ZodError
+ */
 export const roleSchema = z.enum([
   "CAREGIVER",
   "CLINICAL_REVIEWER",
@@ -13,25 +15,39 @@ export const roleSchema = z.enum([
   "SYSADMIN",
 ]);
 
-// ============================================================
-// CREATE INVITE SCHEMA
-// ============================================================
-// Schema for validating invite creation requests.
-// - email: Uses Zod's built-in email() validator which handles RFC 5322 validation
-// - role: References roleSchema so we don't duplicate the valid roles list
+/**
+ * Zod schema for invite creation requests.
+ *
+ * @property {string} email - Must be a valid email format (RFC 5322)
+ * @property {Role} role - Must be one of the valid roles from roleSchema
+ *
+ * @example
+ * createInviteSchema.parse({
+ *   email: "user@example.com",
+ *   role: "CAREGIVER"
+ * });
+ */
 export const createInviteSchema = z.object({
   email: z.string().email("Invalid email format"),
   role: roleSchema,
 });
 
-// ============================================================
-// ACTIVATE INVITE SCHEMA
-// ============================================================
-// Schema for validating account activation requests.
-// - token: Required string, must have at least 1 character
-// - name: Required string, trimmed, must have at least 1 character after trimming
-// - email: Uses the same email validation as createInviteSchema
-// - password: Required string with minimum 8 characters for security
+/**
+ * Zod schema for account activation requests.
+ *
+ * @property {string} token - The invitation token (min 1 character)
+ * @property {string} name - User's display name (trimmed, min 1 character)
+ * @property {string} email - Must be a valid email format
+ * @property {string} password - Must be at least 8 characters
+ *
+ * @example
+ * activateInviteSchema.parse({
+ *   token: "abc123...",
+ *   name: "John Doe",
+ *   email: "john@example.com",
+ *   password: "securepassword"
+ * });
+ */
 export const activateInviteSchema = z.object({
   token: z.string().min(1, "Token is required"),
   name: z.string().trim().min(1, "Name is required"),
@@ -39,12 +55,20 @@ export const activateInviteSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
-// ============================================================
-// INFERRED TYPES
-// ============================================================
-// z.infer extracts the TypeScript type from a Zod schema.
-// This means our types are always in sync with our validation logic.
-// If we change the schema, the types update automatically.
+/**
+ * Valid user roles in the system.
+ * Inferred from roleSchema to keep types in sync with validation.
+ */
 export type Role = z.infer<typeof roleSchema>;
+
+/**
+ * Input type for creating an invitation.
+ * Inferred from createInviteSchema.
+ */
 export type CreateInviteInput = z.infer<typeof createInviteSchema>;
+
+/**
+ * Input type for activating an invitation.
+ * Inferred from activateInviteSchema.
+ */
 export type ActivateInviteInput = z.infer<typeof activateInviteSchema>;
