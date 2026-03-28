@@ -250,6 +250,7 @@ model Video {
   durationSeconds  Int?         @map("duration_seconds")
   createdAt        DateTime     @default(now()) @map("created_at")
   takenAt          DateTime?    @map("taken_at")
+  videoReviewComments String?    @map("video_review_comments")
 
   patient           Patient                  @relation(fields: [patientId], references: [id], onDelete: Cascade)
   uploadedBy        User                     @relation("uploader", fields: [uploadedByUserId], references: [id])
