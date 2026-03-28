@@ -1,5 +1,7 @@
 import { Router } from "express";
+import { ZodError } from "zod";
 import { createInvite, activateInvite } from "./auth.service.js";
+import { createInviteSchema, activateInviteSchema } from "./auth.types.js";
 
 const router = Router();
 
@@ -15,20 +17,40 @@ router.post("/invite", async (req, res) => {
   }
 
   try {
-    const result = await createInvite(req.body);
+    // Parse and validate request body at the HTTP boundary
+    const input = createInviteSchema.parse(req.body);
+    const result = await createInvite(input);
     return res.json(result);
-  } catch (err) {
-    return res.status(400).json({ error: err.message });
+  } catch (err: unknown) {
+    // ZodError = validation failed, return structured error details
+    if (err instanceof ZodError) {
+      return res.status(400).json({ error: err.errors[0].message });
+    }
+    // Other errors (e.g., database errors from service)
+    if (err instanceof Error) {
+      return res.status(400).json({ error: err.message });
+    }
+    return res.status(500).json({ error: "Unknown error" });
   }
 });
 
 // activate an invitation and create the user account
 router.post("/activate", async (req, res) => {
   try {
-    const result = await activateInvite(req.body);
+    // Parse and validate request body at the HTTP boundary
+    const input = activateInviteSchema.parse(req.body);
+    const result = await activateInvite(input);
     return res.json(result);
-  } catch (err) {
-    return res.status(400).json({ error: err.message });
+  } catch (err: unknown) {
+    // ZodError = validation failed, return structured error details
+    if (err instanceof ZodError) {
+      return res.status(400).json({ error: err.errors[0].message });
+    }
+    // Other errors (e.g., database errors from service)
+    if (err instanceof Error) {
+      return res.status(400).json({ error: err.message });
+    }
+    return res.status(500).json({ error: "Unknown error" });
   }
 });
 
