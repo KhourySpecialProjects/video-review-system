@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth.js";
+import { notFoundHandler, errorHandler } from "./middleware/errors.js";
 
 // imports for future iterations
 import videosRouter from "./domains/videos/videos.router.ts";
@@ -41,6 +42,10 @@ app.use("/domain/auth", authRouter);
 // app.use("/domain/clips", clipsRouter);
 // app.use("/domain/accounts", accountsRouter);
 // app.use("/domain/audit", auditRouter);
+
+// error handling — must be registered after all routes
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`Listening on port ${PORT}`);
