@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import * as siteService from "./site.service.js";
-import { createSiteSchema } from "./site.types.js";
+import { createSiteSchema, getSitesSchema } from "./site.types.js";
 import { AppError } from "../../middleware/errors.js";
 
 /**
@@ -33,6 +33,27 @@ router.post("/", async (req, res) => {
     const parsed = createSiteSchema.parse(req.body);
     const site = await siteService.createSite(parsed);
     res.status(201).json(site);
+});
+
+/**
+ * GET / - Get a list of review sites
+ *
+ * @query {string} [userId] - Optional. Filter sites to only those accessible by this user.
+ *
+ * @returns {object[]} 200 - Array of Site objects
+ * @throws {AppError} 400 - { error: string } on validation error
+ */
+router.get("/", async (req, res) => {
+    const adminSecret = req.headers["admin-secret"];
+    if (adminSecret !== process.env.ADMIN_SECRET) {
+        throw AppError.unauthorized();
+    }
+
+    // Parse and validate query parameters at the HTTP boundary
+    // Throws ZodError on failure — caught by errorHandler
+    const parsed = getSitesSchema.parse(req.query);
+    const sites = await siteService.getSites(parsed);
+    res.status(200).json(sites);
 });
 
 /**

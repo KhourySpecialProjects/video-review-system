@@ -19,3 +19,17 @@ export const createSiteSchema = z.object({
  * Inferred from createSiteSchema.
  */
 export type CreateSiteInput = z.infer<typeof createSiteSchema>;
+
+/**
+ * Zod schema for getting a list of sites.
+ * Allows optional filtering by userId.
+ */
+export const getSitesSchema = z.object({
+  userId: z.string().optional(),
+});
+
+/**
+ * Input type for getting sites.
+ * Inferred from getSitesSchema.
+ */
+export type GetSitesInput = z.infer<typeof getSitesSchema>;
