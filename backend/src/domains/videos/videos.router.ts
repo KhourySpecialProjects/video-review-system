@@ -1,6 +1,6 @@
 import { Router } from "express";
-import * as videosService from "./videos.service.js";
-import { createVideoSchema, updateVideoSchema } from "./videos.types.js";
+import * as videosService from "./videos.service";
+import { createVideoSchema, updateVideoSchema } from "./videos.types";
 
 const router = Router();
 
@@ -8,8 +8,8 @@ const router = Router();
 router.get("/", async (req, res) => {
   try {
     // parse limit and offset from query, with defaults
-    const limit = parseInt(req.query.limit) || 20;
-    const offset = parseInt(req.query.offset) || 0;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const offset = parseInt(req.query.offset as string) || 0;
 
     // call service to get videos and total count
     const result = await videosService.listVideos({ limit, offset });
@@ -45,7 +45,7 @@ router.post("/", async (req, res) => {
     // validate request body with zod schema
     const parsed = createVideoSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error.errors });
+      return res.status(400).json({ error: parsed.error.issues });
     }
 
     // for now, hardcode uploadedByUserId since we don't have auth yet
@@ -67,7 +67,7 @@ router.put("/:id", async (req, res) => {
     // validate request body with zod schema
     const parsed = updateVideoSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error.errors });
+      return res.status(400).json({ error: parsed.error.issues });
     }
 
     // call service to update video with parsed data
@@ -77,7 +77,7 @@ router.put("/:id", async (req, res) => {
   } catch (error) {
     console.error("Error updating video:", error);
     // if error is from prisma not finding the video, return 404
-    if (error.code === "P2025") {
+    if (isPrismaNotFound(error)) {
       return res.status(404).json({ error: "Video not found" });
     }
     res.status(500).json({ error: "Failed to update video" });
@@ -94,7 +94,7 @@ router.delete("/:id", async (req, res) => {
   } catch (error) {
     console.error("Error deleting video:", error);
     // if error is from prisma not finding the video, return 404
-    if (error.code === "P2025") {
+    if (isPrismaNotFound(error)) {
       return res.status(404).json({ error: "Video not found" });
     }
     res.status(500).json({ error: "Failed to delete video" });
@@ -102,3 +102,13 @@ router.delete("/:id", async (req, res) => {
 });
 
 export default router;
+
+// helper function to check if error is a Prisma "not found" error
+function isPrismaNotFound(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as any).code === "P2025"
+  );
+}

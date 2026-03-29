@@ -5,12 +5,12 @@ import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth.js";
 
 // imports for future iterations
-import videosRouter from "./domains/videos/videos.router.ts";
-import authRouter from "./domains/auth/auth.router.ts";
-// import annotationsRouter from "./domains/annotations/annotations.router.js";
-// import clipsRouter from "./domains/clips/clips.router.js";
-// import accountsRouter from "./domains/accounts/accounts.router.js";
-// import auditRouter from "./domains/audit/audit.router.js";
+import videosRouter from "./domains/videos/videos.router";
+import authRouter from "./domains/auth/auth.router";
+import annotationsRouter from "./domains/annotations/annotations.router";
+// import clipsRouter from "./domains/clips/clips.router";
+// import accountsRouter from "./domains/accounts/accounts.router";
+// import auditRouter from "./domains/audit/audit.router";
 
 dotenv.config();
 
@@ -37,7 +37,7 @@ app.get("/health", (req, res) => {
 // domain routes for future iterations
 app.use("/domain/videos", videosRouter);
 app.use("/domain/auth", authRouter);
-// app.use("/domain/annotations", annotationsRouter);
+app.use("/domain/annotations", annotationsRouter);
 // app.use("/domain/clips", clipsRouter);
 // app.use("/domain/accounts", accountsRouter);
 // app.use("/domain/audit", auditRouter);

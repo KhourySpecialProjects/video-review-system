@@ -1,19 +1,6 @@
 import prisma from "../../lib/prisma";
-import type { Video } from "@prisma/client";
+//import type { Video } from "@prisma/client";
 import type { CreateVideoInput, UpdateVideoInput } from "./videos.types.js";
-
-// service layer for video business logic
-interface PaginationParams {
-  limit?: number;
-  offset?: number;
-}
-
-interface PaginatedResult {
-  videos: Video[];
-  total: number;
-  limit: number;
-  offset: number;
-}
 
 // list videos with pagination
 export async function listVideos({limit = 20, offset = 0}) {
@@ -38,8 +25,12 @@ export async function getVideoById(id: string) {
   return video;
 }
 
+interface CreateVideoParams extends CreateVideoInput {
+  uploadedByUserId: string;
+}
+
 // create video
-export async function createVideo({ patientId, uploadedByUserId, durationSeconds, createdAt, takenAt }: CreateVideoInput) {
+export async function createVideo({ patientId, uploadedByUserId, durationSeconds, takenAt }: CreateVideoParams) {
   const video = await prisma.video.create({
     data: {
       patientId,
@@ -47,7 +38,6 @@ export async function createVideo({ patientId, uploadedByUserId, durationSeconds
       status: "UPLOADING",
       // if for some reason upload can't access duration/date, return null
       durationSeconds: durationSeconds ?? null,
-      createdAt: createdAt ? new Date(createdAt) : null,
       takenAt: takenAt ? new Date(takenAt) : null,
     },
   });
