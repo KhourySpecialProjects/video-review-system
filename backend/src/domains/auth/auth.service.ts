@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import prisma from "../../lib/prisma.js";
 import { auth } from "../../lib/auth.js";
+import { AppError } from "../../middleware/errors.js";
 import {
   createInviteSchema,
   activateInviteSchema,
@@ -60,8 +61,8 @@ export async function createInvite(input: CreateInviteInput) {
  * @param input - The activation details (token, name, email, password)
  * @returns Success message prompting user to sign in
  * @throws {ZodError} If input validation fails
- * @throws {Error} "Invalid or expired invitation" if token is invalid/expired/already used
- * @throws {Error} "Email already registered" if email exists in the system
+ * @throws {AppError} 400 "Invalid or expired invitation" if token is invalid/expired/already used
+ * @throws {AppError} 409 "Email already registered" if email exists in the system
  */
 export async function activateInvite(input: ActivateInviteInput) {
   // Zod parse validates and returns typed data (throws on invalid input)
@@ -83,7 +84,7 @@ export async function activateInvite(input: ActivateInviteInput) {
     });
 
     if (claimed.count === 0) {
-      throw new Error("Invalid or expired invitation");
+      throw AppError.badRequest("Invalid or expired invitation");
     }
 
     // get the invitation to read the role
@@ -94,7 +95,7 @@ export async function activateInvite(input: ActivateInviteInput) {
       where: { email: normalizedEmail },
     });
     if (existingUser) {
-      throw new Error("Email already registered");
+      throw AppError.conflict("Email already registered");
     }
 
     // hash password using Better Auth's password helper

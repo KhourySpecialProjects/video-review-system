@@ -122,6 +122,55 @@ curl -X POST http://localhost:8080/api/auth/sign-in/email \
 
 Response: `{"token": "...", "user": {...}}`
 
+## Error handling
+
+All errors return a consistent JSON shape:
+
+```json
+{
+  "status": "error",
+  "statusCode": 400,
+  "message": "Human-readable description",
+  "errors": []
+}
+```
+
+`errors` is only present for validation failures and contains per-field details.
+In non-production environments a `stack` field is also included.
+
+### HTTP status codes
+
+| Code | Meaning | Common causes |
+|------|---------|---------------|
+| `400` | Bad Request | Zod validation failure, malformed JSON, expired/invalid invitation token |
+| `401` | Unauthorized | Missing or invalid `admin-secret` header |
+| `403` | Forbidden | Authenticated but lacks permission for the resource |
+| `404` | Not Found | Resource ID doesn't exist, unmatched route |
+| `409` | Conflict | Duplicate resource (e.g. email already registered) |
+| `500` | Internal Server Error | Unexpected server-side error — details are never exposed to the client |
+
+### Prisma error code mapping
+
+| Prisma code | HTTP status | Description |
+|-------------|-------------|-------------|
+| `P2025` | `404` | Record not found (e.g. update/delete on unknown ID) |
+| `P2002` | `409` | Unique constraint violation |
+| All others | `500` | Unexpected database error |
+
+### Throwing errors in routes and services
+
+Use the `AppError` factory methods — the global `errorHandler` middleware will format the response automatically:
+
+```ts
+import { AppError } from "../../middleware/errors.js";
+
+throw AppError.badRequest("Invalid input");   // 400
+throw AppError.unauthorized();                // 401
+throw AppError.forbidden();                   // 403
+throw AppError.notFound("Video not found");   // 404
+throw AppError.conflict("Already exists");    // 409
+```
+
 ## Database
 
 ### View with psql

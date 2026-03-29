@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { ZodError } from "zod";
 import { createInvite, activateInvite } from "./auth.service.js";
 import { createInviteSchema, activateInviteSchema } from "./auth.types.js";
+import { AppError } from "../../middleware/errors.js";
 
 /**
  * Auth router for invitation-based user registration.
@@ -16,33 +16,22 @@ const router = Router();
  * @body {CreateInviteInput} - { email: string, role: Role }
  *
  * @returns {object} 200 - { id: string, token?: string }
- * @returns {object} 400 - { error: string } on validation or service error
- * @returns {object} 401 - { error: "Unauthorized" } if admin-secret invalid
+ * @throws {AppError} 400 - { error: string } on validation or service error
+ * @throws {AppError} 401 - { error: "Unauthorized" } if admin-secret invalid
  *
  * @todo Replace admin-secret with authenticated admin route once real admins exist
  */
 router.post("/invite", async (req, res) => {
   const adminSecret = req.headers["admin-secret"];
   if (adminSecret !== process.env.ADMIN_SECRET) {
-    return res.status(401).json({ error: "Unauthorized" });
+    throw AppError.unauthorized();
   }
 
-  try {
-    // Parse and validate request body at the HTTP boundary
-    const input = createInviteSchema.parse(req.body);
-    const result = await createInvite(input);
-    return res.json(result);
-  } catch (err: unknown) {
-    // ZodError = validation failed, return structured error details
-    if (err instanceof ZodError) {
-      return res.status(400).json({ error: err.issues[0].message });
-    }
-    // Other errors (e.g., database errors from service)
-    if (err instanceof Error) {
-      return res.status(400).json({ error: err.message });
-    }
-    return res.status(500).json({ error: "Unknown error" });
-  }
+  // Parse and validate request body at the HTTP boundary
+  // Throws ZodError on failure — caught by errorHandler
+  const input = createInviteSchema.parse(req.body);
+  const result = await createInvite(input);
+  res.json(result);
 });
 
 /**
@@ -51,25 +40,14 @@ router.post("/invite", async (req, res) => {
  * @body {ActivateInviteInput} - { token: string, name: string, email: string, password: string }
  *
  * @returns {object} 200 - { success: true, message: string }
- * @returns {object} 400 - { error: string } on validation, expired token, or duplicate email
+ * @throws {AppError} 400 - { error: string } on validation, expired token, or duplicate email
  */
 router.post("/activate", async (req, res) => {
-  try {
-    // Parse and validate request body at the HTTP boundary
-    const input = activateInviteSchema.parse(req.body);
-    const result = await activateInvite(input);
-    return res.json(result);
-  } catch (err: unknown) {
-    // ZodError = validation failed, return structured error details
-    if (err instanceof ZodError) {
-      return res.status(400).json({ error: err.issues[0].message });
-    }
-    // Other errors (e.g., database errors from service)
-    if (err instanceof Error) {
-      return res.status(400).json({ error: err.message });
-    }
-    return res.status(500).json({ error: "Unknown error" });
-  }
+  // Parse and validate request body at the HTTP boundary
+  // Throws ZodError on failure — caught by errorHandler
+  const input = activateInviteSchema.parse(req.body);
+  const result = await activateInvite(input);
+  res.json(result);
 });
 
 export default router;
