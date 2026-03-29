@@ -6,8 +6,9 @@ import { auth } from "./lib/auth.js";
 import { notFoundHandler, errorHandler } from "./middleware/errors.js";
 
 // imports for future iterations
-import videosRouter from "./domains/videos/videos.router.ts";
-import authRouter from "./domains/auth/auth.router.ts";
+import videosRouter from "./domains/videos/videos.router.js";
+import authRouter from "./domains/auth/auth.router.js";
+import siteRouter from "./domains/site/site.router.js";
 // import annotationsRouter from "./domains/annotations/annotations.router.js";
 // import clipsRouter from "./domains/clips/clips.router.js";
 // import accountsRouter from "./domains/accounts/accounts.router.js";
@@ -38,6 +39,7 @@ app.get("/health", (req, res) => {
 // domain routes for future iterations
 app.use("/domain/videos", videosRouter);
 app.use("/domain/auth", authRouter);
+app.use("/domain/site", siteRouter);
 // app.use("/domain/annotations", annotationsRouter);
 // app.use("/domain/clips", clipsRouter);
 // app.use("/domain/accounts", accountsRouter);
