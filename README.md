@@ -52,13 +52,21 @@ The easiest way to run the full stack locally is with Docker Compose.
 ### 1. Configure AWS credentials
 
 ```bash
-aws configure
+aws configure sso
 ```
+when running this up session name as whatever you want
+SSO Start url should be the link from the invitation email
+SSO region should be us-east-1
+SSO regristration scopres just click enter
+Sign in on the web browser
+default client region should be us-east-1
+default format just click enter
+profile name needs to be "default"
 
-### 2. Create `.env.local` in the project root
 
-```env
-SECRET_NAME=angelman-portal/local
+### 2. Create `.env` in the project root
+```bash
+./scripts/pull-env.sh
 ```
 
 ### 3. Start all services

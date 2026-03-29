@@ -16,20 +16,20 @@ npm install
 ```
 
 ### Environment variables
-
-Copy `.env.example` to `.env` in the `video-review-system/` directory and fill in the values. Generate secrets with:
+Follow the instructions from the repo read me on how to pull env file
 
 ```bash
 openssl rand -base64 32
 ```
 
-### Start PostgreSQL
-
-From `video-review-system/`:
+### Start PostgreSQL locally
 
 ```bash
 docker compose up -d postgres
 ```
+
+### Connect to development Postgres server
+Make sure you're connected to the global protect vpn for northeastern
 
 ### Run migrations and generate Prisma client
 
