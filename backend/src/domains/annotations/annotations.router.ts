@@ -1,5 +1,6 @@
 import { Router } from "express";
 import * as annotationsService from "./annotations.service";
+import { Prisma } from "../../generated/prisma/client";
 import { createAnnotationSchema, updateAnnotationSchema } from "./annotations.types";
 
 const router = Router();
@@ -52,10 +53,14 @@ router.post("/", async (req, res) => {
     const uploadedByUserId = "00000000-0000-0000-0000-000000000000"; // placeholder UUID
 
     // call service to create annotation with parsed data and uploadedByUserId
-    const annotation = await annotationsService.createAnnotation({ 
-      ...parsed.data, 
-      videoId: req.params.videoId, 
-      authorUserId: uploadedByUserId 
+
+    const annotation = await annotationsService.createAnnotation({
+      type: parsed.data.type,
+      timestampMs: parsed.data.timestampMs,
+      durationMs: parsed.data.durationMs,
+      payload: parsed.data.payload as Prisma.JsonValue ?? undefined,
+      videoId: parsed.data.videoId,
+      authorUserId: uploadedByUserId,
     });
     
     res.status(201).json(annotation);

@@ -1,6 +1,7 @@
+import { Prisma } from "../../generated/prisma/index.js";
 import prisma from "../../lib/prisma.js";
 //import type { Annotation } from "../../generated/prisma/client";
-import type { CreateAnnotationInput, UpdateAnnotationInput } from "./annotations.types";
+import type { CreateAnnotationInput, CreateAnnotationParams, UpdateAnnotationInput } from "./annotations.types";
 import { timeStamp } from "console";
 
 // list annotations for a specific video with pagination
@@ -9,7 +10,7 @@ export async function listAnnotationsByVideo(videoId: string, {limit = 20, offse
   const [annotations, total] = await Promise.all([
     prisma.annotation.findMany({
       where: { videoId },
-      orderBy: { timeStamp: "asc" },
+      orderBy: { timestampMs: "asc" },
       skip: offset,
       take: limit,
     }),
@@ -27,11 +28,6 @@ export async function getAnnotationById(id: string) {
     where: { id },
   });
   return annotation;
-}
-
-interface CreateAnnotationParams extends CreateAnnotationInput {
-  videoId: string;
-  authorUserId: string;
 }
 
 // create annotation for a video
@@ -59,7 +55,7 @@ export async function createAnnotation({
       type,
       timestampMs,
       durationMs,
-      payload,
+      payload: payload as Prisma.JsonValue ?? undefined, // cast to Prisma.JsonValue for storage
     },
   });
   return annotation;
@@ -68,11 +64,14 @@ export async function createAnnotation({
 // update annotation status after upload
 export async function updateAnnotation(id: string, data: UpdateAnnotationInput) {
   // primsa will throw if video doesn't exist, can handle in the controller
-  const video = await prisma.video.update({
+  const annotation  = await prisma.annotation .update({
     where: { id },
-    data,
+      data: {
+      ...data,
+      payload: data.payload as Prisma.JsonValue ?? undefined,
+    },
   });
-  return video;
+  return annotation ;
 }
 
 // delete annotation

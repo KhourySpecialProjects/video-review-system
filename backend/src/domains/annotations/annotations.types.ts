@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Prisma } from "../../generated/prisma";
 
 // payload is flexible JSONB — its shape depends on the annotation type.
 // For example:
@@ -7,6 +8,7 @@ import { z } from "zod";
 //   freehand_drawing: { "points": [[0,0], [10,5], [20,15]] }
 
 export const createAnnotationSchema = z.object({
+  videoId: z.string().uuid(),
   type: z.enum(["text_comment", "drawing_box", "freehand_drawing"]),
   timestampMs: z.number().int().min(0, "timestamp_ms cannot be negative"),
   durationMs: z.number().int().positive().optional(),
@@ -21,3 +23,18 @@ export const updateAnnotationSchema = z.object({
 
 export type CreateAnnotationInput = z.infer<typeof createAnnotationSchema>;
 export type UpdateAnnotationInput = z.infer<typeof updateAnnotationSchema>;
+
+export interface CreateAnnotationParams {
+  videoId: string;
+  authorUserId: string;
+  type: "text_comment" | "drawing_box" | "freehand_drawing";
+  timestampMs: number;
+  durationMs?: number;
+  payload?: Prisma.JsonValue;
+}
+
+export interface UpdateAnnotationParams {
+  timestampMs?: number;
+  durationMs?: number;
+  payload?: Prisma.JsonValue;
+}
