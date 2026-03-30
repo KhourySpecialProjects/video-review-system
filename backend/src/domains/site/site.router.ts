@@ -78,7 +78,7 @@ router.get("/:id", async (req, res) => {
     // Parse and validate request params at the HTTP boundary
     // Throws ZodError on failure — caught by errorHandler
     const { id } = z.object({ id: z.uuid("Invalid site ID") }).parse(req.params);
-    
+
     const site = await siteService.getSiteWithStats(id);
     if (!site) {
         throw AppError.notFound("Site not found");

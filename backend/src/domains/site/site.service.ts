@@ -85,6 +85,11 @@ export async function getSiteWithStats(id: string) {
                     siteStudies: true,
                 },
             },
+            patients: {
+                include: {
+                    videos: true,
+                },
+            },
         },
     });
 
@@ -99,10 +104,14 @@ export async function getSiteWithStats(id: string) {
         },
     });
 
-    const { _count, ...siteData } = site;
+    const { _count, patients, ...siteData } = site;
+
+    // Flatten videos from all patients in the site
+    const videos = patients.flatMap((p) => p.videos);
 
     return {
         ...siteData,
+        videos,
         patientCount: _count.patients,
         studyCount: _count.siteStudies,
         userCount,
