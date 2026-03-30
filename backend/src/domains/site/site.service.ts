@@ -1,6 +1,6 @@
 import prisma from "../../lib/prisma.js";
 import { resource_type } from "../../generated/prisma/client.js";
-import type { CreateSiteInput, GetSitesInput } from "./site.types.js";
+import type { CreateSiteInput, GetSitesInput, SiteWithVideosAndStats } from "./site.types.js";
 
 /**
  * Creates a new review site.
@@ -54,7 +54,7 @@ export async function getSites(filters: GetSitesInput) {
                 resourceId: true,
             },
         });
-        
+
         const siteIds = permissions.map((p) => p.resourceId);
 
         return await prisma.site.findMany({
@@ -75,7 +75,7 @@ export async function getSites(filters: GetSitesInput) {
  * @returns Site object with userCount, patientCount, and studyCount
  * @throws {Error} If database operation fails
  */
-export async function getSiteWithStats(id: string) {
+export async function getSiteWithStats(id: string): Promise<SiteWithVideosAndStats | null> {
     const site = await prisma.site.findUnique({
         where: { id },
         include: {

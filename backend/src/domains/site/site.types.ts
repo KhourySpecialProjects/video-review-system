@@ -1,5 +1,5 @@
 import { z } from "zod";
-
+import type { Site, Video } from "../../generated/prisma/client.js";
 /**
  * Zod schema for site creation requests.
  *
@@ -33,3 +33,13 @@ export const getSitesSchema = z.object({
  * Inferred from getSitesSchema.
  */
 export type GetSitesInput = z.infer<typeof getSitesSchema>;
+
+/**
+ * Type representing a site that includes its aggregated statistics and flattened videos array.
+ */
+export type SiteWithVideosAndStats = Site & {
+  videos: Video[];
+  patientCount: number;
+  studyCount: number;
+  userCount: number;
+};
