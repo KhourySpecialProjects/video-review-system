@@ -1,12 +1,8 @@
 import { Router } from "express";
 import { AppError } from "../../middleware/errors.js";
 import { auth } from "../../lib/auth.js";
-import {
-  createCaregiverAccount,
-  createClinicalReviewerAccount,
-  createSiteCoordinatorAccount,
-  createSysadminAccount,
-} from "./accounts.service.js";
+import prisma from "../../lib/prisma.js";
+import { createAccount } from "./accounts.service.js";
 
 const router = Router();
 
@@ -19,73 +15,33 @@ const router = Router();
  */
 async function requireSysadmin(req: any, res: any, next: any) {
   const session = await auth.api.getSession({ headers: req.headers });
-  if (!session) {
-    throw AppError.unauthorized();
-  }
+  if (!session) throw AppError.unauthorized();
 
-  const { user } = session;
-  const roles = await import("../../lib/prisma.js").then((m) =>
-    m.default.userRole.findMany({ where: { userId: user.id } })
-  );
+  const roles = await prisma.userRole.findMany({
+    where: { userId: session.user.id },
+  });
 
-  const isSysadmin = roles.some((r: any) => r.role === "SYSADMIN");
-  if (!isSysadmin) {
+  if (!roles.some((r: any) => r.role === "SYSADMIN")) {
     throw AppError.forbidden();
   }
-
   next();
 }
 
 /**
- * POST /accounts/caregivers
- * Creates a caregiver account via invitation email.
+ * POST /accounts
+ * Creates a user account for any role via invitation email.
+ * Role is passed as a query parameter.
+ * For SITE_COORDINATOR role, siteId must be included in the request body.
  * Restricted to SYSADMIN only.
  *
+ * @query {string} role - One of CAREGIVER, CLINICAL_REVIEWER, SITE_COORDINATOR, SYSADMIN
  * @body {string} email
+ * @body {string} [siteId] - Required when role is SITE_COORDINATOR
  * @returns {object} { id, token? }
  */
-router.post("/caregivers", requireSysadmin, async (req, res) => {
-  const result = await createCaregiverAccount(req.body);
-  res.json(result);
-});
-
-/**
- * POST /accounts/clinical-reviewers
- * Creates a clinical reviewer account via invitation email.
- * Restricted to SYSADMIN only.
- *
- * @body {string} email
- * @returns {object} { id, token? }
- */
-router.post("/clinical-reviewers", requireSysadmin, async (req, res) => {
-  const result = await createClinicalReviewerAccount(req.body);
-  res.json(result);
-});
-
-/**
- * POST /accounts/site-coordinators
- * Creates a site coordinator account via invitation email.
- * Requires a valid siteId. Restricted to SYSADMIN only.
- *
- * @body {string} email
- * @body {string} siteId - UUID of the site to associate the coordinator with
- * @returns {object} { id, token? }
- */
-router.post("/site-coordinators", requireSysadmin, async (req, res) => {
-  const result = await createSiteCoordinatorAccount(req.body);
-  res.json(result);
-});
-
-/**
- * POST /accounts/admins
- * Creates a new SYSADMIN account via invitation email.
- * Restricted to SYSADMIN only.
- *
- * @body {string} email
- * @returns {object} { id, token? }
- */
-router.post("/admins", requireSysadmin, async (req, res) => {
-  const result = await createSysadminAccount(req.body);
+router.post("/", requireSysadmin, async (req, res) => {
+  const role = req.query.role as string;
+  const result = await createAccount({ ...req.body, role });
   res.json(result);
 });
 
