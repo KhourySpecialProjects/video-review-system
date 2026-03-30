@@ -5,7 +5,16 @@ import { createAnnotationSchema, updateAnnotationSchema } from "./annotations.ty
 
 const router = Router();
 
-// GET /domain/annotations?limit=20&offset=0 - list annotations with pagination
+/**
+ * GET /domain/annotations - lists annotations for a specific video with pagination.
+ *
+ * @query videoId - uuid of the video to filter by
+ * @query limit - max number of annotations to return (default: 20)
+ * @query offset - number of annotations to skip (default: 0)
+ * 
+ * @returns 200 with { annotations, total, limit, offset }
+ * @returns 500 if listing fails
+ */
 router.get("/", async (req, res) => {
   try {
     // parse limit and offset from query, with defaults
@@ -21,7 +30,15 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET /domain/annotations/:id - get annotation by id
+/**
+ * GET /domain/annotations/:id - retrieves a single annotation by its uuid.
+ *
+ * @param id - uuid of the annotation
+ * 
+ * @returns 200 with the annotation object
+ * @returns 404 if no annotation with that id exists
+ * @returns 500 if fetch fails
+ */
 router.get("/:id", async (req, res) => {
   try {
     // call service to get annotation by id
@@ -40,7 +57,19 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// POST /domain/annotations - create annotation
+/**
+ * POST /domain/annotations - creates a new annotation on a video.
+ *
+ * @body videoId - uuid of the video to annotate
+ * @body type - annotation type (text_comment, drawing_box, or freehand_drawing)
+ * @body timestampMs - position in the video in milliseconds
+ * @body durationMs - (optional) how long the annotation spans in ms
+ * @body payload - (optional) JSON object with type-specific data
+ * 
+ * @returns 201 with the created annotation
+ * @returns 400 if request body fails validation
+ * @returns 500 if creation fails
+ */
 router.post("/", async (req, res) => {
   try {
     // validate request body with zod schema
@@ -50,7 +79,7 @@ router.post("/", async (req, res) => {
     }
 
     // for now, hardcode uploadedByUserId since we don't have auth yet
-    const uploadedByUserId = "00000000-0000-0000-0000-000000000000"; // placeholder UUID
+    const uploadedByUserId = "00000000-0000-0000-0000-000000000000"; // placeholder uuid
 
     // call service to create annotation with parsed data and uploadedByUserId
 
@@ -70,7 +99,20 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PUT /domain/annotations/:id - update annotation status or metadata
+/**
+ * PUT /domain/annotations/:id - updates an existing annotation's timestamp, duration, or payload.
+ *
+ * @param id - uuid of the annotation to update
+ * 
+ * @body timestampMs - (optional) updated position in ms
+ * @body durationMs - (optional) updated duration in ms
+ * @body payload - (optional) updated JSON payload
+ * 
+ * @returns 200 with the updated annotation
+ * @returns 400 if request body fails validation
+ * @returns 404 if no annotation with that id exists
+ * @returns 500 if update fails
+ */
 router.put("/:id", async (req, res) => {
   try {
     // validate request body with zod schema
@@ -93,7 +135,15 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE /domain/annotations/:id - delete annotation
+/**
+ * DELETE /domain/annotations/:id - permanently deletes an annotation by its uuid.
+ *
+ * @param id - uuid of the annotation to delete
+ * 
+ * @returns 204 No Content on success
+ * @returns 404 if no annotation with that id exists
+ * @returns 500 if deletion fails
+ */
 router.delete("/:id", async (req, res) => {
   try {
     // call service to delete annotation
@@ -112,7 +162,13 @@ router.delete("/:id", async (req, res) => {
 
 export default router;
 
-// helper function to check if error is a Prisma "not found" error
+/**
+ * checks whether an error is a Prisma "record not found" error (P2025)
+ *
+ * @param error - the caught error to check
+ * 
+ * @returns true if the error has code P2025
+ */
 function isPrismaNotFound(error: unknown): boolean {
   return (
     typeof error === "object" &&

@@ -4,7 +4,15 @@ import { createVideoSchema, updateVideoSchema } from "./videos.types";
 
 const router = Router();
 
-// GET /domain/videos?limit=20&offset=0 - list videos with pagination
+/**
+ * GET /domain/videos?limit=20&offset=0 - list videos with pagination
+ * 
+ * @query limit - number of videos to return (default: 20)
+ * @query offset - number of videos to skip for pagination (default: 0)
+ * 
+ * @returns 200 with { videos, total, limit, offset }
+ * @returns 500 if listing fails
+ */
 router.get("/", async (req, res) => {
   try {
     // parse limit and offset from query, with defaults
@@ -20,7 +28,15 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET /domain/videos/:id - get video by id
+/**
+ * GET /domain/videos/:id - get video by id
+ * 
+ * @param id - the id of the video to fetch
+ * 
+ * @returns 200 with the video object
+ * @returns 404 if no video with that id exists
+ * @returns 500 if fetch fails
+ */
 router.get("/:id", async (req, res) => {
   try {
     // call service to get video by id
@@ -39,7 +55,17 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// POST /domain/videos - create video
+/**
+ * POST /domain/videos - creates a new video record
+ *
+ * @body patientId - uuid of the associated patient
+ * @body durationSeconds - (optional) video length in seconds
+ * @body takenAt - (optional) ISO 8601 recording timestamp
+ * 
+ * @returns 201 with the created video
+ * @returns 400 if request body fails validation
+ * @returns 500 if video creation fails
+ */
 router.post("/", async (req, res) => {
   try {
     // validate request body with zod schema
@@ -49,10 +75,13 @@ router.post("/", async (req, res) => {
     }
 
     // for now, hardcode uploadedByUserId since we don't have auth yet
-    const uploadedByUserId = "00000000-0000-0000-0000-000000000000"; // placeholder UUID
+    const uploadedByUserId = "00000000-0000-0000-0000-000000000000"; // placeholder uuid
 
     // call service to create video with parsed data and uploadedByUserId
-    const video = await videosService.createVideo({ ...parsed.data, uploadedByUserId });
+    const video = await videosService.createVideo({ 
+      ...parsed.data, 
+      uploadedByUserId 
+    });
 
     res.status(201).json(video);
   } catch (error) {
@@ -61,7 +90,20 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PUT /domain/videos/:id - update video status or metadata
+/**
+ * PUT /domain/videos/:id - update video status or metadata
+ *
+ * @param id - uuid of the video to update
+ * 
+ * @body status - (optional) new processing status
+ * @body durationSeconds - (optional) updated video length
+ * @body takenAt - (optional) updated recording timestamp
+ * 
+ * @returns 200 with the updated video
+ * @returns 400 if request body fails validation
+ * @returns 404 if no video with that id exists
+ * @returns 500 if update fails
+ */
 router.put("/:id", async (req, res) => {
   try {
     // validate request body with zod schema
@@ -84,7 +126,15 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE /domain/videos/:id - delete video
+/**
+ * DELETE /domain/videos/:id - permanently deletes a video by its uuid
+ *
+ * @param id - uuid of the video to delete
+ * 
+ * @returns 204 No Content on success
+ * @returns 404 if no video with that id exists
+ * @returns 500 if deletion fails
+ */
 router.delete("/:id", async (req, res) => {
   try {
     // call service to delete video
@@ -103,7 +153,13 @@ router.delete("/:id", async (req, res) => {
 
 export default router;
 
-// helper function to check if error is a Prisma "not found" error
+/**
+ * checks whether an error is a Prisma "record not found" error (P2025)
+ *
+ * @param error - the caught error to check
+ * 
+ * @returns true if the error has code P2025
+ */
 function isPrismaNotFound(error: unknown): boolean {
   return (
     typeof error === "object" &&
