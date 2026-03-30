@@ -57,6 +57,37 @@ router.get("/", async (req, res) => {
 });
 
 /**
+ * GET /:id - Get a specific review site with statistics (admin-only)
+ *
+ * @header admin-secret - Required. Must match ADMIN_SECRET env var.
+ * @param {string} id - The ID of the site
+ *
+ * @returns {object} 200 - Site object with stats (userCount, patientCount, studyCount)
+ * @throws {AppError} 400 - { error: string } on validation error
+ * @throws {AppError} 401 - { error: "Unauthorized" } if admin-secret invalid
+ * @throws {AppError} 404 - { error: string } if site not found
+ *
+ * @todo Replace admin-secret with authenticated admin route once real admins exist
+ */
+router.get("/:id", async (req, res) => {
+    const adminSecret = req.headers["admin-secret"];
+    if (adminSecret !== process.env.ADMIN_SECRET) {
+        throw AppError.unauthorized();
+    }
+
+    // Parse and validate request params at the HTTP boundary
+    // Throws ZodError on failure — caught by errorHandler
+    const { id } = z.object({ id: z.uuid("Invalid site ID") }).parse(req.params);
+    
+    const site = await siteService.getSiteWithStats(id);
+    if (!site) {
+        throw AppError.notFound("Site not found");
+    }
+
+    res.status(200).json(site);
+});
+
+/**
  * DELETE /:id - Delete an existing review site (admin-only)
  *
  * @header admin-secret - Required. Must match ADMIN_SECRET env var.

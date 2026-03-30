@@ -67,3 +67,44 @@ export async function getSites(filters: GetSitesInput) {
     // If no filters apply, fetch all sites
     return await prisma.site.findMany();
 }
+
+/**
+ * Gets a specific review site with its associated statistics.
+ *
+ * @param id - The ID of the site
+ * @returns Site object with userCount, patientCount, and studyCount
+ * @throws {Error} If database operation fails
+ */
+export async function getSiteWithStats(id: string) {
+    const site = await prisma.site.findUnique({
+        where: { id },
+        include: {
+            _count: {
+                select: {
+                    patients: true,
+                    siteStudies: true,
+                },
+            },
+        },
+    });
+
+    if (!site) {
+        return null;
+    }
+
+    const userCount = await prisma.userPermission.count({
+        where: {
+            resourceId: id,
+            resourceType: resource_type.SITE,
+        },
+    });
+
+    const { _count, ...siteData } = site;
+
+    return {
+        ...siteData,
+        patientCount: _count.patients,
+        studyCount: _count.siteStudies,
+        userCount,
+    };
+}
