@@ -51,6 +51,12 @@ Server runs at `http://localhost:8080`
 ```
 src/
 ├── index.js              # Express app entry point
+├── __tests__/            # Backend test suite
+│   ├── setup.ts          # Shared Vitest setup
+│   ├── helpers/          # Fixtures and mock reset helpers
+│   ├── unit/             # Unit tests for services and middleware
+│   ├── http/             # Router-level HTTP tests with Supertest
+│   └── example/          # Demo suite with mixed passing and failing tests
 ├── domains/              # Feature modules
 │   ├── auth/             # Authentication (invite, activate)
 │   ├── videos/           # Video management
@@ -65,6 +71,86 @@ src/
 └── generated/            # Generated code (gitignored)
     └── prisma/           # Prisma client
 ```
+
+## Testing
+
+Backend tests use `Vitest` as the test runner and `Supertest` for router-level
+HTTP requests against a minimal Express app.
+
+### Commands
+
+```bash
+npm test
+npm run test:unit
+npm run test:http
+npm run test:example
+```
+
+- `npm test`: runs the full backend test suite
+- `npm run test:unit`: runs unit tests only
+- `npm run test:http`: runs router-level HTTP tests only
+- `npm run test:example`: runs a small demo suite with both passing tests and
+  intentional failures
+
+### Test structure
+
+```text
+src/__tests__/
+├── setup.ts
+├── helpers/
+│   ├── auth-mock.ts
+│   ├── fixtures.ts
+│   ├── prisma-mock.ts
+│   └── test-app.ts
+├── unit/
+│   ├── auth.service.test.ts
+│   ├── errors.test.ts
+│   └── videos.service.test.ts
+├── example/
+│   ├── auth.router.example.test.ts
+│   └── auth.service.example.test.ts
+└── http/
+    ├── auth.router.test.ts
+    └── videos.router.test.ts
+```
+
+### What is covered
+
+- `unit/` tests cover middleware and service logic in isolation
+- `http/` tests cover request validation, status codes, and router-to-service
+  contracts using the real routers
+- the current backend suite covers `errors`, `videos.service`, `auth.service`,
+  `videos.router`, and `auth.router`
+- `example/` contains a small demo suite for showing how Vitest reports a mix
+  of passing tests and realistic failures
+
+### What is not covered
+
+- these tests are not DB-backed integration tests
+- Prisma and Better Auth are mocked in unit tests
+- router tests mock the service layer and do not connect to a real database
+- `example/` is not part of the normal passing suite and should not be treated
+  as a release gate
+
+### Mocking approach
+
+- service tests use inline `vi.hoisted()` mocks so mocked modules are defined
+  before the module under test is imported
+- helper files mainly provide mock reset functions, typed mock shapes, fixtures,
+  and the minimal Express app used by router tests
+- `src/__tests__/setup.ts` sets stable test-only environment defaults and resets
+  Vitest mocks after each test
+
+### Example suite
+
+- `npm run test:example` uses `vitest.example.config.ts`
+- the normal `npm test` command uses `vitest.config.ts`
+- the normal config excludes `src/__tests__/example/**/*.test.ts` so the main
+  suite stays green
+- the example suite is intentionally separate because it includes tests that are
+  expected to fail
+- the current example failures demonstrate how invite emails with surrounding
+  spaces fail schema validation before service-level trimming/normalization runs
 
 ## API endpoints
 
