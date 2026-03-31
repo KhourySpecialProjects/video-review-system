@@ -72,4 +72,12 @@ describe("videos.types", () => {
 
     expect(result.success).toBe(false);
   });
+
+  it("rejects empty update payloads", () => {
+    // Input: updateVideoSchema receives {}.
+    // Expected: parsing fails because at least one updatable field is required.
+    const result = updateVideoSchema.safeParse({});
+
+    expect(result.success).toBe(false);
+  });
 });

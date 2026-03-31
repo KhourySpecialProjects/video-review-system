@@ -1,5 +1,7 @@
+import express from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fileURLToPath } from "url";
 
 const appMocks = vi.hoisted(() => {
   const betterAuthHandler = vi.fn((req, res) => {
@@ -132,6 +134,56 @@ describe("app wiring", () => {
     expect(appMocks.toNodeHandler).toHaveBeenCalledWith(appMocks.auth);
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ route: "better-auth" });
+  });
+
+  it("startServer listens on the provided port and logs it", async () => {
+    // Input: startServer(4321) is called.
+    // Expected: the shared app instance starts listening on port 4321 and logs
+    // the chosen port.
+    const { app, startServer } = await import("../../index.ts");
+    const server = { close: vi.fn() };
+    const listenSpy = vi
+      .spyOn(app, "listen")
+      .mockImplementation(((port, callback) => {
+        callback?.();
+        return server as never;
+      }) as typeof app.listen);
+    const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    expect(startServer(4321)).toBe(server);
+    expect(listenSpy).toHaveBeenCalledWith(4321, expect.any(Function));
+    expect(consoleLogSpy).toHaveBeenCalledWith("Listening on port 4321");
+  });
+
+  it("starts the server automatically when the module is executed directly", async () => {
+    // Input: index.ts is imported fresh with process.argv[1] pointing at the
+    // module path.
+    // Expected: the direct-run guard calls startServer using the configured
+    // PORT value.
+    const originalArgv1 = process.argv[1];
+    const originalPort = process.env.PORT;
+    const modulePath = fileURLToPath(new URL("../../index.ts", import.meta.url));
+    const server = { close: vi.fn() };
+    const listenSpy = vi
+      .spyOn(express.application, "listen")
+      .mockImplementation(((port, callback) => {
+        callback?.();
+        return server as never;
+      }) as typeof express.application.listen);
+    const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    process.argv[1] = modulePath;
+    process.env.PORT = "4322";
+
+    try {
+      await import("../../index.ts");
+
+      expect(listenSpy).toHaveBeenCalledWith("4322", expect.any(Function));
+      expect(consoleLogSpy).toHaveBeenCalledWith("Listening on port 4322");
+    } finally {
+      process.argv[1] = originalArgv1;
+      process.env.PORT = originalPort;
+    }
   });
 
   // ========= Shared Error Handling =========

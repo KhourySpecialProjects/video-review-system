@@ -116,6 +116,36 @@ describe("videos.service", () => {
     });
   });
 
+  it("creates a video with null metadata when optional fields are omitted", async () => {
+    // Input: createVideo(...) receives only the required patient/uploader data.
+    // Expected: Prisma stores null for the optional duration and timestamp
+    // fields.
+    const input = {
+      patientId: "550e8400-e29b-41d4-a716-446655440000",
+      uploadedByUserId: "user-123",
+    } as Parameters<typeof createVideo>[0];
+    const createdVideo = makeVideo({
+      status: "UPLOADING",
+      durationSeconds: null,
+      takenAt: null,
+      createdAt: null,
+    });
+
+    prismaMock.video.create.mockResolvedValue(createdVideo);
+
+    await expect(createVideo(input)).resolves.toEqual(createdVideo);
+    expect(prismaMock.video.create).toHaveBeenCalledWith({
+      data: {
+        patientId: input.patientId,
+        uploadedByUserId: "user-123",
+        status: "UPLOADING",
+        durationSeconds: null,
+        createdAt: null,
+        takenAt: null,
+      },
+    });
+  });
+
   // ========= updateVideo =========
 
   it("updates a video by id", async () => {

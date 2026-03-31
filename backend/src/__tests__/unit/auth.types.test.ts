@@ -35,6 +35,21 @@ describe("auth.types", () => {
     expect(createInviteSchema.parse(payload)).toEqual(payload);
   });
 
+  it("normalizes invite emails by trimming whitespace and lowercasing", () => {
+    // Input: createInviteSchema receives " Invitee@Example.com ".
+    // Expected: parsing succeeds and the email becomes
+    // "invitee@example.com".
+    expect(
+      createInviteSchema.parse({
+        email: " Invitee@Example.com ",
+        role: "CAREGIVER",
+      }),
+    ).toEqual({
+      email: "invitee@example.com",
+      role: "CAREGIVER",
+    });
+  });
+
   it("rejects invite payloads with an invalid email", () => {
     // Input: createInviteSchema receives email "bad-email".
     // Expected: parsing fails because the email is not valid.
@@ -51,17 +66,19 @@ describe("auth.types", () => {
   it("accepts a valid activation payload", () => {
     // Input: activateInviteSchema receives a valid token, name, email, and
     // password.
-    // Expected: the payload parses successfully and trims the name field.
+    // Expected: the payload parses successfully, trims the name field, and
+    // normalizes the email.
     const payload = {
       token: "invite-token",
       name: " Test User ",
-      email: "invitee@example.com",
+      email: " Invitee@Example.com ",
       password: "securepassword123",
     };
 
     expect(activateInviteSchema.parse(payload)).toEqual({
       ...payload,
       name: "Test User",
+      email: "invitee@example.com",
     });
   });
 

@@ -1,5 +1,6 @@
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client.js";
 import { createTestApp } from "../helpers/test-app.js";
 import {
   makeCreateVideoInput,
@@ -59,6 +60,51 @@ describe("videos.router", () => {
     expect(videosServiceMock.listVideos).toHaveBeenCalledWith({
       limit: 5,
       offset: 10,
+    });
+  });
+
+  it("GET /domain/videos uses default pagination when query params are omitted", async () => {
+    // Input: GET /domain/videos without limit or offset.
+    // Expected: the route passes the default values 20 and 0 to the service.
+    const payload = {
+      videos: [],
+      total: 0,
+      limit: 20,
+      offset: 0,
+    };
+
+    videosServiceMock.listVideos.mockResolvedValue(payload);
+
+    const response = await request(app).get("/domain/videos");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(payload);
+    expect(videosServiceMock.listVideos).toHaveBeenCalledWith({
+      limit: 20,
+      offset: 0,
+    });
+  });
+
+  it("GET /domain/videos falls back to safe defaults for invalid query params", async () => {
+    // Input: GET /domain/videos?limit=abc&offset=-5.
+    // Expected: invalid pagination values are replaced with the route defaults.
+    const payload = {
+      videos: [],
+      total: 0,
+      limit: 20,
+      offset: 0,
+    };
+
+    videosServiceMock.listVideos.mockResolvedValue(payload);
+
+    const response = await request(app)
+      .get("/domain/videos")
+      .query({ limit: "abc", offset: "-5" });
+
+    expect(response.status).toBe(200);
+    expect(videosServiceMock.listVideos).toHaveBeenCalledWith({
+      limit: 20,
+      offset: 0,
     });
   });
 
@@ -185,6 +231,46 @@ describe("videos.router", () => {
     expect(videosServiceMock.updateVideo).not.toHaveBeenCalled();
   });
 
+  it("PUT /domain/videos/:id rejects empty update payloads", async () => {
+    // Input: PUT /domain/videos/:id with an empty JSON body.
+    // Expected: the route returns status 400 and does not call the update
+    // service.
+    const response = await request(app)
+      .put("/domain/videos/22222222-2222-2222-2222-222222222222")
+      .send({});
+
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({
+      status: "error",
+      statusCode: 400,
+      message: "Validation failed",
+    });
+    expect(videosServiceMock.updateVideo).not.toHaveBeenCalled();
+  });
+
+  it("PUT /domain/videos/:id returns 404 when the service surfaces a Prisma not-found error", async () => {
+    // Input: PUT /domain/videos/:id when Prisma reports P2025.
+    // Expected: the shared error handler converts the error into a 404
+    // response.
+    videosServiceMock.updateVideo.mockRejectedValue(
+      new PrismaClientKnownRequestError("missing", {
+        code: "P2025",
+        clientVersion: "test",
+      }),
+    );
+
+    const response = await request(app)
+      .put("/domain/videos/22222222-2222-2222-2222-222222222222")
+      .send({ status: "READY" });
+
+    expect(response.status).toBe(404);
+    expect(response.body).toMatchObject({
+      status: "error",
+      statusCode: 404,
+      message: "Resource not found",
+    });
+  });
+
   // ========= DELETE /domain/videos/:id =========
 
   it("DELETE /domain/videos/:id returns 204 after delegating to the service", async () => {
@@ -200,5 +286,28 @@ describe("videos.router", () => {
     expect(response.status).toBe(204);
     expect(response.text).toBe("");
     expect(videosServiceMock.deleteVideo).toHaveBeenCalledWith(id);
+  });
+
+  it("DELETE /domain/videos/:id returns 404 when the service surfaces a Prisma not-found error", async () => {
+    // Input: DELETE /domain/videos/:id when Prisma reports P2025.
+    // Expected: the shared error handler converts the error into a 404
+    // response.
+    videosServiceMock.deleteVideo.mockRejectedValue(
+      new PrismaClientKnownRequestError("missing", {
+        code: "P2025",
+        clientVersion: "test",
+      }),
+    );
+
+    const response = await request(app).delete(
+      "/domain/videos/22222222-2222-2222-2222-222222222222",
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.body).toMatchObject({
+      status: "error",
+      statusCode: 404,
+      message: "Resource not found",
+    });
   });
 });

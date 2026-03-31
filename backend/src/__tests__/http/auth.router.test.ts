@@ -44,6 +44,30 @@ describe("auth.router", () => {
     expect(authServiceMock.createInvite).not.toHaveBeenCalled();
   });
 
+  it("POST /domain/auth/invite fails closed when ADMIN_SECRET is not configured", async () => {
+    // Input: POST /domain/auth/invite when the server has no configured admin
+    // secret.
+    // Expected: the route still returns status 401 and does not call the invite
+    // service.
+    delete process.env.ADMIN_SECRET;
+    authServiceMock.createInvite.mockResolvedValue({
+      id: "invite-id",
+      token: "activation-token",
+    });
+
+    const response = await request(app)
+      .post("/domain/auth/invite")
+      .send(makeCreateInviteInput());
+
+    expect(response.status).toBe(401);
+    expect(response.body).toMatchObject({
+      status: "error",
+      statusCode: 401,
+      message: "Unauthorized",
+    });
+    expect(authServiceMock.createInvite).not.toHaveBeenCalled();
+  });
+
   it("POST /domain/auth/invite validates the body and forwards it to the service", async () => {
     // Input: POST /domain/auth/invite with a valid admin header and valid
     // invite payload.
@@ -127,6 +151,30 @@ describe("auth.router", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual(payload);
     expect(authServiceMock.activateInvite).toHaveBeenCalledWith(input);
+  });
+
+  it("POST /domain/auth/activate normalizes the email before calling the service", async () => {
+    // Input: POST /domain/auth/activate with email
+    // " Invitee@Example.com " and name " Test User ".
+    // Expected: the route forwards the parsed payload with a trimmed name and
+    // normalized email.
+    authServiceMock.activateInvite.mockResolvedValue({
+      success: true,
+      message: "Account created. Please sign in.",
+    });
+
+    const response = await request(app).post("/domain/auth/activate").send({
+      ...makeActivateInviteInput(),
+      name: " Test User ",
+      email: " Invitee@Example.com ",
+    });
+
+    expect(response.status).toBe(200);
+    expect(authServiceMock.activateInvite).toHaveBeenCalledWith({
+      ...makeActivateInviteInput(),
+      name: "Test User",
+      email: "invitee@example.com",
+    });
   });
 
   it("POST /domain/auth/activate rejects invalid payloads before the service is called", async () => {

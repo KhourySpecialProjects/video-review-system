@@ -134,6 +134,52 @@ describe("auth.service", () => {
     });
   });
 
+  it("stores the hash of the returned token and a 24-hour expiration", async () => {
+    // Input: createInvite(...) succeeds at a fixed clock time.
+    // Expected: Prisma stores the SHA-256 hash of the returned token and an
+    // expiration exactly 24 hours in the future.
+    const invitation = makeInvitation();
+    const now = new Date("2026-03-31T12:00:00.000Z");
+
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    prismaMock.invitation.create.mockResolvedValue(invitation);
+
+    try {
+      const result = await createInvite(makeCreateInviteInput());
+      const persistedInvite = prismaMock.invitation.create.mock.calls[0][0].data;
+
+      expect(persistedInvite.tokenHash).toBe(
+        crypto.createHash("sha256").update(result.token).digest("hex"),
+      );
+      expect(persistedInvite.expiresAt).toEqual(
+        new Date(now.getTime() + 24 * 60 * 60 * 1000),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not return or log the activation token in production", async () => {
+    // Input: createInvite(...) succeeds while NODE_ENV is "production".
+    // Expected: the response only exposes the invitation id and the service
+    // does not log the dev-only token.
+    const invitation = makeInvitation();
+    const originalNodeEnv = process.env.NODE_ENV;
+
+    process.env.NODE_ENV = "production";
+    prismaMock.invitation.create.mockResolvedValue(invitation);
+
+    try {
+      await expect(createInvite(makeCreateInviteInput())).resolves.toEqual({
+        id: invitation.id,
+      });
+      expect(console.log).not.toHaveBeenCalled();
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
+  });
+
   // ========= activateInvite =========
 
   it("rejects activation when the invitation token is invalid or expired", async () => {
@@ -203,7 +249,7 @@ describe("auth.service", () => {
     });
 
     const result = await activateInvite(
-      makeActivateInviteInput({ email: "Invitee@Example.com" }),
+      makeActivateInviteInput({ email: " Invitee@Example.com " }),
     );
 
     expect(randomUuidSpy).toHaveBeenCalledTimes(2);
@@ -221,6 +267,25 @@ describe("auth.service", () => {
     expect(prismaMock.userRole.create).toHaveBeenCalledWith({
       data: { userId: "user-uuid", role: "CLINICAL_REVIEWER" },
     });
+  });
+
+  it("rejects activation when the claimed invitation cannot be loaded", async () => {
+    // Input: activateInvite(...) claims an invitation but the follow-up lookup
+    // returns null.
+    // Expected: the service rejects with the same invalid/expired invite error
+    // and does not create any user records.
+    prismaMock.invitation.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.invitation.findFirst.mockResolvedValue(null);
+
+    await expect(activateInvite(makeActivateInviteInput())).rejects.toMatchObject({
+      message: "Invalid or expired invitation",
+      statusCode: 400,
+    });
+
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+    expect(prismaMock.user.create).not.toHaveBeenCalled();
+    expect(prismaMock.account.create).not.toHaveBeenCalled();
+    expect(prismaMock.userRole.create).not.toHaveBeenCalled();
   });
 
   it("hashes the password before creating the credential account", async () => {

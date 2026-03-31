@@ -162,6 +162,27 @@ describe("errorHandler", () => {
     });
   });
 
+  it("maps Prisma unique-constraint errors to 409 responses", () => {
+    // Input: Prisma throws error code P2002 for a duplicate record.
+    // Expected: response status is 409 and the client sees
+    // "Resource already exists".
+    const { res, responseState } = createMockResponse();
+    const next = vi.fn() as NextFunction;
+    const err = new PrismaClientKnownRequestError("duplicate", {
+      code: "P2002",
+      clientVersion: "test",
+    });
+
+    errorHandler(err, {} as Request, res, next);
+
+    expect(responseState.statusCode).toBe(409);
+    expect(responseState.body).toMatchObject({
+      status: "error",
+      statusCode: 409,
+      message: "Resource already exists",
+    });
+  });
+
   it("maps malformed JSON to a 400 response", () => {
     // Input: express.json() reports malformed JSON in the request body.
     // Expected: response status is 400 and message is "Invalid JSON".
@@ -229,5 +250,30 @@ describe("errorHandler", () => {
       statusCode: 500,
       message: "Internal server error",
     });
+  });
+
+  it("omits stack traces from AppError responses in production", () => {
+    // Input: the middleware receives an AppError while NODE_ENV is
+    // "production".
+    // Expected: the response keeps the error metadata but excludes the stack
+    // trace.
+    const { res, responseState } = createMockResponse();
+    const next = vi.fn() as NextFunction;
+    const originalNodeEnv = process.env.NODE_ENV;
+
+    process.env.NODE_ENV = "production";
+
+    try {
+      errorHandler(AppError.badRequest("Bad payload"), {} as Request, res, next);
+
+      expect(responseState.statusCode).toBe(400);
+      expect(responseState.body).toEqual({
+        status: "error",
+        statusCode: 400,
+        message: "Bad payload",
+      });
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
   });
 });
