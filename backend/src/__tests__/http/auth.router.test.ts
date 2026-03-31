@@ -25,10 +25,12 @@ describe("auth.router", () => {
     process.env.ADMIN_SECRET = "test-admin-secret";
   });
 
+  // ========= POST /domain/auth/invite =========
+
   it("POST /domain/auth/invite requires the admin-secret header", async () => {
-    // POST /domain/auth/invite should return 401 when the request does not
-    // include the correct `admin-secret` header, and it should not call the
-    // invite service.
+    // Input: POST /domain/auth/invite without the admin-secret header.
+    // Expected: the route returns status 401 and does not call the invite
+    // service.
     const response = await request(app)
       .post("/domain/auth/invite")
       .send(makeCreateInviteInput());
@@ -43,8 +45,10 @@ describe("auth.router", () => {
   });
 
   it("POST /domain/auth/invite validates the body and forwards it to the service", async () => {
-    // POST /domain/auth/invite should accept a valid admin header and request
-    // body, call the service with that body, and return the service result.
+    // Input: POST /domain/auth/invite with a valid admin header and valid
+    // invite payload.
+    // Expected: the route calls the invite service with the same payload and
+    // returns the service result.
     const input = makeCreateInviteInput();
     const payload = { id: "invite-id", token: "activation-token" };
 
@@ -61,8 +65,9 @@ describe("auth.router", () => {
   });
 
   it("POST /domain/auth/invite rejects invalid payloads before the service is called", async () => {
-    // POST /domain/auth/invite should return 400 for an invalid email or role,
-    // even when the admin header is correct, and it should not call the invite
+    // Input: POST /domain/auth/invite with valid admin header but invalid email
+    // and role values.
+    // Expected: the route returns status 400 and does not call the invite
     // service.
     const response = await request(app)
       .post("/domain/auth/invite")
@@ -78,9 +83,35 @@ describe("auth.router", () => {
     expect(authServiceMock.createInvite).not.toHaveBeenCalled();
   });
 
+  it("POST /domain/auth/invite accepts emails with surrounding spaces after normalization", async () => {
+    // Input: POST /domain/auth/invite with valid admin header and email
+    // " Invitee@Example.com ".
+    // Expected: the route accepts the request, normalizes the email to
+    // "invitee@example.com", passes the normalized payload to the service, and
+    // returns status 200.
+    authServiceMock.createInvite.mockResolvedValue({
+      id: "invite-id",
+      token: "activation-token",
+    });
+
+    const response = await request(app)
+      .post("/domain/auth/invite")
+      .set("admin-secret", "test-admin-secret")
+      .send(makeCreateInviteInput({ email: " Invitee@Example.com " }));
+
+    expect(response.status).toBe(200);
+    expect(authServiceMock.createInvite).toHaveBeenCalledWith({
+      email: "invitee@example.com",
+      role: "CAREGIVER",
+    });
+  });
+
+  // ========= POST /domain/auth/activate =========
+
   it("POST /domain/auth/activate validates the body and forwards it to the service", async () => {
-    // POST /domain/auth/activate should accept a valid body, call the
-    // activation service with that body, and return the service response.
+    // Input: POST /domain/auth/activate with a valid activation payload.
+    // Expected: the route calls the activation service with the same payload
+    // and returns the service response.
     const input = makeActivateInviteInput();
     const payload = {
       success: true,
@@ -99,8 +130,10 @@ describe("auth.router", () => {
   });
 
   it("POST /domain/auth/activate rejects invalid payloads before the service is called", async () => {
-    // POST /domain/auth/activate should return 400 when token, name, email, or
-    // password are invalid, and it should not call the activation service.
+    // Input: POST /domain/auth/activate with invalid token, name, email, and
+    // password values.
+    // Expected: the route returns status 400 and does not call the activation
+    // service.
     const response = await request(app).post("/domain/auth/activate").send({
       token: "",
       name: " ",

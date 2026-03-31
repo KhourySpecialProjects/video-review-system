@@ -66,8 +66,9 @@ describe("auth.service", () => {
     resetAuthPrismaMock(prismaMock);
     resetAuthMock(authMock);
 
-    // The service uses Prisma's callback transaction form, so unit tests route
-    // that callback back into the same hoisted mock object.
+    // Input: auth.service.ts uses Prisma's callback transaction form.
+    // Expected: the unit test routes that callback back into the same hoisted
+    // Prisma mock so transaction calls stay observable.
     prismaMock.$transaction.mockImplementation(
       async (callback: (tx: AuthPrismaMock) => Promise<unknown>) =>
         callback(prismaMock),
@@ -76,10 +77,12 @@ describe("auth.service", () => {
     vi.spyOn(console, "log").mockImplementation(() => undefined);
   });
 
+  // ========= createInvite =========
+
   it("creates an invitation and normalizes the email before storage", async () => {
-    // createInvite(...) should generate a token, lowercase the email before
-    // saving it, create the invitation record in Prisma, and return the invite
-    // ID plus token in non-production mode.
+    // Input: createInvite(...) receives "Invitee@Example.com".
+    // Expected: the token is generated, the stored email becomes
+    // "invitee@example.com", and the response returns the invite ID plus token.
     const invitation = makeInvitation();
     const randomBytesSpy = vi
       .spyOn(crypto, "randomBytes")
@@ -108,10 +111,36 @@ describe("auth.service", () => {
     });
   });
 
+  it("accepts invite emails with surrounding spaces after normalization", async () => {
+    // Input: createInvite(...) receives " Invitee@Example.com ".
+    // Expected: the email is trimmed and lowercased to
+    // "invitee@example.com", the invitation is created, and the response
+    // returns the invite ID plus token.
+    const invitation = makeInvitation();
+
+    prismaMock.invitation.create.mockResolvedValue(invitation);
+
+    await expect(
+      createInvite(makeCreateInviteInput({ email: " Invitee@Example.com " })),
+    ).resolves.toEqual({
+      id: invitation.id,
+      token: expect.any(String),
+    });
+
+    expect(prismaMock.invitation.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        email: "invitee@example.com",
+      }),
+    });
+  });
+
+  // ========= activateInvite =========
+
   it("rejects activation when the invitation token is invalid or expired", async () => {
-    // activateInvite(...) should stop immediately with
-    // "Invalid or expired invitation" when no invitation record is claimed.
-    // No user, account, or role records should be created.
+    // Input: activateInvite(...) tries to claim an invitation but Prisma
+    // reports count 0.
+    // Expected: the service rejects with "Invalid or expired invitation" and
+    // no user, account, or role records are created.
     prismaMock.invitation.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(activateInvite(makeActivateInviteInput())).rejects.toMatchObject({
@@ -124,9 +153,10 @@ describe("auth.service", () => {
   });
 
   it("rejects activation when the email is already registered", async () => {
-    // activateInvite(...) should fail with a 409 conflict error when the invite
-    // is valid but the email already belongs to an existing user. No account or
-    // role record should be created.
+    // Input: activateInvite(...) claims the invitation but finds an existing
+    // user for the normalized email.
+    // Expected: the service rejects with a 409 conflict and no account or role
+    // record is created.
     prismaMock.invitation.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.invitation.findFirst.mockResolvedValue(makeInvitation());
     prismaMock.user.findUnique.mockResolvedValue(
@@ -150,8 +180,10 @@ describe("auth.service", () => {
   });
 
   it("activates an invitation successfully", async () => {
-    // activateInvite(...) should claim the invitation, create the user,
-    // credential account, and user role, then return the final success payload.
+    // Input: activateInvite(...) receives a valid invite token, new email, and
+    // password.
+    // Expected: the invitation is claimed, the user/account/role records are
+    // created, and the success payload is returned.
     const randomUuidSpy = vi
       .spyOn(crypto, "randomUUID")
       .mockReturnValueOnce("user-uuid")
@@ -192,8 +224,9 @@ describe("auth.service", () => {
   });
 
   it("hashes the password before creating the credential account", async () => {
-    // The raw password should be hashed before account creation, and the stored
-    // account record should receive the hashed password value.
+    // Input: activateInvite(...) receives raw password "super-secret-123".
+    // Expected: the password is hashed first and the account record stores the
+    // hashed value instead of the raw password.
     prismaMock.invitation.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.invitation.findFirst.mockResolvedValue(makeInvitation());
     prismaMock.user.findUnique.mockResolvedValue(null);
