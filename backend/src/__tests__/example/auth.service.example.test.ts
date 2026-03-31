@@ -62,8 +62,9 @@ describe("example auth service checks", () => {
   });
 
   it("keeps the existing invite creation behavior green for valid emails", async () => {
-    // createInvite(...) should still lowercase a valid email and return the
-    // invite ID plus token in non-production mode.
+    // Input: createInvite(...) receives "Invitee@Example.com".
+    // Expected: the stored email becomes "invitee@example.com" and the
+    // response returns the invite ID plus token.
     vi.spyOn(crypto, "randomBytes").mockReturnValue(Buffer.alloc(32, 3));
     prismaMock.invitation.create.mockResolvedValue(makeInvitation());
 
@@ -83,9 +84,10 @@ describe("example auth service checks", () => {
   });
 
   it("shows the current bug when invite emails contain surrounding spaces", async () => {
-    // Surrounding spaces in the email currently fail validation before the
-    // service can trim and normalize the value. A developer reading this
-    // failure can trace it to schema validation happening before `trim()`.
+    // Input: createInvite(...) receives " Invitee@Example.com ".
+    // Expected: the email is trimmed and lowercased to
+    // "invitee@example.com", the invitation is created, and the response
+    // returns the invite ID plus token.
     prismaMock.invitation.create.mockResolvedValue(makeInvitation());
 
     await expect(
@@ -103,7 +105,9 @@ describe("example auth service checks", () => {
   });
 
   it("keeps AppError factory behavior green in the example suite", () => {
-    // AppError.notFound(...) should still produce a 404 error object.
+    // Input: AppError.notFound("Missing video") is created.
+    // Expected: the returned AppError uses status code 404 and keeps the same
+    // message.
     expect(AppError.notFound("Missing video")).toMatchObject({
       message: "Missing video",
       statusCode: 404,

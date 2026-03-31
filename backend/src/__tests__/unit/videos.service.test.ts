@@ -39,9 +39,12 @@ describe("videos.service", () => {
     resetVideosPrismaMock(prismaMock);
   });
 
+  // ========= listVideos =========
+
   it("lists videos with pagination and total count", async () => {
-    // listVideos(...) should request a paginated video list and the total count
-    // from Prisma, then return both values together with the given limit/offset.
+    // Input: listVideos(...) is called with limit 5 and offset 10.
+    // Expected: Prisma receives the same pagination values, the total count is
+    // queried separately, and the service returns both values together.
     const videos = [makeVideo(), makeVideo({ id: "44444444-4444-4444-4444-444444444444" })];
 
     prismaMock.video.findMany.mockResolvedValue(videos);
@@ -63,9 +66,12 @@ describe("videos.service", () => {
     });
   });
 
+  // ========= getVideoById =========
+
   it("gets a video by id", async () => {
-    // getVideoById(...) should query Prisma with the given ID and return the
-    // exact video object Prisma returns.
+    // Input: getVideoById(...) receives a video ID.
+    // Expected: Prisma is queried with that ID and the same video object is
+    // returned from the service.
     const video = makeVideo();
 
     prismaMock.video.findUnique.mockResolvedValue(video);
@@ -76,9 +82,12 @@ describe("videos.service", () => {
     });
   });
 
+  // ========= createVideo =========
+
   it("creates a video with normalized Prisma data", async () => {
-    // createVideo(...) should set status to "UPLOADING", convert incoming date
-    // strings into Date objects, and pass the final shaped payload to Prisma.
+    // Input: createVideo(...) receives string dates and uploader metadata.
+    // Expected: status becomes "UPLOADING", date strings become Date objects,
+    // and Prisma receives the shaped payload.
     const input = {
       ...makeCreateVideoInput({
         durationSeconds: 90,
@@ -107,9 +116,12 @@ describe("videos.service", () => {
     });
   });
 
+  // ========= updateVideo =========
+
   it("updates a video by id", async () => {
-    // updateVideo(...) should send the target video ID and the exact update
-    // payload to Prisma.update(...).
+    // Input: updateVideo(...) receives a video ID and a status patch.
+    // Expected: Prisma.update(...) receives the same ID and the same patch
+    // object.
     const input = makeUpdateVideoInput({ status: "PROCESSING" });
     const updatedVideo = makeVideo({ status: "PROCESSING" });
 
@@ -122,9 +134,12 @@ describe("videos.service", () => {
     });
   });
 
+  // ========= deleteVideo =========
+
   it("deletes a video by id", async () => {
-    // deleteVideo(...) should call Prisma.delete(...) with the requested ID and
-    // return without adding extra behavior.
+    // Input: deleteVideo(...) receives a video ID.
+    // Expected: Prisma.delete(...) is called with that ID and the service
+    // returns without extra behavior.
     const id = "55555555-5555-5555-5555-555555555555";
 
     prismaMock.video.delete.mockResolvedValue(undefined);

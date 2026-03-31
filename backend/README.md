@@ -104,12 +104,17 @@ src/__tests__/
 │   └── test-app.ts
 ├── unit/
 │   ├── auth.service.test.ts
+│   ├── auth.types.test.ts
 │   ├── errors.test.ts
+│   ├── lib.auth.test.ts
+│   ├── lib.prisma.test.ts
 │   └── videos.service.test.ts
+│   └── videos.types.test.ts
 ├── example/
 │   ├── auth.router.example.test.ts
 │   └── auth.service.example.test.ts
 └── http/
+    ├── app.test.ts
     ├── auth.router.test.ts
     └── videos.router.test.ts
 ```
@@ -119,8 +124,13 @@ src/__tests__/
 - `unit/` tests cover middleware and service logic in isolation
 - `http/` tests cover request validation, status codes, and router-to-service
   contracts using the real routers
-- the current backend suite covers `errors`, `videos.service`, `auth.service`,
-  `videos.router`, and `auth.router`
+- the current backend suite covers:
+  - `errors`
+  - `videos.service` and `videos.types`
+  - `auth.service` and `auth.types`
+  - `lib/prisma` and `lib/auth`
+  - app wiring in `src/index.ts`
+  - `videos.router` and `auth.router`
 - `example/` contains a small demo suite for showing how Vitest reports a mix
   of passing tests and realistic failures
 
@@ -151,6 +161,16 @@ src/__tests__/
   expected to fail
 - the current example failures demonstrate how invite emails with surrounding
   spaces fail schema validation before service-level trimming/normalization runs
+
+### Current known failing tests
+
+- the main suite currently includes two intentional failing tests for invite
+  emails with surrounding spaces
+- expected behavior: `" Invitee@Example.com "` should be accepted, trimmed,
+  lowercased, and persisted as `"invitee@example.com"`
+- current behavior: validation fails before trimming/normalization runs
+- these failures are in the main suite on purpose so the bug stays visible and
+  can be tracked in a follow-up ticket
 
 ## API endpoints
 

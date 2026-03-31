@@ -23,8 +23,9 @@ describe("example auth router checks", () => {
   });
 
   it("keeps the existing unauthorized invite behavior green", async () => {
-    // POST /domain/auth/invite should still return 401 when the admin-secret
-    // header is missing.
+    // Input: POST /domain/auth/invite without the admin-secret header.
+    // Expected: the route returns status 401 and does not call the invite
+    // service.
     const response = await request(app)
       .post("/domain/auth/invite")
       .send(makeCreateInviteInput());
@@ -34,9 +35,11 @@ describe("example auth router checks", () => {
   });
 
   it("shows the current router behavior for invite emails with surrounding spaces", async () => {
-    // A request with a valid admin header but an email wrapped in spaces
-    // currently fails at schema validation. If a developer expected trimming at
-    // the HTTP boundary, this failure points to the invite schema/router path.
+    // Input: POST /domain/auth/invite with valid admin header and email
+    // " Invitee@Example.com ".
+    // Expected: the route accepts the request, normalizes the email to
+    // "invitee@example.com", passes the normalized payload to the service, and
+    // returns status 200.
     authServiceMock.createInvite.mockResolvedValue({
       id: "invite-id",
       token: "activation-token",

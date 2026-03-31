@@ -37,9 +37,13 @@ function createMockResponse() {
 }
 
 describe("AppError", () => {
+  // ========= AppError Factories =========
+
   it("creates factory errors with the expected status codes", () => {
-    // AppError helper methods should create the expected message and HTTP
-    // status code. Example: AppError.notFound(...) should create a 404 error.
+    // Input: AppError helper methods are called with default and custom
+    // messages.
+    // Expected: each helper returns an AppError with the matching message and
+    // HTTP status code.
     expect(AppError.badRequest("bad input")).toMatchObject({
       message: "bad input",
       statusCode: 400,
@@ -69,8 +73,11 @@ describe("AppError", () => {
 });
 
 describe("notFoundHandler", () => {
+  // ========= notFoundHandler =========
+
   it("forwards a 404 AppError to the next middleware", () => {
-    // Unmatched routes should call next(...) with a 404 AppError instead of
+    // Input: request falls through with no matching route.
+    // Expected: next(...) receives a 404 AppError instead of the middleware
     // sending a response directly.
     const next = vi.fn() as NextFunction;
 
@@ -86,9 +93,12 @@ describe("notFoundHandler", () => {
 });
 
 describe("errorHandler", () => {
+  // ========= errorHandler =========
+
   it("formats AppError responses", () => {
-    // AppError.badRequest("Bad payload") should become a 400 response with the
-    // same message in the JSON body.
+    // Input: the middleware receives AppError.badRequest("Bad payload").
+    // Expected: response status is 400 and the JSON body keeps the same error
+    // message.
     const { res, responseState } = createMockResponse();
     const next = vi.fn() as NextFunction;
     const err = AppError.badRequest("Bad payload");
@@ -104,8 +114,9 @@ describe("errorHandler", () => {
   });
 
   it("formats Zod validation errors", () => {
-    // Zod schema failures should become a 400 response with message
-    // "Validation failed" and a list of field-level validation errors.
+    // Input: a Zod schema rejects the request payload.
+    // Expected: response status is 400, message is "Validation failed", and
+    // the JSON body includes field-level validation errors.
     const { res, responseState } = createMockResponse();
     const next = vi.fn() as NextFunction;
 
@@ -131,8 +142,9 @@ describe("errorHandler", () => {
   });
 
   it("maps Prisma not-found errors to 404 responses", () => {
-    // Prisma error code P2025 should become a normal API 404 response with the
-    // safe message "Resource not found".
+    // Input: Prisma throws error code P2025 for a missing record.
+    // Expected: response status is 404 and the client sees
+    // "Resource not found".
     const { res, responseState } = createMockResponse();
     const next = vi.fn() as NextFunction;
     const err = new PrismaClientKnownRequestError("missing", {
@@ -151,8 +163,8 @@ describe("errorHandler", () => {
   });
 
   it("maps malformed JSON to a 400 response", () => {
-    // Malformed JSON from express.json() should return status 400 with message
-    // "Invalid JSON".
+    // Input: express.json() reports malformed JSON in the request body.
+    // Expected: response status is 400 and message is "Invalid JSON".
     const { res, responseState } = createMockResponse();
     const next = vi.fn() as NextFunction;
     const err = new SyntaxError("Unexpected token") as SyntaxError & {
@@ -172,8 +184,10 @@ describe("errorHandler", () => {
   });
 
   it("maps unknown Prisma errors to 500 responses", () => {
-    // Unknown Prisma error codes should be logged and returned as a safe 500
-    // response with message "Internal server error".
+    // Input: Prisma throws an error code that is not mapped to a client-safe
+    // status.
+    // Expected: the error is logged and the response becomes a generic 500
+    // "Internal server error".
     const { res, responseState } = createMockResponse();
     const next = vi.fn() as NextFunction;
     const consoleErrorSpy = vi
@@ -196,8 +210,9 @@ describe("errorHandler", () => {
   });
 
   it("maps unknown errors to 500 responses", () => {
-    // Unexpected runtime errors should be logged and returned as a generic 500
-    // response without leaking internal details to the client.
+    // Input: the middleware receives an unexpected runtime error.
+    // Expected: the error is logged and the client receives a generic 500
+    // response without internal details.
     const { res, responseState } = createMockResponse();
     const next = vi.fn() as NextFunction;
     const consoleErrorSpy = vi
