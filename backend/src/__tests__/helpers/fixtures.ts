@@ -51,7 +51,7 @@ export function makeCreateVideoInput(
   overrides: Partial<CreateVideoInput> = {},
 ): CreateVideoInput {
   return {
-    patientId: "11111111-1111-1111-1111-111111111111",
+    patientId: "550e8400-e29b-41d4-a716-446655440000",
     durationSeconds: 42,
     takenAt: "2026-01-01T12:00:00.000Z",
     ...overrides,
@@ -83,8 +83,8 @@ export function makeUpdateVideoInput(
  */
 export function makeVideo(overrides: Record<string, unknown> = {}) {
   return {
-    id: "22222222-2222-2222-2222-222222222222",
-    patientId: "11111111-1111-1111-1111-111111111111",
+    id: "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
+    patientId: "550e8400-e29b-41d4-a716-446655440000",
     uploadedByUserId: "user-123",
     status: "READY",
     durationSeconds: 42,

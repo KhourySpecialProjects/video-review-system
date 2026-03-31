@@ -40,8 +40,8 @@ describe("videos.service", () => {
   });
 
   it("lists videos with pagination and total count", async () => {
-    // Verifies the service issues the two Prisma reads it promises:
-    // paginated data plus the separate total-count query used by the API.
+    // listVideos(...) should request a paginated video list and the total count
+    // from Prisma, then return both values together with the given limit/offset.
     const videos = [makeVideo(), makeVideo({ id: "44444444-4444-4444-4444-444444444444" })];
 
     prismaMock.video.findMany.mockResolvedValue(videos);
@@ -64,8 +64,8 @@ describe("videos.service", () => {
   });
 
   it("gets a video by id", async () => {
-    // Confirms ID lookup is delegated to Prisma with the expected unique filter
-    // and that the service returns Prisma's result unchanged.
+    // getVideoById(...) should query Prisma with the given ID and return the
+    // exact video object Prisma returns.
     const video = makeVideo();
 
     prismaMock.video.findUnique.mockResolvedValue(video);
@@ -77,8 +77,8 @@ describe("videos.service", () => {
   });
 
   it("creates a video with normalized Prisma data", async () => {
-    // Covers the service-layer shaping logic: default upload status plus date
-    // string conversion before the create call reaches Prisma.
+    // createVideo(...) should set status to "UPLOADING", convert incoming date
+    // strings into Date objects, and pass the final shaped payload to Prisma.
     const input = {
       ...makeCreateVideoInput({
         durationSeconds: 90,
@@ -108,8 +108,8 @@ describe("videos.service", () => {
   });
 
   it("updates a video by id", async () => {
-    // Ensures update requests preserve the caller's validated patch object and
-    // target the correct record by ID.
+    // updateVideo(...) should send the target video ID and the exact update
+    // payload to Prisma.update(...).
     const input = makeUpdateVideoInput({ status: "PROCESSING" });
     const updatedVideo = makeVideo({ status: "PROCESSING" });
 
@@ -123,8 +123,8 @@ describe("videos.service", () => {
   });
 
   it("deletes a video by id", async () => {
-    // Confirms the delete path uses the expected unique identifier and does not
-    // add extra behavior beyond Prisma's delete operation.
+    // deleteVideo(...) should call Prisma.delete(...) with the requested ID and
+    // return without adding extra behavior.
     const id = "55555555-5555-5555-5555-555555555555";
 
     prismaMock.video.delete.mockResolvedValue(undefined);
