@@ -21,7 +21,7 @@ import { Prisma } from "../../generated/prisma";
  * @field payload - (optional) JSON object with type-specific data
  */
 export const createAnnotationSchema = z.object({
-  videoId: z.string().uuid(),
+  videoId: z.uuid(),
   type: z.enum(["text_comment", "drawing_box", "freehand_drawing"]),
   timestampMs: z.number().int().min(0, "timestamp_ms cannot be negative"),
   durationMs: z.number().int().positive().optional(),

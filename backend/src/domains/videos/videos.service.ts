@@ -81,7 +81,7 @@ export async function createVideo({ patientId, uploadedByUserId, durationSeconds
  * @throws {P2025} if no video with that id exists
  */
 export async function updateVideo(id: string, data: UpdateVideoInput) {
-  // primsa will throw if video doesn't exist, can handle in the controller
+  // prisma will throw if video doesn't exist, can handle in the controller
   const video = await prisma.video.update({
     where: { id },
     data,
@@ -102,4 +102,4 @@ export async function deleteVideo(id: string) {
   });
 }
 
-// multi-parallal uploads 
+// TODO: implement multi-parallel uploads

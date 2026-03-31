@@ -1,6 +1,7 @@
 import { Router } from "express";
 import * as annotationsService from "./annotations.service";
 import { Prisma } from "../../generated/prisma/client";
+import { isPrismaNotFound } from "../../lib/prisma_errors";
 import { createAnnotationSchema, updateAnnotationSchema } from "./annotations.types";
 
 const router = Router();
@@ -162,18 +163,3 @@ router.delete("/:id", async (req, res) => {
 
 export default router;
 
-/**
- * checks whether an error is a Prisma "record not found" error (P2025)
- *
- * @param error - the caught error to check
- * 
- * @returns true if the error has code P2025
- */
-function isPrismaNotFound(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as any).code === "P2025"
-  );
-}
