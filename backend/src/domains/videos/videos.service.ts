@@ -1,4 +1,4 @@
-import prisma from "../../lib/prisma";
+import prisma from "../../lib/prisma.js";
 import type { Video } from "@prisma/client";
 import type { CreateVideoInput, UpdateVideoInput } from "./videos.types.js";
 

@@ -1,0 +1,16 @@
+import { defineConfig } from "vitest/config";
+
+/**
+ * Shared Vitest configuration for backend unit and HTTP tests.
+ *
+ * Keeps the runner in a Node environment, loads the common mock/reset setup,
+ * and scopes discovery to the backend test tree created for this suite.
+ */
+export default defineConfig({
+  test: {
+    environment: "node",
+    setupFiles: ["src/__tests__/setup.ts"],
+    include: ["src/__tests__/**/*.test.ts"],
+    passWithNoTests: true,
+  },
+});
