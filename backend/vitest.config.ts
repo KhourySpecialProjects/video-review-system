@@ -12,5 +12,26 @@ export default defineConfig({
     setupFiles: ["src/__tests__/setup.ts"],
     include: ["src/__tests__/**/*.test.ts"],
     passWithNoTests: true,
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html"],
+      reportsDirectory: "coverage",
+      reportOnFailure: true,
+      include: [
+        "src/domains/**",
+        "src/middleware/**",
+        "src/lib/**",
+        "src/config/**",
+        "src/index.ts",
+      ],
+      exclude: [
+        "src/__tests__/**",
+        "src/generated/**",
+        "src/types/**",
+        "dist/**",
+        "coverage/**",
+        "node_modules/**",
+      ],
+    },
   },
 });
