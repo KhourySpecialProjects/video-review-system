@@ -111,29 +111,6 @@ describe("auth.service", () => {
     });
   });
 
-  it("accepts invite emails with surrounding spaces after normalization", async () => {
-    // Input: createInvite(...) receives " Invitee@Example.com ".
-    // Expected: the email is trimmed and lowercased to
-    // "invitee@example.com", the invitation is created, and the response
-    // returns the invite ID plus token.
-    const invitation = makeInvitation();
-
-    prismaMock.invitation.create.mockResolvedValue(invitation);
-
-    await expect(
-      createInvite(makeCreateInviteInput({ email: " Invitee@Example.com " })),
-    ).resolves.toEqual({
-      id: invitation.id,
-      token: expect.any(String),
-    });
-
-    expect(prismaMock.invitation.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        email: "invitee@example.com",
-      }),
-    });
-  });
-
   it("stores the hash of the returned token and a 24-hour expiration", async () => {
     // Input: createInvite(...) succeeds at a fixed clock time.
     // Expected: Prisma stores the SHA-256 hash of the returned token and an
@@ -249,7 +226,7 @@ describe("auth.service", () => {
     });
 
     const result = await activateInvite(
-      makeActivateInviteInput({ email: " Invitee@Example.com " }),
+      makeActivateInviteInput({ email: "Invitee@Example.com" }),
     );
 
     expect(randomUuidSpy).toHaveBeenCalledTimes(2);

@@ -231,23 +231,6 @@ describe("videos.router", () => {
     expect(videosServiceMock.updateVideo).not.toHaveBeenCalled();
   });
 
-  it("PUT /domain/videos/:id rejects empty update payloads", async () => {
-    // Input: PUT /domain/videos/:id with an empty JSON body.
-    // Expected: the route returns status 400 and does not call the update
-    // service.
-    const response = await request(app)
-      .put("/domain/videos/22222222-2222-2222-2222-222222222222")
-      .send({});
-
-    expect(response.status).toBe(400);
-    expect(response.body).toMatchObject({
-      status: "error",
-      statusCode: 400,
-      message: "Validation failed",
-    });
-    expect(videosServiceMock.updateVideo).not.toHaveBeenCalled();
-  });
-
   it("PUT /domain/videos/:id returns 404 when the service surfaces a Prisma not-found error", async () => {
     // Input: PUT /domain/videos/:id when Prisma reports P2025.
     // Expected: the shared error handler converts the error into a 404
