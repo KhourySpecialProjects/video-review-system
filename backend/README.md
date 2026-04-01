@@ -118,6 +118,36 @@ src/__tests__/
 - `http/` tests cover request validation, status codes, and router-to-service
   contracts using the real routers
 
+### Test coverage
+
+Coverage is reported by Vitest using the V8 coverage provider. When you run
+`npm run test:coverage`, Vitest instruments the files matched in
+`backend/vitest.config.ts`, runs the normal backend suite, and writes both a
+terminal summary and an HTML report to `backend/coverage/`.
+
+- included in coverage:
+  - `src/domains/**`
+  - `src/middleware/**`
+  - `src/lib/**`
+  - `src/config/**`
+  - `src/index.ts`
+- excluded from coverage:
+  - `src/__tests__/**`
+  - `src/generated/**`
+  - `src/types/**`
+  - build output and generated reports like `dist/**` and `coverage/**`
+
+Coverage answers two questions:
+
+- which backend modules are exercised by at least one test
+- which lines and branches inside those modules are still untested
+
+The report is only as meaningful as the test ownership split above. Schema
+tests drive validation paths, service tests drive business logic paths, and
+router tests drive HTTP and middleware paths. That means a coverage gap usually
+points to a missing test in one of those layers rather than a need to duplicate
+the same assertion everywhere.
+
 ### Coverage ownership
 
 - `*.types.test.ts` owns payload validation and normalization expectations
@@ -210,7 +240,7 @@ POST /domain/auth/activate      # Activate invitation and create account
 ### 1. Create an invitation
 
 ```bash
-curl -X POST http://localhost:8080/domain/auth/invite \
+curl -X POST http://localhost:3000/domain/auth/invite \
   -H "Content-Type: application/json" \
   -H "admin-secret: YOUR_ADMIN_SECRET" \
   -d '{"email": "user@example.com", "role": "SYSADMIN"}'
@@ -221,7 +251,7 @@ Response: `{"id": "...", "token": "TOKEN_HERE"}`
 ### 2. Activate the invitation
 
 ```bash
-curl -X POST http://localhost:8080/domain/auth/activate \
+curl -X POST http://localhost:3000/domain/auth/activate \
   -H "Content-Type: application/json" \
   -d '{"token": "TOKEN_HERE", "name": "User Name", "email": "user@example.com", "password": "securepassword123"}'
 ```
@@ -231,7 +261,7 @@ Response: `{"success": true, "message": "Account created. Please sign in."}`
 ### 3. Sign in
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/sign-in/email \
+curl -X POST http://localhost:3000/api/auth/sign-in/email \
   -H "Content-Type: application/json" \
   -d '{"email": "user@example.com", "password": "securepassword123"}'
 ```
