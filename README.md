@@ -51,23 +51,36 @@ The easiest way to run the full stack locally is with Docker Compose.
 
 ### 1. Configure AWS credentials
 
+The project uses **AWS Secrets Manager** to store environment secrets (database URLs, API keys, etc.) rather than committing them to the repository. To access these secrets, you first need to authenticate with AWS using SSO (Single Sign-On).
+
+Run the following command and follow the prompts:
+
 ```bash
 aws configure sso
 ```
-when running this up session name as whatever you want
-SSO Start url should be the link from the invitation email
-SSO region should be us-east-1
-SSO regristration scopres just click enter
-Sign in on the web browser
-default client region should be us-east-1
-default format just click enter
-profile name needs to be "default"
 
+When prompted, enter the following values:
+
+| Prompt | Value |
+|--------|-------|
+| SSO session name | Any name you want (e.g. `dev`) |
+| SSO start URL | The URL from your AWS invitation email |
+| SSO region | `us-east-1` |
+| SSO registration scopes | Press Enter to accept the default |
+| _(browser opens)_ | Sign in with your AWS credentials |
+| Default client region | `us-east-1` |
+| Default output format | Press Enter to accept the default |
+| Profile name | **Must be set to `default`** |
 
 ### 2. Create `.env` in the project root
+
+Once authenticated, run the script below. It fetches the project secrets from AWS Secrets Manager and writes them to a local `.env` file:
+
 ```bash
 ./scripts/pull-env.sh
 ```
+
+> **Note:** You will need to re-run this script whenever your AWS SSO session expires (typically after 8 hours) or when secrets are rotated.
 
 ### 3. Start all services
 
