@@ -6,6 +6,7 @@ export function useVideoPlayer() {
     const [currentTime, setCurrentTime] = useState(0);
     const [isMuted, setIsMuted] = useState(false);
     const [showControls, setShowControls] = useState(true);
+    const [speed, setSpeed] = useState("1.0");
 
     useEffect(() => {
         const video = videoRef.current;
@@ -72,5 +73,7 @@ export function useVideoPlayer() {
         toggleMute,
         toggleFullscreen,
         handleSeek,
+        speed,
+        setSpeed,
     };
 }
