@@ -55,8 +55,7 @@ src/
 │   ├── setup.ts          # Shared Vitest setup
 │   ├── helpers/          # Fixtures and mock reset helpers
 │   ├── unit/             # Unit tests for services and middleware
-│   ├── http/             # Router-level HTTP tests with Supertest
-│   └── example/          # Demo suite with mixed passing and failing tests
+│   └── http/             # Router-level HTTP tests with Supertest
 ├── domains/              # Feature modules
 │   ├── auth/             # Authentication (invite, activate)
 │   ├── videos/           # Video management
@@ -83,14 +82,11 @@ HTTP requests against a minimal Express app.
 npm test
 npm run test:unit
 npm run test:http
-npm run test:example
 ```
 
 - `npm test`: runs the full backend test suite
 - `npm run test:unit`: runs unit tests only
 - `npm run test:http`: runs router-level HTTP tests only
-- `npm run test:example`: runs a small demo suite with both passing tests and
-  intentional failures
 
 ### Test structure
 
@@ -110,9 +106,6 @@ src/__tests__/
 │   ├── lib.prisma.test.ts
 │   └── videos.service.test.ts
 │   └── videos.types.test.ts
-├── example/
-│   ├── auth.router.example.test.ts
-│   └── auth.service.example.test.ts
 └── http/
     ├── app.test.ts
     ├── auth.router.test.ts
@@ -131,16 +124,12 @@ src/__tests__/
   - `lib/prisma` and `lib/auth`
   - app wiring in `src/index.ts`
   - `videos.router` and `auth.router`
-- `example/` contains a small demo suite for showing how Vitest reports a mix
-  of passing tests and realistic failures
 
 ### What is not covered
 
 - these tests are not DB-backed integration tests
 - Prisma and Better Auth are mocked in unit tests
 - router tests mock the service layer and do not connect to a real database
-- `example/` is not part of the normal passing suite and should not be treated
-  as a release gate
 
 ### Mocking approach
 
@@ -150,17 +139,6 @@ src/__tests__/
   and the minimal Express app used by router tests
 - `src/__tests__/setup.ts` sets stable test-only environment defaults and resets
   Vitest mocks after each test
-
-### Example suite
-
-- `npm run test:example` uses `vitest.example.config.ts`
-- the normal `npm test` command uses `vitest.config.ts`
-- the normal config excludes `src/__tests__/example/**/*.test.ts` so the main
-  suite stays green
-- the example suite is intentionally separate because it includes tests that are
-  expected to fail
-- the current example failures demonstrate how invite emails with surrounding
-  spaces fail schema validation before service-level trimming/normalization runs
 
 ### Current known failing tests
 
