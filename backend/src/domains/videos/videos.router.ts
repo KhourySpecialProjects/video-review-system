@@ -2,6 +2,8 @@ import { Router } from "express";
 import * as videosService from "./videos.service";
 import { isPrismaNotFound } from "../../lib/prisma_errors";
 import { createVideoSchema, updateVideoSchema } from "./videos.types";
+import { generatePresignedUrl } from "../../lib/s3";
+import prisma from "../../lib/prisma";
 
 const router = Router();
 
@@ -57,6 +59,38 @@ router.get("/:id", async (req, res) => {
 });
 
 /**
+ * S3 Bucket GET /domain/videos/:id/stream - generates a presigned URL for streaming/downloading a video file
+ *
+ * @param videoId - The video uuid
+ * 
+ * @returns object with the presigned URL and expiration, or null if video not found
+ */
+export async function getVideoStreamUrl(
+  videoId: string
+): Promise<{ url: string; expiresIn: number } | null> {
+  const video = await prisma.video.findUnique({
+    where: { id: videoId },
+  });
+
+  if (!video) {
+    return null;
+  }
+
+  if (video.status !== "READY") {
+    throw new Error("Video is not ready for streaming");
+  }
+
+  // generate the S3 key from the video id
+  // if you add a storage_key column later, use video.storageKey instead
+  const s3Key = `videos/${videoId}/original.mp4`;
+  const expiresIn = 3600; // 1 hour
+
+  const url = await generatePresignedUrl(s3Key, expiresIn);
+
+  return { url, expiresIn };
+}
+
+/**
  * POST /domain/videos - creates a new video record
  *
  * @body patientId - uuid of the associated patient
@@ -77,6 +111,10 @@ router.post("/", async (req, res) => {
 
     // for now, hardcode uploadedByUserId since we don't have auth yet
     const uploadedByUserId = "00000000-0000-0000-0000-000000000000"; // placeholder uuid
+
+    // assume site, study, etc knowledge
+
+    // checkperms(uploadedByUserId, needed_perms)
 
     // call service to create video with parsed data and uploadedByUserId
     const video = await videosService.createVideo({ 
