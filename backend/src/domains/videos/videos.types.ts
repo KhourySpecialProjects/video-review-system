@@ -10,8 +10,8 @@ import { z } from "zod";
  */
 export const createVideoSchema = z.object({
   patientId: z.uuid("patient_id must be a valid UUID"),
-  durationSeconds: z.number().int().positive().optional(),
-  takenAt: z.iso.datetime().optional(),
+  durationSeconds: z.number().int().positive(),
+  takenAt: z.iso.datetime(),
 });
 
 /**
@@ -23,9 +23,9 @@ export const createVideoSchema = z.object({
  * @field takenAt - updated ISO 8601 recording timestamp
  */
 export const updateVideoSchema = z.object({
-  status: z.enum(["UPLOADING", "PROCESSING", "READY", "FAILED"]).optional(),
-  durationSeconds: z.number().int().positive().optional(),
-  takenAt: z.iso.datetime().optional(),
+  status: z.enum(["UPLOADING", "PROCESSING", "READY", "FAILED"]),
+  durationSeconds: z.number().int().positive(),
+  takenAt: z.iso.datetime(),
 });
 
 // Inferred types from the validation schemas for use in the service layer

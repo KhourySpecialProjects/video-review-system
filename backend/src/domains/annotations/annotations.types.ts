@@ -24,8 +24,8 @@ export const createAnnotationSchema = z.object({
   videoId: z.uuid(),
   type: z.enum(["text_comment", "drawing_box", "freehand_drawing"]),
   timestampMs: z.number().int().min(0, "timestamp_ms cannot be negative"),
-  durationMs: z.number().int().positive().optional(),
-  payload: z.record(z.string(), z.unknown()).optional(), // accepts any JSON object
+  durationMs: z.number().int().positive(),
+  payload: z.record(z.string(), z.unknown()), // accepts any JSON object
 });
 
 /**
@@ -37,9 +37,9 @@ export const createAnnotationSchema = z.object({
  * @field payload - updated JSON payload
  */
 export const updateAnnotationSchema = z.object({
-  timestampMs: z.number().int().min(0).optional(),
-  durationMs: z.number().int().positive().optional(),
-  payload: z.record(z.string(), z.unknown()).optional(),
+  timestampMs: z.number().int().min(0),
+  durationMs: z.number().int().positive(),
+  payload: z.record(z.string(), z.unknown()),
 });
 
 // Inferred types from the validation schemas for use in the service layer
