@@ -21,7 +21,7 @@ router.get("/", async (req, res) => {
     // parse limit and offset from query, with defaults
     const limit = parseInt(req.query.limit as string) || 20;
     const offset = parseInt(req.query.offset as string) || 0;
-
+    
     // call service to get videos and total count
     const result = await videosService.listVideos({ limit, offset });
     res.json(result);
@@ -45,7 +45,7 @@ router.get("/:id", async (req, res) => {
     // call service to get video by id
     const video = await videosService.getVideoById(req.params.id);
 
-    // if not found, return 404
+    // if not found, throw 404 — caught by errorHandler
     if (!video) {
       return res.status(404).json({ error: "Video not found" });
     }
@@ -122,7 +122,7 @@ router.post("/", async (req, res) => {
       uploadedByUserId 
     });
 
-    res.status(201).json(video);
+  res.status(201).json(video);
   } catch (error) {
     console.error("Error creating video:", error);
     res.status(500).json({ error: "Failed to create video" });
@@ -152,6 +152,7 @@ router.put("/:id", async (req, res) => {
     }
 
     // call service to update video with parsed data
+    // prisma throws P2025 if not found — caught by errorHandler as 404
     const video = await videosService.updateVideo(req.params.id, parsed.data);
 
     res.json(video);
@@ -177,6 +178,7 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     // call service to delete video
+    // prisma throws P2025 if not found — caught by errorHandler as 404
     await videosService.deleteVideo(req.params.id);
 
     res.status(204).send();

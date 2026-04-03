@@ -2,7 +2,10 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { toNodeHandler } from "better-auth/node";
+import path from "path";
+import { fileURLToPath } from "url";
 import { auth } from "./lib/auth.js";
+import { notFoundHandler, errorHandler } from "./middleware/errors.js";
 
 // imports for future iterations
 import videosRouter from "./domains/videos/videos.router";
@@ -14,25 +17,22 @@ import annotationsRouter from "./domains/annotations/annotations.router";
 
 dotenv.config();
 
-const app = express();
 const PORT = process.env.PORT || 3000;
 
-// middleware
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGIN || "http://localhost:5173",
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE"],
-}));
+export function createApp() {
+  const app = express();
 
-// mount Better Auth before express.json() - it handles its own body parsing
-app.all("/api/auth/*splat", toNodeHandler(auth));
+  // middleware
+  app.use(cors({
+    origin: process.env.ALLOWED_ORIGIN || "http://localhost:5173",
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+  }));
 
-app.use(express.json());
+  // mount Better Auth before express.json() - it handles its own body parsing
+  app.all("/api/auth/*splat", toNodeHandler(auth));
 
-// health check (no auth required)
-app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
-});
+  app.use(express.json());
 
 // domain routes for future iterations
 app.use("/domain/videos", videosRouter);
@@ -41,7 +41,40 @@ app.use("/domain/annotations", annotationsRouter);
 // app.use("/domain/clips", clipsRouter);
 // app.use("/domain/accounts", accountsRouter);
 // app.use("/domain/audit", auditRouter);
+  // health check (no auth required)
+  app.get("/health", (req, res) => {
+    res.json({ status: "ok" });
+  });
 
-app.listen(PORT, () => {
-  console.log(`Listening on port ${PORT}`);
-});
+  // domain routes for future iterations
+  app.use("/domain/videos", videosRouter);
+  app.use("/domain/auth", authRouter);
+  // app.use("/domain/annotations", annotationsRouter);
+  // app.use("/domain/clips", clipsRouter);
+  // app.use("/domain/accounts", accountsRouter);
+  // app.use("/domain/audit", auditRouter);
+
+  // error handling — must be registered after all routes
+  app.use(notFoundHandler);
+  app.use(errorHandler);
+
+  return app;
+}
+
+export const app = createApp();
+
+export function startServer(port = PORT) {
+  return app.listen(port, () => {
+    console.log(`Listening on port ${port}`);
+  });
+}
+
+const isDirectRun = process.argv[1]
+  ? fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
+  : false;
+
+if (isDirectRun) {
+  startServer();
+}
+
+export default app;
