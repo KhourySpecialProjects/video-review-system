@@ -8,8 +8,8 @@ import { auth } from "./lib/auth.js";
 import { notFoundHandler, errorHandler } from "./middleware/errors.js";
 
 // imports for future iterations
-import videosRouter from "./domains/videos/videos.router.ts";
-import authRouter from "./domains/auth/auth.router.ts";
+import videosRouter from "./domains/videos/videos.router.js";
+import authRouter from "./domains/auth/auth.router.js";
 // import annotationsRouter from "./domains/annotations/annotations.router.js";
 // import clipsRouter from "./domains/clips/clips.router.js";
 // import accountsRouter from "./domains/accounts/accounts.router.js";

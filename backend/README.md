@@ -48,7 +48,7 @@ Server runs at `http://localhost:3000` by default.
 
 ## Project structure
 
-```
+```text
 src/
 ├── index.ts              # Express app entry point
 ├── __tests__/            # Backend test suite

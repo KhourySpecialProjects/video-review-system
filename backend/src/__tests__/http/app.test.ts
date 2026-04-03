@@ -28,7 +28,7 @@ vi.mock("../../lib/auth.js", () => ({
   auth: appMocks.auth,
 }));
 
-vi.mock("../../domains/videos/videos.router.ts", () => ({
+vi.mock("../../domains/videos/videos.router.js", () => ({
   default: (req: any, res: any, next: any) => {
     if (req.method === "GET" && req.path === "/") {
       res.json({ route: "videos" });
@@ -39,7 +39,7 @@ vi.mock("../../domains/videos/videos.router.ts", () => ({
   },
 }));
 
-vi.mock("../../domains/auth/auth.router.ts", () => ({
+vi.mock("../../domains/auth/auth.router.js", () => ({
   default: (req: any, res: any, next: any) => {
     if (req.method === "GET" && req.path === "/mounted") {
       res.json({ route: "auth" });
