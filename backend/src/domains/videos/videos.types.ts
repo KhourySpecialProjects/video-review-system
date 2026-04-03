@@ -28,7 +28,16 @@ export const updateVideoSchema = z.object({
   takenAt: z.iso.datetime(),
 });
 
+export const uploadVideoSchema = z.object({
+  patientId: z.uuid("patient_id must be a valid UUID"),
+  contentType: z.enum(["video/mp4", "video/webm", "video/quicktime"], {
+    message: "contentType must be video/mp4, video/webm, or video/quicktime",
+  }),
+  takenAt: z.iso.datetime()
+});
+
 // Inferred types from the validation schemas for use in the service layer
 export type CreateVideoInput = z.infer<typeof createVideoSchema>;
 export type UpdateVideoInput = z.infer<typeof updateVideoSchema>;
+export type UploadVideoInput = z.infer<typeof uploadVideoSchema>;
 

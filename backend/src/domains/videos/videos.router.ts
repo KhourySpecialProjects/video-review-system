@@ -1,8 +1,8 @@
 import { Router } from "express";
 import * as videosService from "./videos.service";
-import { isPrismaNotFound } from "../../lib/prisma_errors";
-import { createVideoSchema, updateVideoSchema } from "./videos.types";
-import { generatePresignedUrl } from "../../lib/s3";
+import { AppError } from "../../middleware/errors";
+import { createVideoSchema, updateVideoSchema, uploadVideoSchema } from "./videos.types";
+import { generatePresignedGetUrl, generatePresignedUploadUrl } from "../../lib/s3";
 import prisma from "../../lib/prisma";
 
 const router = Router();
@@ -85,7 +85,7 @@ export async function getVideoStreamUrl(
   const s3Key = `videos/${videoId}/original.mp4`;
   const expiresIn = 3600; // 1 hour
 
-  const url = await generatePresignedUrl(s3Key, expiresIn);
+  const url = await generatePresignedGetUrl(s3Key, expiresIn);
 
   return { url, expiresIn };
 }
@@ -127,6 +127,33 @@ router.post("/", async (req, res) => {
     console.error("Error creating video:", error);
     res.status(500).json({ error: "Failed to create video" });
   }
+});
+
+/**
+ * @route   POST /api/videos/upload
+ * @desc    Creates a video record and returns a presigned S3 URL
+ *          for the client to upload the file directly.
+ * @body    {string} patientId - UUID of the patient (required)
+ * @body    {string} contentType - MIME type: video/mp4, video/webm, or video/quicktime (required)
+ * @body    {string} takenAt - ISO datetime of when video was recorded (optional)
+ * 
+ * @returns {object} { video, uploadUrl, expiresIn } (201)
+ */
+router.post("/upload", async (req: Request, res: Response): Promise<void> => {
+  const parsed = uploadVideoSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw AppError.badRequest(parsed.error.errors[0].message);
+  }
+  // TODO: get real user ID from auth middleware (req.user.id)
+  const uploadedByUserId = "00000000-0000-0000-0000-000000000000";
+
+  const result = await videosService.createVideoWithUploadUrl({
+    ...parsed.data,
+    uploadedByUserId,
+  });
+
+  res.writeHead(201, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(result));
 });
 
 /**
