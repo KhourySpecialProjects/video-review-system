@@ -4,6 +4,7 @@ import Home, { clientLoader as homeLoader, clientAction as homeAction } from "./
 import VideoView, { clientLoader as videoLoader, clientAction as videoAction } from "./routes/video-view";
 import { fetchTutorial } from "./lib/mock-data";
 import TutorialPage from "./routes/TutorialPage";
+import SidebarSandbox from "./routes/sidebar-sandbox";
 
 export const router = createBrowserRouter([
     {
@@ -31,4 +32,8 @@ export const router = createBrowserRouter([
             }
         ],
     },
+    {
+        path: "sidebar-sandbox",
+        element: <SidebarSandbox />,
+    }
 ]);
