@@ -1,96 +1,50 @@
-import { useRef, useState, useEffect } from "react";
 import { CirclePlay, Pause, Maximize, Volume2, VolumeX } from "lucide-react";
 import { formatDuration } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { useVideoPlayer } from "@/hooks/useVideoPlayer";
+
+const SPEEDS = ["0.5", "1.0", "1.5", "2.0"];
 
 interface VideoPlayerProps {
-    /**
-     * Video source URL.
-     * Currently a direct URL — will be an S3 presigned URL in production.
-     */
-    src: string;
-    /** Duration in seconds (from metadata) */
+    src?: string;
     duration: number;
-    /** Optional poster/thumbnail image */
     poster?: string;
+    title?: string;
 }
 
-export function VideoPlayer({ src, duration, poster }: VideoPlayerProps) {
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [currentTime, setCurrentTime] = useState(0);
-    const [isMuted, setIsMuted] = useState(false);
-    const [showControls, setShowControls] = useState(true);
+export function VideoPlayer({ src, duration, poster, title }: VideoPlayerProps) {
+    const {
+        videoRef,
+        isPlaying,
+        currentTime,
+        isMuted,
+        showControls,
+        setShowControls,
+        togglePlay,
+        toggleMute,
+        toggleFullscreen,
+        handleSeek,
+        speed,
+        setSpeed,
+    } = useVideoPlayer();
 
-    useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
-
-        const onTimeUpdate = () => setCurrentTime(video.currentTime);
-        const onPlay = () => setIsPlaying(true);
-        const onPause = () => setIsPlaying(false);
-        const onEnded = () => {
-            setIsPlaying(false);
-            setCurrentTime(0);
-        };
-
-        video.addEventListener("timeupdate", onTimeUpdate);
-        video.addEventListener("play", onPlay);
-        video.addEventListener("pause", onPause);
-        video.addEventListener("ended", onEnded);
-
-        return () => {
-            video.removeEventListener("timeupdate", onTimeUpdate);
-            video.removeEventListener("play", onPlay);
-            video.removeEventListener("pause", onPause);
-            video.removeEventListener("ended", onEnded);
-        };
-    }, []);
-
-    const togglePlay = () => {
-        const video = videoRef.current;
-        if (!video) return;
-        if (video.paused) {
-            video.play();
-        } else {
-            video.pause();
-        }
-    };
-
-    const toggleMute = () => {
-        const video = videoRef.current;
-        if (!video) return;
-        video.muted = !video.muted;
-        setIsMuted(!isMuted);
-    };
-
-    const toggleFullscreen = () => {
-        const video = videoRef.current;
-        if (!video) return;
-        if (document.fullscreenElement) {
-            document.exitFullscreen();
-        } else {
-            video.requestFullscreen();
-        }
-    };
-
-    const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const video = videoRef.current;
-        if (!video) return;
-        const time = Number(e.target.value);
-        video.currentTime = time;
-        setCurrentTime(time);
-    };
-
-    const progressPercent =
-        duration > 0 ? (currentTime / duration) * 100 : 0;
+    const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
     return (
-        <div
-            className="group relative w-full overflow-hidden rounded-xl bg-black"
-            onMouseEnter={() => setShowControls(true)}
-            onMouseLeave={() => !isPlaying && setShowControls(true)}
-        >
+        <div className="w-full">
+            {title && <h2 className="mb-2 text-lg font-semibold">{title}</h2>}
+            <div
+                className="group relative w-full overflow-hidden rounded-xl bg-black"
+                onMouseEnter={() => setShowControls(true)}
+                onMouseLeave={() => !isPlaying && setShowControls(true)}
+            >
             <video
                 ref={videoRef}
                 src={src}
@@ -101,7 +55,7 @@ export function VideoPlayer({ src, duration, poster }: VideoPlayerProps) {
                 crossOrigin="anonymous"
             />
 
-            {/* Center play button overlay (shown when paused) */}
+            {/* Center play button overlay */}
             {!isPlaying && (
                 <button
                     onClick={togglePlay}
@@ -114,8 +68,9 @@ export function VideoPlayer({ src, duration, poster }: VideoPlayerProps) {
 
             {/* Bottom controls bar */}
             <div
-                className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-4 pb-3 pt-8 transition-opacity ${showControls || !isPlaying ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                    }`}
+                className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-4 pb-3 pt-8 transition-opacity ${
+                    showControls || !isPlaying ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                }`}
             >
                 {/* Progress bar */}
                 <div className="relative mb-2 h-1 w-full overflow-hidden rounded-full bg-white/20">
@@ -137,6 +92,7 @@ export function VideoPlayer({ src, duration, poster }: VideoPlayerProps) {
 
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
+                        {/* Play/Pause */}
                         <button
                             onClick={togglePlay}
                             className="text-white transition-colors hover:text-primary"
@@ -148,6 +104,8 @@ export function VideoPlayer({ src, duration, poster }: VideoPlayerProps) {
                                 <CirclePlay className="size-5" />
                             )}
                         </button>
+
+                        {/* Mute */}
                         <button
                             onClick={toggleMute}
                             className="text-white transition-colors hover:text-primary"
@@ -159,19 +117,40 @@ export function VideoPlayer({ src, duration, poster }: VideoPlayerProps) {
                                 <Volume2 className="size-5" />
                             )}
                         </button>
+
+                        {/* Time */}
                         <span className="text-xs font-medium text-white">
                             {formatDuration(Math.floor(currentTime))} / {formatDuration(duration)}
                         </span>
                     </div>
-                    <button
-                        onClick={toggleFullscreen}
-                        className="text-white transition-colors hover:text-primary"
-                        aria-label="Toggle fullscreen"
-                    >
-                        <Maximize className="size-5" />
-                    </button>
+
+                    <div className="flex items-center gap-2">
+                        {/* Speed selector */}
+                        <Select value={speed} onValueChange={setSpeed}>
+                            <SelectTrigger className="h-7 w-20 border-white/20 bg-white/10 text-xs text-white hover:bg-white/20">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {SPEEDS.map((s) => (
+                                    <SelectItem key={s} value={s}>
+                                        {s}x
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        {/* Fullscreen */}
+                        <button
+                            onClick={toggleFullscreen}
+                            className="text-white transition-colors hover:text-primary"
+                            aria-label="Toggle fullscreen"
+                        >
+                            <Maximize className="size-5" />
+                        </button>
+                    </div>
                 </div>
             </div>
+</div>
         </div>
     );
 }
