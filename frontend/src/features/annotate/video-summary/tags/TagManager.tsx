@@ -70,11 +70,11 @@ export function TagManager({
               >
                 <span className="max-w-30 truncate">{tag}</span>
                 {!disabled && (
-                  <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                  <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                     <button
                       type="button"
                       onClick={() => manager.startEditing(tag)}
-                      className="flex size-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-blue-600"
+                      className="flex size-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                       aria-label={`Edit tag ${tag}`}
                     >
                       <Pencil className="size-2.5" />
