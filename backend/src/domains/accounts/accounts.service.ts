@@ -1,21 +1,13 @@
 import prisma from "../../lib/prisma.js";
 import { createInvite } from "../auth/auth.service.js";
 import { AppError } from "../../middleware/errors.js";
-import { roleSchema } from "../auth/auth.types.js";
-import { createAccountSchema, createSiteCoordinatorSchema } from "./accounts.types.js";
+import { createAccountWithRoleSchema, type CreateAccountWithRoleInput } from "./accounts.types.js";
 import type { Role } from "../auth/auth.types.js";
 import { z } from "zod";
 
 /**
  * Schema for creating an account with a role.
  */
-const createAccountWithRoleSchema = z.object({
-  email: z.string().email("Invalid email format"),
-  role: roleSchema,
-  siteId: z.string().uuid("Invalid site ID format").optional(),
-});
-
-export type CreateAccountWithRoleInput = z.infer<typeof createAccountWithRoleSchema>;
 
 /**
  * Creates a user account for any role by sending an invitation email.
