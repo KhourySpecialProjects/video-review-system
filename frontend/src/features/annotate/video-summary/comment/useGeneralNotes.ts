@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import type { UseGeneralNotesReturn } from "./hook.types";
+import type { UseGeneralNotesReturn } from "../hook.types";
 
 /**
  * Custom hook that manages general notes state and operations.

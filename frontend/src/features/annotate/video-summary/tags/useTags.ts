@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import type { UseTagsReturn } from "./hook.types";
+import type { UseTagsReturn } from "../hook.types";
 
 /**
  * Custom hook that manages tag state and CRUD operations.

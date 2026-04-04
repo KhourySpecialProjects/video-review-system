@@ -16,13 +16,13 @@ export function GeneralNotes({
 }: GeneralNotesProps) {
   return (
     <section aria-label="General Notes">
-      <h3 className="mb-2 text-sm font-semibold text-text">General Notes</h3>
+      <h3 className="mb-2 text-sm font-medium text-text">General Notes</h3>
       <Textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
-        className="min-h-28 resize-y"
+        className="min-h-32 resize-y rounded-lg border-none bg-bg shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]"
       />
     </section>
   );

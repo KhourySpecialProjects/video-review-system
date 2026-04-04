@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/resizable";
 import { ClipTimeline } from "@/features/video/clips/ClipTimeline";
 import { useClipTimeline } from "@/features/video/clips/useClipTimeline";
+import { VideoDetails } from "@/features/annotate/video-summary/VideoDetails";
 
 export default function VideoReview() {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -54,8 +55,8 @@ export default function VideoReview() {
             </ResizablePanelGroup>
 
             {/* Video details — below the fold, visible on scroll */}
-            <div className="flex min-h-96 my-4 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                Video Details
+            <div className="my-4">
+                <VideoDetails />
             </div>
         </>
     );
