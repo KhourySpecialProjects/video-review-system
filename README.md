@@ -4,7 +4,9 @@ A secure web-based platform for managing and reviewing caregiver-recorded seizur
 
 ## Overview
 
-The portal supports four user roles: caregivers, clinical reviewers, site coordinators, and system administrators. Core product goals include secure video upload, clinician review workflows, timestamped annotations, video clipping, and auditability.
+The portal supports four user roles: caregivers, clinical reviewers, site coordinators, and system administrators. Each user comes with clearly defined access boundaries and toggleable permissions.
+
+Core features include secure video upload, video streaming, timestamped annotations, video clipping, and a full audit trail.
 
 This repository is still in active development, so some features described in project documents are planned rather than fully implemented.
 
