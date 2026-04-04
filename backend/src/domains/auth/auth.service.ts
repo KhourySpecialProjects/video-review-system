@@ -90,6 +90,12 @@ export async function activateInvite(input: ActivateInviteInput) {
     // get the invitation to read the role
     const invitation = await tx.invitation.findFirst({ where: { tokenHash } });
 
+    // stop if the invitation cannot be loaded after claiming
+    // return expected invite error
+    if (!invitation) {
+      throw AppError.badRequest("Invalid or expired invitation");
+    }
+
     // check if email is already registered
     const existingUser = await tx.user.findUnique({
       where: { email: normalizedEmail },
