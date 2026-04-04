@@ -115,7 +115,8 @@ export function useCanvasRenderer({
 
     useEffect(() => {
         const canvas = activeCanvasRef.current;
-        if (!canvas) return;
+        const committedCanvas = committedCanvasRef.current;
+        if (!canvas || !committedCanvas) return;
 
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
@@ -123,6 +124,22 @@ export function useCanvasRenderer({
         const paint = () => {
             const { width, height } = getCssDimensions(canvas);
             ctx.clearRect(0, 0, width, height);
+
+            const isErasing = activeRef.current?.type === "eraser";
+
+            // For eraser strokes, copy the committed layer so destination-out
+            // can punch holes in real time. Hide the committed canvas to
+            // prevent double-draw while the active canvas has the copy.
+            if (isErasing) {
+                committedCanvas.style.visibility = "hidden";
+                ctx.save();
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.drawImage(committedCanvas, 0, 0);
+                ctx.restore();
+            } else {
+                committedCanvas.style.visibility = "visible";
+            }
+
             drawActiveStroke(ctx, activeRef.current, width, height);
             rafRef.current = requestAnimationFrame(paint);
         };
@@ -130,5 +147,5 @@ export function useCanvasRenderer({
         rafRef.current = requestAnimationFrame(paint);
 
         return () => cancelAnimationFrame(rafRef.current);
-    }, [activeCanvasRef, activeRef]);
+    }, [activeCanvasRef, committedCanvasRef, activeRef]);
 }
