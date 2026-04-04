@@ -8,8 +8,6 @@ The portal supports four user roles: caregivers, clinical reviewers, site coordi
 
 Core features include secure video upload, video streaming, timestamped annotations, video clipping, and a full audit trail.
 
-This repository is still in active development, so some features described in project documents are planned rather than fully implemented.
-
 ## Tech Stack
 
 | Layer | Technology |
@@ -52,6 +50,7 @@ npm install
 ```
 
 ### 2. Create `.env` in the repo root
+Temp section, will get replaced with AWS Secrets Manager section
 
 ### 3. Start PostgreSQL
 
