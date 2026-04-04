@@ -14,19 +14,23 @@ export const createVideoSchema = z.object({
   takenAt: z.iso.datetime(),
 });
 
-/**
- * validation schema for updating an existing video
- * all fields are optional — only include what needs to change
- *
- * @field status - new processing status (UPLOADING, PROCESSING, READY, or FAILED)
- * @field durationSeconds - updated video length in seconds
- * @field takenAt - updated ISO 8601 recording timestamp
- */
-export const updateVideoSchema = z.object({
-  status: z.enum(["UPLOADING", "PROCESSING", "READY", "FAILED"]),
-  durationSeconds: z.number().int().positive(),
-  takenAt: z.iso.datetime(),
-});
+export const updateVideoSchema = z
+  .object({
+    status: z.enum(["UPLOADING", "PROCESSING", "READY", "FAILED"]).optional(),
+    durationSeconds: z.number().int().positive().optional(),
+    takenAt: z.iso.datetime().optional(),
+  })
+  // Keep fields optional individually, but require at least one change.
+  // If you change nothing, it should be invalid.
+  .refine(
+    (data) =>
+      data.status !== undefined ||
+      data.durationSeconds !== undefined ||
+      data.takenAt !== undefined,
+    {
+      message: "At least one field must be provided",
+    },
+  );
 
 export const uploadVideoSchema = z.object({
   patientId: z.uuid("patient_id must be a valid UUID"),
