@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/resizable";
 import { ClipTimeline } from "@/features/video/clips/ClipTimeline";
 import { useClipTimeline } from "@/features/video/clips/useClipTimeline";
+import { VideoPlayer } from "@/features/video/videoPlayer/VideoPlayer";
 
 export default function VideoReview() {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -20,10 +21,14 @@ export default function VideoReview() {
                 {/* Main content: video on top, timeline on bottom */}
                 <ResizablePanel defaultSize="80%" minSize="60%">
                     <ResizablePanelGroup orientation="vertical">
-                        {/* Video player (stub) */}
+                        {/* Video player */}
                         <ResizablePanel defaultSize="70%" minSize="30%">
-                            <div className="flex h-full items-center justify-center rounded-md bg-muted text-muted-foreground">
-                                Video Player
+                            <div className="h-full p-4">
+                                <VideoPlayer
+                                    title="Seizure Event Review"
+                                    duration={120}
+                                    src={undefined}
+                                />
                             </div>
                         </ResizablePanel>
 
@@ -36,7 +41,6 @@ export default function VideoReview() {
                                 <div className="flex h-12 shrink-0 items-center justify-center rounded-md bg-muted text-sm text-muted-foreground">
                                     Timeline
                                 </div>
-
                                 <ClipTimeline duration={120} timeline={timeline} />
                             </div>
                         </ResizablePanel>
