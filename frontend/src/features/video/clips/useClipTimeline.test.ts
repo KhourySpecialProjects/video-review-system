@@ -56,6 +56,14 @@ describe("getTimeFromPosition", () => {
     it("accounts for a non-zero rect left offset", () => {
         expect(getTimeFromPosition(100, makeRect(100, 50), 120)).toBe(60);
     });
+
+    it("returns 0 when rect width is zero", () => {
+        expect(getTimeFromPosition(50, makeRect(0), 120)).toBe(0);
+    });
+
+    it("returns 0 when rect width is negative", () => {
+        expect(getTimeFromPosition(50, makeRect(-10), 120)).toBe(0);
+    });
 });
 
 // ---------------------------------------------------------------------------
@@ -107,6 +115,18 @@ describe("buildTicks", () => {
     it("rounds fractional tick values", () => {
         const ticks = buildTicks(10, 3);
         expect(ticks).toEqual([0, 3, 7, 10]);
+    });
+
+    it("produces unique ticks for short durations", () => {
+        const ticks = buildTicks(5, 8);
+        const unique = [...new Set(ticks)];
+        expect(ticks).toEqual(unique);
+    });
+
+    it("still starts at 0 and ends at duration for short durations", () => {
+        const ticks = buildTicks(3, 8);
+        expect(ticks[0]).toBe(0);
+        expect(ticks[ticks.length - 1]).toBe(3);
     });
 });
 
@@ -214,6 +234,21 @@ describe("useClipTimeline", () => {
         act(() => result.current.onTrackClick(25, rect));
         expect(result.current.clips[0]).toEqual({ startTime: 30, endTime: 90 });
         expect(onClipCreated).toHaveBeenCalledWith({ startTime: 30, endTime: 90 });
+    });
+
+    it("cancels selection when second click matches start time", () => {
+        const onClipCreated = vi.fn();
+        const { result } = renderHook(() =>
+            useClipTimeline(duration, { current: null }, onClipCreated),
+        );
+        act(() => result.current.onTrackClick(25, rect));
+        expect(result.current.phase).toBe("selecting");
+
+        act(() => result.current.onTrackClick(25, rect));
+        expect(result.current.phase).toBe("idle");
+        expect(result.current.startTime).toBeNull();
+        expect(result.current.clips).toEqual([]);
+        expect(onClipCreated).not.toHaveBeenCalled();
     });
 
     it("accumulates multiple clips", () => {

@@ -28,6 +28,7 @@ export function getTimeFromPosition(
     rect: DOMRect,
     duration: number,
 ): number {
+    if (rect.width <= 0 || duration <= 0) return 0;
     const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
     return (x / rect.width) * duration;
 }
@@ -69,9 +70,10 @@ export function timeToPercent(time: number, duration: number): string {
  * ```
  */
 export function buildTicks(duration: number, count: number): number[] {
-    return Array.from({ length: count + 1 }, (_, i) =>
+    const raw = Array.from({ length: count + 1 }, (_, i) =>
         Math.round((i / count) * duration),
     );
+    return [...new Set(raw)];
 }
 
 /**
@@ -197,6 +199,13 @@ export function useClipTimeline(
             if (phase === "idle") {
                 setStartTime(time);
                 setPhase("selecting");
+                return;
+            }
+
+            if (startTime === time) {
+                // clicking the same point cancels the selection
+                setStartTime(null);
+                setPhase("idle");
                 return;
             }
 
