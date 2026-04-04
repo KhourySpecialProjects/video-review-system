@@ -1,34 +1,23 @@
 import { z } from "zod";
-import { roleSchema } from "../auth/auth.types.js";
 
 /**
  * Schema for creating any user account.
- * Used by all four account creation endpoints.
- *
- * @property {string} email - Must be a valid email format
+ * Uses a discriminated union to enforce that siteId is required
+ * for SITE_COORDINATOR and forbidden for all other roles.
  */
-export const createAccountSchema = z.object({
-  email: z.string().email("Invalid email format"),
-});
+export const createAccountWithRoleSchema = z.discriminatedUnion("role", [
+  z.object({
+    email: z.string().email("Invalid email format"),
+    role: z.literal("SITE_COORDINATOR"),
+    siteId: z.string().uuid("Invalid site ID format"),
+  }),
+  z.object({
+    email: z.string().email("Invalid email format"),
+    role: z.enum(["CAREGIVER", "CLINICAL_REVIEWER", "SYSADMIN"]),
+  }),
+]);
 
 /**
- * Schema for creating a site coordinator account.
- * Extends base account schema with a required siteId.
- *
- * @property {string} email - Must be a valid email format
- * @property {string} siteId - UUID of the site to associate the coordinator with
+ * Input type for creating an account with a role.
  */
-export const createSiteCoordinatorSchema = z.object({
-  email: z.string().email("Invalid email format"),
-  siteId: z.string().uuid("Invalid site ID format"),
-});
-
-/**
- * Input type for creating a standard account (caregiver, clinical reviewer, sysadmin).
- */
-export type CreateAccountInput = z.infer<typeof createAccountSchema>;
-
-/**
- * Input type for creating a site coordinator account.
- */
-export type CreateSiteCoordinatorInput = z.infer<typeof createSiteCoordinatorSchema>;
+export type CreateAccountWithRoleInput = z.infer<typeof createAccountWithRoleSchema>;
