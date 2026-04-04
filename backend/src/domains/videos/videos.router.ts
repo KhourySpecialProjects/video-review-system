@@ -7,9 +7,15 @@ const router = Router();
 
 // GET /domain/videos?limit=20&offset=0 - list videos with pagination
 router.get("/", async (req, res) => {
-  // parse limit and offset from query, with defaults
-  const limit = parseInt(req.query.limit) || 20;
-  const offset = parseInt(req.query.offset) || 0;
+  // Parse the raw query string values into integers.
+  const parsedLimit = Number.parseInt(String(req.query.limit), 10);
+  const parsedOffset = Number.parseInt(String(req.query.offset), 10);
+
+  // Fall back to safe defaults when pagination values are missing or invalid.
+  const limit =
+    Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 20;
+  const offset =
+    Number.isInteger(parsedOffset) && parsedOffset >= 0 ? parsedOffset : 0;
 
   // call service to get videos and total count
   const result = await videosService.listVideos({ limit, offset });
@@ -39,7 +45,10 @@ router.post("/", async (req, res) => {
   const uploadedByUserId = "00000000-0000-0000-0000-000000000000"; // placeholder UUID
 
   // call service to create video with parsed data and uploadedByUserId
-  const video = await videosService.createVideo({ ...parsed, uploadedByUserId });
+  const video = await videosService.createVideo({
+    ...parsed,
+    uploadedByUserId,
+  });
 
   res.status(201).json(video);
 });
