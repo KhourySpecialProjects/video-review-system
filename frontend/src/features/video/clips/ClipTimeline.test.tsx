@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { useRef } from "react";
 import { ClipTimeline } from "./ClipTimeline";
@@ -19,6 +19,10 @@ beforeEach(() => {
         y: 0,
         toJSON: () => ({}),
     } as DOMRect);
+});
+
+afterEach(() => {
+    vi.restoreAllMocks();
 });
 
 // Wrapper that mirrors how the parent calls the hook and passes it down

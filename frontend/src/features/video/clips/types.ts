@@ -112,4 +112,13 @@ export type UseClipTimelineReturn = {
      * @param rect - The track element's bounding client rect.
      */
     onTrackClick: (clientX: number, rect: DOMRect) => void;
+    /**
+     * Handler for `keydown` on the track.
+     * Provides keyboard support for the slider: ArrowLeft/ArrowRight to
+     * nudge the position, Home/End to jump to min/max, Enter/Space to
+     * commit a start or end time.
+     *
+     * @param e - The keyboard event from the track element.
+     */
+    onTrackKeyDown: (e: React.KeyboardEvent) => void;
 };

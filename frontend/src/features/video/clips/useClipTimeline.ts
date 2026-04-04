@@ -192,10 +192,17 @@ export function useClipTimeline(
         setClips((prev) => prev.filter((_, i) => i !== index));
     }, []);
 
-    const onTrackClick = useCallback(
-        (clientX: number, rect: DOMRect) => {
-            const time = getTimeFromPosition(clientX, rect, duration);
+    /** Nudge step for keyboard arrow keys, in seconds. */
+    const KEYBOARD_STEP = 1;
+    /** Large nudge step for Shift + arrow keys, in seconds. */
+    const KEYBOARD_STEP_LARGE = 5;
 
+    /**
+     * Commits a time value as a start or end selection point,
+     * following the same state-machine logic as `onTrackClick`.
+     */
+    const commitTime = useCallback(
+        (time: number) => {
             if (phase === "idle") {
                 setStartTime(time);
                 setPhase("selecting");
@@ -203,7 +210,6 @@ export function useClipTimeline(
             }
 
             if (startTime === time) {
-                // clicking the same point cancels the selection
                 setStartTime(null);
                 setPhase("idle");
                 return;
@@ -219,7 +225,53 @@ export function useClipTimeline(
                 onClipCreated?.(clip);
             }
         },
-        [duration, phase, startTime, onClipCreated],
+        [phase, startTime, onClipCreated],
+    );
+
+    const onTrackClick = useCallback(
+        (clientX: number, rect: DOMRect) => {
+            const time = getTimeFromPosition(clientX, rect, duration);
+            commitTime(time);
+        },
+        [duration, commitTime],
+    );
+
+    const onTrackKeyDown = useCallback(
+        (e: React.KeyboardEvent) => {
+            const step = e.shiftKey ? KEYBOARD_STEP_LARGE : KEYBOARD_STEP;
+            const current = hoverTime ?? startTime ?? 0;
+
+            let nextTime: number | undefined;
+
+            switch (e.key) {
+                case "ArrowLeft":
+                    nextTime = Math.max(0, current - step);
+                    break;
+                case "ArrowRight":
+                    nextTime = Math.min(duration, current + step);
+                    break;
+                case "Home":
+                    nextTime = 0;
+                    break;
+                case "End":
+                    nextTime = duration;
+                    break;
+                case "Enter":
+                case " ":
+                    e.preventDefault();
+                    commitTime(current);
+                    return;
+                default:
+                    return;
+            }
+
+            e.preventDefault();
+            setHoverTime(nextTime);
+            if (videoRef.current) {
+                videoRef.current.currentTime = nextTime;
+            }
+        },
+        [hoverTime, startTime, duration, commitTime, videoRef],
     );
 
     return {
@@ -231,5 +283,6 @@ export function useClipTimeline(
         onTrackMouseMove,
         onTrackMouseLeave,
         onTrackClick,
+        onTrackKeyDown,
     };
 }

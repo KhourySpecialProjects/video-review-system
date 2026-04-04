@@ -50,6 +50,7 @@ export function ClipTimeline({ duration, timeline }: ClipTimelineProps) {
         onTrackMouseMove,
         onTrackMouseLeave,
         onTrackClick,
+        onTrackKeyDown,
     } = timeline;
 
     const activeRegion = getActiveSelectionRegion(
@@ -112,6 +113,7 @@ export function ClipTimeline({ duration, timeline }: ClipTimelineProps) {
                         e.currentTarget.getBoundingClientRect(),
                     )
                 }
+                onKeyDown={onTrackKeyDown}
             >
                 {/* Completed clips */}
                 {clips.map((clip, i) => {
