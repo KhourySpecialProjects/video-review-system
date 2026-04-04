@@ -28,7 +28,8 @@ export function getTimeFromPosition(
     rect: DOMRect,
     duration: number,
 ): number {
-    if (rect.width <= 0 || duration <= 0) return 0;
+    if (!Number.isFinite(rect.width) || rect.width <= 0) return 0;
+    if (!Number.isFinite(duration) || duration <= 0) return 0;
     const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
     return (x / rect.width) * duration;
 }
@@ -50,8 +51,9 @@ export function getTimeFromPosition(
  * ```
  */
 export function timeToPercent(time: number, duration: number): string {
-    if (duration <= 0) return "0%";
-    return `${(time / duration) * 100}%`;
+    if (!Number.isFinite(time) || !Number.isFinite(duration) || duration <= 0) return "0%";
+    const percent = Math.max(0, Math.min((time / duration) * 100, 100));
+    return `${percent}%`;
 }
 
 /**
@@ -70,8 +72,9 @@ export function timeToPercent(time: number, duration: number): string {
  * ```
  */
 export function buildTicks(duration: number, count: number): number[] {
-    const raw = Array.from({ length: count + 1 }, (_, i) =>
-        Math.round((i / count) * duration),
+    const safeCount = Number.isFinite(count) && count > 0 ? count : 1;
+    const raw = Array.from({ length: safeCount + 1 }, (_, i) =>
+        Math.round((i / safeCount) * duration),
     );
     return [...new Set(raw)];
 }
@@ -238,8 +241,11 @@ export function useClipTimeline(
 
     const onTrackKeyDown = useCallback(
         (e: React.KeyboardEvent) => {
+            if (!Number.isFinite(duration) || duration <= 0) return;
+
             const step = e.shiftKey ? KEYBOARD_STEP_LARGE : KEYBOARD_STEP;
-            const current = hoverTime ?? startTime ?? 0;
+            const raw = hoverTime ?? startTime ?? 0;
+            const current = Number.isFinite(raw) ? raw : 0;
 
             let nextTime: number | undefined;
 
@@ -266,6 +272,7 @@ export function useClipTimeline(
             }
 
             e.preventDefault();
+            if (!Number.isFinite(nextTime)) return;
             setHoverTime(nextTime);
             if (videoRef.current) {
                 videoRef.current.currentTime = nextTime;
