@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Annotation } from "./types";
 import type { ActiveDrawing } from "./useDrawing";
 import { getVisibleAnnotations } from "./helpers";
@@ -72,6 +72,9 @@ export function useCanvasRenderer({
     videoCurrentTime,
     activeRef,
 }: UseCanvasRendererParams): void {
+    // Bumped on resize so the committed-canvas repaint effect re-runs.
+    const [resizeTick, setResizeTick] = useState(0);
+
     // Resize both canvases when container changes
     useEffect(() => {
         const container = containerRef.current;
@@ -84,6 +87,7 @@ export function useCanvasRenderer({
             const { width, height } = container.getBoundingClientRect();
             syncCanvasSize(committed, width, height, dpr);
             syncCanvasSize(active, width, height, dpr);
+            setResizeTick((t) => t + 1);
         };
 
         const observer = new ResizeObserver(syncSize);
@@ -108,7 +112,7 @@ export function useCanvasRenderer({
         for (const annotation of visible) {
             drawAnnotation(ctx, annotation, width, height);
         }
-    }, [committedCanvasRef, annotations, videoCurrentTime]);
+    }, [committedCanvasRef, annotations, videoCurrentTime, resizeTick]);
 
     // rAF loop for the active stroke — runs outside React's render cycle
     const rafRef = useRef(0);

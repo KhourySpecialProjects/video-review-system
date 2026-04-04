@@ -8,8 +8,8 @@ import type { Annotation, NormalizedPoint } from "./types";
  * @returns A value clamped to `[0, 1]`.
  */
 export function normalizeCoord(px: number, size: number): number {
-    if (size <= 0) return 0;
-    return Math.max(0, Math.min(1, px / size));
+  if (size <= 0) return 0;
+  return Math.max(0, Math.min(1, px / size));
 }
 
 /**
@@ -20,7 +20,7 @@ export function normalizeCoord(px: number, size: number): number {
  * @returns The pixel coordinate.
  */
 export function denormalizeCoord(norm: number, size: number): number {
-    return norm * size;
+  return norm * size;
 }
 
 /**
@@ -32,14 +32,14 @@ export function denormalizeCoord(norm: number, size: number): number {
  * @returns A {@link NormalizedPoint} with values clamped to `[0, 1]`.
  */
 export function normalizePoint(
-    px: { x: number; y: number },
-    canvasWidth: number,
-    canvasHeight: number,
+  px: { x: number; y: number },
+  canvasWidth: number,
+  canvasHeight: number
 ): NormalizedPoint {
-    return {
-        x: normalizeCoord(px.x, canvasWidth),
-        y: normalizeCoord(px.y, canvasHeight),
-    };
+  return {
+    x: normalizeCoord(px.x, canvasWidth),
+    y: normalizeCoord(px.y, canvasHeight),
+  };
 }
 
 /**
@@ -51,14 +51,14 @@ export function normalizePoint(
  * @returns Pixel coordinates `{ x, y }`.
  */
 export function denormalizePoint(
-    point: NormalizedPoint,
-    canvasWidth: number,
-    canvasHeight: number,
+  point: NormalizedPoint,
+  canvasWidth: number,
+  canvasHeight: number
 ): { x: number; y: number } {
-    return {
-        x: denormalizeCoord(point.x, canvasWidth),
-        y: denormalizeCoord(point.y, canvasHeight),
-    };
+  return {
+    x: denormalizeCoord(point.x, canvasWidth),
+    y: denormalizeCoord(point.y, canvasHeight),
+  };
 }
 
 /**
@@ -71,13 +71,13 @@ export function denormalizePoint(
  * @returns `true` if the annotation is visible.
  */
 export function isAnnotationVisible(
-    annotation: Annotation,
-    currentTime: number,
+  annotation: Annotation,
+  currentTime: number
 ): boolean {
-    return (
-        currentTime >= annotation.timestamp &&
-        currentTime < annotation.timestamp + annotation.duration
-    );
+  return (
+    currentTime >= annotation.timestamp &&
+    currentTime < annotation.timestamp + annotation.duration
+  );
 }
 
 /**
@@ -88,10 +88,10 @@ export function isAnnotationVisible(
  * @returns Annotations whose time window includes `currentTime`.
  */
 export function getVisibleAnnotations(
-    annotations: Annotation[],
-    currentTime: number,
+  annotations: Annotation[],
+  currentTime: number
 ): Annotation[] {
-    return annotations.filter((a) => isAnnotationVisible(a, currentTime));
+  return annotations.filter((a) => isAnnotationVisible(a, currentTime));
 }
 
 /**
@@ -102,7 +102,7 @@ export function getVisibleAnnotations(
  * @returns The distance in normalized coordinate space.
  */
 export function distance(a: NormalizedPoint, b: NormalizedPoint): number {
-    return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+  return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
 }
 
 /**
@@ -117,25 +117,28 @@ export function distance(a: NormalizedPoint, b: NormalizedPoint): number {
  * @returns The minimum distance from `point` to the segment.
  */
 export function distanceToSegment(
-    point: NormalizedPoint,
-    segStart: NormalizedPoint,
-    segEnd: NormalizedPoint,
+  point: NormalizedPoint,
+  segStart: NormalizedPoint,
+  segEnd: NormalizedPoint
 ): number {
-    const dx = segEnd.x - segStart.x;
-    const dy = segEnd.y - segStart.y;
-    const lenSq = dx * dx + dy * dy;
+  const dx = segEnd.x - segStart.x;
+  const dy = segEnd.y - segStart.y;
+  const lenSq = dx * dx + dy * dy;
 
-    if (lenSq === 0) return distance(point, segStart);
+  if (lenSq === 0) return distance(point, segStart);
 
-    const t = Math.max(
-        0,
-        Math.min(1, ((point.x - segStart.x) * dx + (point.y - segStart.y) * dy) / lenSq),
-    );
+  const t = Math.max(
+    0,
+    Math.min(
+      1,
+      ((point.x - segStart.x) * dx + (point.y - segStart.y) * dy) / lenSq
+    )
+  );
 
-    return distance(point, {
-        x: segStart.x + t * dx,
-        y: segStart.y + t * dy,
-    });
+  return distance(point, {
+    x: segStart.x + t * dx,
+    y: segStart.y + t * dy,
+  });
 }
 
 /**
@@ -152,51 +155,70 @@ export function distanceToSegment(
  * @returns `true` if the point is close enough to the annotation.
  */
 export function hitTestAnnotation(
-    point: NormalizedPoint,
-    annotation: Annotation,
-    threshold: number = 0.02,
+  point: NormalizedPoint,
+  annotation: Annotation,
+  threshold: number = 0.02
 ): boolean {
-    switch (annotation.type) {
-        case "freehand":
-        case "eraser": {
-            const { points } = annotation;
-            if (points.length === 0) return false;
-            if (points.length === 1) return distance(point, points[0]) <= threshold;
-            for (let i = 0; i < points.length - 1; i++) {
-                if (distanceToSegment(point, points[i], points[i + 1]) <= threshold) {
-                    return true;
-                }
-            }
-            return false;
+  switch (annotation.type) {
+    case "freehand":
+    case "eraser": {
+      const { points } = annotation;
+      if (points.length === 0) return false;
+      if (points.length === 1) return distance(point, points[0]) <= threshold;
+      for (let i = 0; i < points.length - 1; i++) {
+        if (distanceToSegment(point, points[i], points[i + 1]) <= threshold) {
+          return true;
         }
-        case "circle": {
-            const { center, radiusX, radiusY } = annotation;
-            if (radiusX === 0 || radiusY === 0) return false;
-            const normalizedDist = Math.sqrt(
-                ((point.x - center.x) / radiusX) ** 2 +
-                ((point.y - center.y) / radiusY) ** 2,
-            );
-            return Math.abs(normalizedDist - 1) <= threshold / Math.max(radiusX, radiusY);
-        }
-        case "rectangle": {
-            const { origin, end } = annotation;
-            const left = Math.min(origin.x, end.x);
-            const right = Math.max(origin.x, end.x);
-            const top = Math.min(origin.y, end.y);
-            const bottom = Math.max(origin.y, end.y);
-
-            const edges: [NormalizedPoint, NormalizedPoint][] = [
-                [{ x: left, y: top }, { x: right, y: top }],
-                [{ x: right, y: top }, { x: right, y: bottom }],
-                [{ x: right, y: bottom }, { x: left, y: bottom }],
-                [{ x: left, y: bottom }, { x: left, y: top }],
-            ];
-
-            return edges.some(
-                ([a, b]) => distanceToSegment(point, a, b) <= threshold,
-            );
-        }
+      }
+      return false;
     }
+    case "circle": {
+      const { center, radiusX, radiusY } = annotation;
+      if (radiusX === 0 || radiusY === 0) return false;
+      const normalizedDist = Math.sqrt(
+        ((point.x - center.x) / radiusX) ** 2 +
+          ((point.y - center.y) / radiusY) ** 2
+      );
+      return (
+        Math.abs(normalizedDist - 1) <= threshold / Math.max(radiusX, radiusY)
+      );
+    }
+    case "rectangle": {
+      const { origin, end } = annotation;
+      const left = Math.min(origin.x, end.x);
+      const right = Math.max(origin.x, end.x);
+      const top = Math.min(origin.y, end.y);
+      const bottom = Math.max(origin.y, end.y);
+
+      const edges: [NormalizedPoint, NormalizedPoint][] = [
+        [
+          { x: left, y: top },
+          { x: right, y: top },
+        ],
+        [
+          { x: right, y: top },
+          { x: right, y: bottom },
+        ],
+        [
+          { x: right, y: bottom },
+          { x: left, y: bottom },
+        ],
+        [
+          { x: left, y: bottom },
+          { x: left, y: top },
+        ],
+      ];
+
+      return edges.some(
+        ([a, b]) => distanceToSegment(point, a, b) <= threshold
+      );
+    }
+    default: {
+      // Exhaustive check: TypeScript will error if a new annotation type is added
+      const _exhaustive: never = annotation;
+      return _exhaustive;
+    }
+  }
 }
 
 /**
@@ -208,8 +230,8 @@ export function hitTestAnnotation(
  * @returns A unique string identifier.
  */
 export function generateAnnotationId(): string {
-    if (typeof crypto !== "undefined" && crypto.randomUUID) {
-        return crypto.randomUUID();
-    }
-    return `ann-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `ann-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
