@@ -36,6 +36,7 @@ Make sure the following are installed before getting started:
 - `npm` 10+
 - [Docker](https://www.docker.com/) + Docker Compose if you want to run PostgreSQL in a container
 - PostgreSQL 16+ if you want to run the database locally without Docker
+- AWS CLI (https://aws.amazon.com/cli/)
 
 ## Quick Start
 
@@ -114,6 +115,7 @@ flowchart LR
 
 Notable libraries currently used:
 
+- `react-router` for client-side routing, route loaders, and frontend navigation structure
 - `better-auth` for authentication and session handling
 - `prisma` and `@prisma/client` for the database layer
 - `zod` for request validation and schema parsing
@@ -123,7 +125,7 @@ Notable libraries currently used:
 
 ## Testing
 
-This repo includes both frontend and backend tests, with the backend test setup being more fully documented in [backend/README.md](/Users/jan/dev/cs4535/angelman-video-portal/video-review-system/backend/README.md).
+This repo includes both frontend and backend tests, with the backend test setup being more fully documented in [backend/README.md](./backend/README.md).
 
 Common commands:
 
