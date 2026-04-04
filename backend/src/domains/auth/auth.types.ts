@@ -15,6 +15,12 @@ export const roleSchema = z.enum([
   "SYSADMIN",
 ]);
 
+const normalizedEmailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .email("Invalid email format");
+
 /**
  * Zod schema for invite creation requests.
  *
@@ -28,7 +34,7 @@ export const roleSchema = z.enum([
  * });
  */
 export const createInviteSchema = z.object({
-  email: z.string().email("Invalid email format"),
+  email: normalizedEmailSchema,
   role: roleSchema,
 });
 
@@ -51,7 +57,7 @@ export const createInviteSchema = z.object({
 export const activateInviteSchema = z.object({
   token: z.string().min(1, "Token is required"),
   name: z.string().trim().min(1, "Name is required"),
-  email: z.string().email("Invalid email format"),
+  email: normalizedEmailSchema,
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
