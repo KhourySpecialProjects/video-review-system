@@ -1,7 +1,7 @@
 import { Router } from "express";
 import * as videosService from "./videos.service";
 import { AppError } from "../../middleware/errors";
-import { createVideoSchema, updateVideoSchema, uploadVideoSchema } from "./videos.types";
+import { createVideoSchema, updateVideoSchema } from "./videos.types";
 
 const router = Router();
 
@@ -60,32 +60,6 @@ router.get("/:id/stream", async (req, res) => {
 });
 
 /**
- * POST /domain/videos - creates a new video record
- *
- * @body patientId - uuid of the associated patient (required)
- * @body durationSeconds - video length in seconds (required)
- * @body takenAt - ISO 8601 recording timestamp (required)
- *
- * @returns 201 with the created video
- * @returns 400 if request body fails validation
- */
-router.post("/", async (req, res) => {
-  const parsed = createVideoSchema.safeParse(req.body);
-  if (!parsed.success) {
-    throw AppError.badRequest(parsed.error.issues[0].message);
-  }
-
-  // TODO: get real user ID from auth middleware (req.user.id)
-  const uploadedByUserId = "00000000-0000-0000-0000-000000000000";
-
-  const video = await videosService.createVideo({
-    ...parsed.data,
-    uploadedByUserId,
-  });
-  res.status(201).json(video);
-});
-
-/**
  * POST /domain/videos/upload - creates a video record and returns a presigned S3 upload URL
  *
  * Flow: client receives the presigned URL and PUTs the file directly to S3,
@@ -99,7 +73,7 @@ router.post("/", async (req, res) => {
  * @returns 400 if request body fails validation
  */
 router.post("/upload", async (req, res) => {
-  const parsed = uploadVideoSchema.safeParse(req.body);
+  const parsed = createVideoSchema.safeParse(req.body);
   if (!parsed.success) {
     throw AppError.badRequest(parsed.error.issues[0].message);
   }
@@ -111,6 +85,7 @@ router.post("/upload", async (req, res) => {
     ...parsed.data,
     uploadedByUserId,
   });
+
   res.status(201).json(result);
 });
 

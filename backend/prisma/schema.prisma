@@ -40,6 +40,7 @@ enum review_status {
 enum annotation_type {
   text_comment
   drawing_box
+  drawing_circle
   freehand_drawing
   tag
 }
@@ -83,9 +84,9 @@ model User {
   image         String?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @default(now())
-  role          user_role?
+  role          user_role
   caregiverId   String?    @map("caregiver_id")
-  siteId        String?    @map("site_id") @db.Uuid
+  siteId        String     @map("site_id") @db.Uuid
   isDeactivated Boolean    @default(false) @map("is_deactivated")
 
   site              Site?                    @relation(fields: [siteId], references: [id])
@@ -177,7 +178,6 @@ model Site {
   createdAt DateTime @default(now()) @map("created_at")
 
   siteStudies       SiteStudy[]
-  patients          Patient[]
   users             User[]
   userPermissions   UserPermission[]
   annotations       Annotation[]
@@ -196,7 +196,6 @@ model Study {
   createdAt DateTime     @default(now()) @map("created_at")
 
   siteStudies       SiteStudy[]
-  patients          Patient[]
   caregiverPatients CaregiverPatient[]
   userPermissions   UserPermission[]
   stitchedSequences StitchedSequence[]
@@ -216,20 +215,6 @@ model SiteStudy {
 
   @@id([studyId, siteId])
   @@map("sites_studies")
-}
-
-model Patient {
-  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studyId    String  @map("study_id") @db.Uuid
-  siteId     String  @map("site_id") @db.Uuid
-  identifier String?
-
-  study  Study   @relation(fields: [studyId], references: [id], onDelete: Cascade)
-  site   Site    @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  videos Video[]
-
-  @@index([identifier])
-  @@map("patient")
 }
 
 // Caregiver-to-study membership (replaces previous patient-level link)
@@ -279,14 +264,12 @@ model Video {
   id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   patientId           String       @map("patient_id") @db.Uuid
   uploadedByUserId    String       @map("uploaded_by_user_id")
-  s3Key               String?      @map("s3_key")
+  s3Key               String       @map("s3_key")
   status              video_status @default(UPLOADING)
-  durationSeconds     Int?         @map("duration_seconds")
+  durationSeconds     Int          @map("duration_seconds")
   createdAt           DateTime     @default(now()) @map("created_at")
   takenAt             DateTime?    @map("taken_at")
-  videoReviewComments String?      @map("video_review_comments")
 
-  patient           Patient                  @relation(fields: [patientId], references: [id], onDelete: Cascade)
   uploadedBy        User                     @relation("uploader", fields: [uploadedByUserId], references: [id])
   caregiverMetadata CaregiverVideoMetadata[]
   annotations       Annotation[]
@@ -301,9 +284,8 @@ model Video {
 model CaregiverVideoMetadata {
   videoId         String  @map("video_id") @db.Uuid
   caregiverUserId String  @map("caregiver_user_id")
-  privateTitle    String? @map("private_title")
+  privateTitle    String  @map("private_title")
   privateNotes    String? @map("private_notes")
-  tags            Json?
 
   video     Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
   caregiver User  @relation(fields: [caregiverUserId], references: [id], onDelete: Cascade)
@@ -342,9 +324,9 @@ model Annotation {
   studyId      String          @map("study_id") @db.Uuid
   siteId       String          @map("site_id") @db.Uuid
   type         annotation_type
-  timestampMs  Int             @map("timestamp_ms")
-  durationMs   Int?            @map("duration_ms")
-  payload      Json?
+  timestampS  Int             @map("timestamp_S")
+  durationS   Int             @map("duration_S")
+  payload      Json
   createdAt    DateTime        @default(now()) @map("created_at")
 
   video  Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
@@ -361,9 +343,9 @@ model VideoClip {
   createdByUserId String   @map("created_by_user_id")
   studyId         String   @map("study_id") @db.Uuid
   siteId          String   @map("site_id") @db.Uuid
-  title           String?
-  startTimeMs     Int      @map("start_time_ms")
-  endTimeMs       Int      @map("end_time_ms")
+  title           String
+  startTimeS      Int      @map("start_time_S")
+  endTimeS        Int      @map("end_time_S")
   createdAt       DateTime @default(now()) @map("created_at")
 
   sourceVideo   Video          @relation(fields: [sourceVideoId], references: [id], onDelete: Cascade)
@@ -381,7 +363,7 @@ model StitchedSequence {
   siteId          String  @map("site_id") @db.Uuid
   videoId         String  @map("video_id") @db.Uuid
   createdByUserId String  @map("created_by_user_id")
-  title           String?
+  title           String
 
   study         Study          @relation(fields: [studyId], references: [id], onDelete: Cascade)
   site          Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
@@ -410,18 +392,18 @@ model SequenceItem {
 
 model AuditLog {
   id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  actorUserId String?     @map("actor_user_id")
+  actorUserId String      @map("actor_user_id")
   actionType  action_type @map("action_type")
   entityType  entity_type @map("entity_type")
-  entityId    String?     @map("entity_id") @db.Uuid
-  siteId      String?     @map("site_id") @db.Uuid
-  oldValues   Json?       @map("old_values")
-  newValues   Json?       @map("new_values")
+  entityId    String      @map("entity_id") @db.Uuid
+  siteId      String      @map("site_id") @db.Uuid
+  oldValues   Json        @map("old_values")
+  newValues   Json        @map("new_values")
   ipAddress   String?     @map("ip_address")
   createdAt   DateTime    @default(now()) @map("created_at")
 
-  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
-  site  Site? @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  actor User  @relation(fields: [actorUserId], references: [id])
+  site  Site  @relation(fields: [siteId], references: [id])
 
   @@map("audit_logs")
 }
