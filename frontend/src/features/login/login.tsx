@@ -78,8 +78,8 @@ export function Login() {
                                 <Label htmlFor="password">Password</Label>
 
                                 {/* Link this to the actual password reset route when implemented.
-                    Example: <Link to="/forgot-password" ... >Forgot password?</Link>
-                */}
+                                    Example: <Link to="/forgot-password" ... >Forgot password?</Link>
+                                */}
                                 <a href="#" className="text-xs font-medium text-primary hover:underline">
                                     Forgot password?
                                 </a>
