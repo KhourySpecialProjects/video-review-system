@@ -83,7 +83,7 @@ export function TagManager({
                     <button
                       type="button"
                       onClick={() => onRemoveTag(tag)}
-                      className="flex size-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-destructive"
+                      className="flex size-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                       aria-label={`Remove tag ${tag}`}
                     >
                       <X className="size-2.5" />
