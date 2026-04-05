@@ -7,7 +7,7 @@ import { useNavigate } from "react-router";
  * Ensures that both email and password are provided and that the email format is correct.
  */
 const loginSchema = z.object({
-    email: z.string().min(1, "Email is required").email("Invalid email address"),
+    email: z.string().min(1, "Email is required").pipe(z.email("Invalid email address")),
     password: z.string().min(1, "Password is required"),
 });
 
