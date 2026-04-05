@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/resizable";
 import { ClipTimeline } from "@/features/video/clips/ClipTimeline";
 import { useClipTimeline } from "@/features/video/clips/useClipTimeline";
+import { ClipCard } from "@/features/sidebar/ClipCard";
 
 export default function VideoReview() {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -47,8 +48,28 @@ export default function VideoReview() {
 
                 {/* Right sidebar — full height */}
                 <ResizablePanel defaultSize="20%" minSize="15%">
-                    <div className="flex h-full items-center justify-center rounded-md bg-muted text-muted-foreground">
-                        Sidebar
+                    <div className="flex h-full flex-col justify-start gap-4 rounded-md border bg-background p-4 overflow-y-auto">
+                        <h2 className="font-semibold text-foreground">Clips</h2>
+                        <ClipCard
+                           id="stub-1"
+                           title="Title"
+                           startMs={38000}
+                           endMs={79000}
+                           color="#ef4444"
+                           onJumpStart={() => console.log("Jump to start clicked")}
+                           onEdit={() => console.log("Edit clicked")}
+                           onDelete={() => console.log("Delete clicked")}
+                        />
+                        <ClipCard
+                           id="stub-2"
+                           title="Title"
+                           startMs={92000}
+                           endMs={115000}
+                           color="#a855f7"
+                           onJumpStart={() => console.log("Jump to start clicked")}
+                           onEdit={() => console.log("Edit clicked")}
+                           onDelete={() => console.log("Delete clicked")}
+                        />
                     </div>
                 </ResizablePanel>
             </ResizablePanelGroup>
