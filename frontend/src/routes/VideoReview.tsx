@@ -13,6 +13,7 @@ import { TagManager } from "@/features/annotate/video-summary/tags/TagManager";
 import { useTagManager } from "@/features/annotate/video-summary/tags/useTagManager";
 import { useTags } from "@/features/annotate/video-summary/tags/useTags";
 import { useAnnotationState } from "@/features/video/annotations/useAnnotationState";
+import { VideoTimeline, annotationsToMarkers } from "@/features/video/timeline/VideoTimeline";
 import { AnnotationCanvas } from "@/features/video/annotations/drawing/canvas/AnnotationCanvas";
 import { AnnotationToolbar } from "@/features/video/annotations/drawing/toolbar/AnnotationToolbar";
 import type { AnnotationTool, DrawingSettings } from "@/features/video/annotations/types";
@@ -103,10 +104,17 @@ export default function VideoReview() {
                         {/* Bottom: timeline + clip timeline */}
                         <ResizablePanel defaultSize="30%" minSize="10%">
                             <div className="flex h-full flex-col gap-3 overflow-y-auto p-4">
-                                {/* Timeline (stub) */}
-                                <div className="flex h-12 shrink-0 items-center justify-center rounded-md bg-muted text-sm text-muted-foreground">
-                                    Timeline
-                                </div>
+                                {/* Video timeline with annotation markers */}
+<VideoTimeline
+    duration={120}
+    currentTime={videoCurrentTime}
+    markers={annotationsToMarkers(annotationState.annotations)}
+    onSeek={(time) => {
+        if (videoRef.current) {
+            videoRef.current.currentTime = time;
+        }
+    }}
+/>
 
                                 <ClipTimeline duration={120} timeline={timeline} />
                             </div>
