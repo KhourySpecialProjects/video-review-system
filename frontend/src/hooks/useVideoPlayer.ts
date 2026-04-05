@@ -6,7 +6,7 @@ export function useVideoPlayer() {
     const [currentTime, setCurrentTime] = useState(0);
     const [isMuted, setIsMuted] = useState(false);
     const [showControls, setShowControls] = useState(true);
-    const [speed, setSpeed] = useState("1.0");
+    const [speed, setSpeed] = useState(1.0);
 
     useEffect(() => {
         const video = videoRef.current;
@@ -61,6 +61,12 @@ export function useVideoPlayer() {
         video.currentTime = time;
         setCurrentTime(time);
     };
+    
+    useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.playbackRate = speed;
+}, [speed]);
 
     return {
         videoRef,
