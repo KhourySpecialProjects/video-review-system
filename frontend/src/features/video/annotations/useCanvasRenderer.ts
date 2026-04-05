@@ -172,6 +172,9 @@ export function useCanvasRenderer({
         return () => {
             cancelAnimationFrame(rafRef.current);
             rafRef.current = 0;
+            if (committedCanvas) {
+                committedCanvas.style.visibility = "visible";
+            }
         };
     }, [activeCanvasRef, committedCanvasRef, activeRef]);
 
