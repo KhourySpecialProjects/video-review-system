@@ -203,7 +203,7 @@ export function useDrawing({
             case "circle": {
                 const dx = active.current.x - active.center.x;
                 const dy = active.current.y - active.center.y;
-                if (Math.abs(dx) > 0.005 || Math.abs(dy) > 0.005) {
+                if (Math.abs(dx) > 0.005 && Math.abs(dy) > 0.005) {
                     const circle: CircleAnnotation = {
                         id, type: "circle", timestamp,
                         duration: DEFAULT_ANNOTATION_DURATION,
@@ -219,7 +219,7 @@ export function useDrawing({
             case "rectangle": {
                 const w = Math.abs(active.current.x - active.origin.x);
                 const h = Math.abs(active.current.y - active.origin.y);
-                if (w > 0.005 || h > 0.005) {
+                if (w > 0.005 && h > 0.005) {
                     const rect: RectangleAnnotation = {
                         id, type: "rectangle", timestamp,
                         duration: DEFAULT_ANNOTATION_DURATION,

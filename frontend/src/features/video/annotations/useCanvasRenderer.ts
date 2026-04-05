@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Annotation } from "./types";
 import type { ActiveDrawing } from "./useDrawing";
 import { getVisibleAnnotations } from "./helpers";
@@ -18,6 +18,14 @@ export type UseCanvasRendererParams = {
     videoCurrentTime: number;
     /** Mutable ref to the in-progress drawing. Read by the rAF loop. */
     activeRef: React.RefObject<ActiveDrawing>;
+};
+
+/** @see {@link useCanvasRenderer} */
+export type UseCanvasRendererReturn = {
+    /** Call to start the rAF paint loop (e.g. on pointer down). */
+    startPaintLoop: () => void;
+    /** Call to stop the rAF paint loop (e.g. on pointer up). */
+    stopPaintLoop: () => void;
 };
 
 /**
@@ -71,7 +79,7 @@ export function useCanvasRenderer({
     annotations,
     videoCurrentTime,
     activeRef,
-}: UseCanvasRendererParams): void {
+}: UseCanvasRendererParams): UseCanvasRendererReturn {
     // Bumped on resize so the committed-canvas repaint effect re-runs.
     const [resizeTick, setResizeTick] = useState(0);
 
@@ -114,8 +122,14 @@ export function useCanvasRenderer({
         }
     }, [committedCanvasRef, annotations, videoCurrentTime, resizeTick]);
 
-    // rAF loop for the active stroke — runs outside React's render cycle
+    // rAF loop for the active stroke — only runs while drawing
     const rafRef = useRef(0);
+
+    /**
+     * Single rAF paint frame. Schedules the next frame only while
+     * `activeRef.current` is non-null.
+     */
+    const paintRef = useRef<(() => void) | null>(null);
 
     useEffect(() => {
         const canvas = activeCanvasRef.current;
@@ -125,11 +139,18 @@ export function useCanvasRenderer({
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
-        const paint = () => {
+        paintRef.current = () => {
             const { width, height } = getCssDimensions(canvas);
             ctx.clearRect(0, 0, width, height);
 
-            const isErasing = activeRef.current?.type === "eraser";
+            if (!activeRef.current) {
+                // Stroke ended — ensure committed canvas is visible and stop.
+                committedCanvas.style.visibility = "visible";
+                rafRef.current = 0;
+                return;
+            }
+
+            const isErasing = activeRef.current.type === "eraser";
 
             // For eraser strokes, copy the committed layer so destination-out
             // can punch holes in real time. Hide the committed canvas to
@@ -145,11 +166,33 @@ export function useCanvasRenderer({
             }
 
             drawActiveStroke(ctx, activeRef.current, width, height);
-            rafRef.current = requestAnimationFrame(paint);
+            rafRef.current = requestAnimationFrame(paintRef.current!);
         };
 
-        rafRef.current = requestAnimationFrame(paint);
-
-        return () => cancelAnimationFrame(rafRef.current);
+        return () => {
+            cancelAnimationFrame(rafRef.current);
+            rafRef.current = 0;
+        };
     }, [activeCanvasRef, committedCanvasRef, activeRef]);
+
+    /**
+     * Start the rAF paint loop. Call on pointer down.
+     */
+    const startPaintLoop = useCallback(() => {
+        if (rafRef.current || !paintRef.current) return;
+        rafRef.current = requestAnimationFrame(paintRef.current);
+    }, []);
+
+    /**
+     * Stop the rAF paint loop. Call on pointer up.
+     */
+    const stopPaintLoop = useCallback(() => {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
+
+        // Do one final paint to clear the active canvas and restore visibility.
+        paintRef.current?.();
+    }, []);
+
+    return { startPaintLoop, stopPaintLoop };
 }

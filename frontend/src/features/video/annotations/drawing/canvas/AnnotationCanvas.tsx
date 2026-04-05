@@ -87,7 +87,7 @@ export function AnnotationCanvas({
         removeAnnotation: state.removeAnnotation,
     });
 
-    useCanvasRenderer({
+    const { startPaintLoop, stopPaintLoop } = useCanvasRenderer({
         committedCanvasRef,
         activeCanvasRef,
         containerRef,
@@ -121,13 +121,17 @@ export function AnnotationCanvas({
                 )}
                 style={{ cursor: cursorStyle }}
                 onPointerDown={(e) => {
-                    if (enabled) drawing.onPointerDown(e, tool, settings);
+                    if (!enabled) return;
+                    drawing.onPointerDown(e, tool, settings);
+                    startPaintLoop();
                 }}
                 onPointerMove={(e) => {
                     if (enabled) drawing.onPointerMove(e);
                 }}
                 onPointerUp={(e) => {
-                    if (enabled) drawing.onPointerUp(e);
+                    if (!enabled) return;
+                    drawing.onPointerUp(e);
+                    stopPaintLoop();
                 }}
                 aria-label="Annotation canvas"
                 role="img"

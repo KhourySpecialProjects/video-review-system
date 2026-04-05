@@ -77,13 +77,13 @@ export function ColorPicker({ color, onColorChange }: ColorPickerProps) {
                     render={
                         <label
                             className="relative flex size-6 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-border transition-transform hover:scale-110"
-                            aria-label="Custom color picker"
                         >
                             <input
                                 type="color"
                                 value={color}
                                 onChange={(e) => onColorChange(e.target.value)}
                                 className="absolute inset-0 cursor-pointer opacity-0"
+                                aria-label="Custom color picker"
                             />
                             <div
                                 className="size-3 rounded-full"

@@ -97,6 +97,10 @@ export function drawAnnotation(
             ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
             break;
         }
+        default: {
+            const _exhaustive: never = annotation;
+            throw new Error(`Unhandled annotation type: ${(_exhaustive as Annotation).type}`);
+        }
     }
 
     ctx.restore();
@@ -165,6 +169,10 @@ export function drawActiveStroke(
 
             ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
             break;
+        }
+        default: {
+            const _exhaustive: never = active;
+            throw new Error(`Unhandled active drawing type: ${(_exhaustive as NonNullable<ActiveDrawing>).type}`);
         }
     }
 
