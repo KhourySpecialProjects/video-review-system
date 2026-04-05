@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/select";
 import { useVideoPlayer } from "@/hooks/useVideoPlayer";
 
-const SPEEDS = ["0.5", "1.0", "1.5", "2.0"];
+const SPEEDS = [0.5, 1.0, 1.5, 2.0];
 
 interface VideoPlayerProps {
     src?: string;
@@ -126,13 +126,13 @@ export function VideoPlayer({ src, duration, poster, title }: VideoPlayerProps) 
 
                     <div className="flex items-center gap-2">
                         {/* Speed selector */}
-                        <Select value={speed} onValueChange={setSpeed}>
+                        <Select value={String(speed)} onValueChange={(v) => setSpeed(Number(v))}>
                             <SelectTrigger className="h-7 w-20 border-white/20 bg-white/10 text-xs text-white hover:bg-white/20">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                                 {SPEEDS.map((s) => (
-                                    <SelectItem key={s} value={s}>
+                                    <SelectItem key={s} value={String(s)}>
                                         {s}x
                                     </SelectItem>
                                 ))}
