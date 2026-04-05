@@ -15,6 +15,7 @@ import { useTags } from "@/features/annotate/video-summary/tags/useTags";
 import { useAnnotationState } from "@/features/video/annotations/useAnnotationState";
 import { AnnotationCanvas } from "@/features/video/annotations/drawing/canvas/AnnotationCanvas";
 import { AnnotationToolbar } from "@/features/video/annotations/drawing/toolbar/AnnotationToolbar";
+import { VideoMetadataSidebar } from "@/features/video/metadata/VideoMetadataSidebar";
 import type { AnnotationTool, DrawingSettings } from "@/features/video/annotations/types";
 
 export default function VideoReview() {
@@ -51,8 +52,22 @@ export default function VideoReview() {
         <>
             {/* Resizable editor — takes the full viewport area */}
             <ResizablePanelGroup orientation="horizontal" className="h-full shrink-0">
+
+                {/* Left metadata sidebar */}
+                <ResizablePanel defaultSize="15%" minSize="10%">
+                    <VideoMetadataSidebar
+                        metadata={{
+                            patientId: "PT-2024-1547",
+                            duration: 272,
+                            recordedAt: new Date("2026-03-08T10:30:00"),
+                        }}
+                    />
+                </ResizablePanel>
+
+                <ResizableHandle withHandle />
+
                 {/* Main content: video on top, timeline on bottom */}
-                <ResizablePanel defaultSize="80%" minSize="60%">
+                <ResizablePanel defaultSize="65%" minSize="50%">
                     <ResizablePanelGroup orientation="vertical">
                         {/* Video player + annotation overlay */}
                         <ResizablePanel defaultSize="70%" minSize="30%">
@@ -103,11 +118,6 @@ export default function VideoReview() {
                         {/* Bottom: timeline + clip timeline */}
                         <ResizablePanel defaultSize="30%" minSize="10%">
                             <div className="flex h-full flex-col gap-3 overflow-y-auto p-4">
-                                {/* Timeline (stub) */}
-                                <div className="flex h-12 shrink-0 items-center justify-center rounded-md bg-muted text-sm text-muted-foreground">
-                                    Timeline
-                                </div>
-
                                 <ClipTimeline duration={120} timeline={timeline} />
                             </div>
                         </ResizablePanel>
