@@ -58,6 +58,7 @@ export function TagManager({
                 <button
                   type="button"
                   onClick={manager.commitEdit}
+                  onMouseDown={(e) => e.preventDefault()}
                   className="flex size-5 items-center justify-center rounded-full bg-primary/20 text-primary transition-colors hover:bg-primary/30"
                   aria-label="Confirm edit"
                 >

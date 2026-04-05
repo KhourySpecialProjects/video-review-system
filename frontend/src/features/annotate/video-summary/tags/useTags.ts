@@ -38,7 +38,9 @@ export function useTags(initialTags: string[] = []): UseTagsReturn {
    * @param label - The label of the tag to remove
    */
   const removeTag = useCallback((label: string) => {
-    setTags((prev) => prev.filter((tag) => tag !== label));
+    setTags((prev) =>
+      prev.filter((tag) => tag.toLowerCase() !== label.toLowerCase()),
+    );
   }, []);
 
   /**

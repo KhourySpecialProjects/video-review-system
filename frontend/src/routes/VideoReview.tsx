@@ -56,7 +56,7 @@ export default function VideoReview() {
 
             {/* Video details — below the fold, visible on scroll */}
             <div className="my-4">
-                <VideoDetails />
+                <VideoDetails disabled={false} />
             </div>
         </>
     );

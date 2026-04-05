@@ -160,8 +160,10 @@ describe("TagManager", () => {
         />,
       );
 
+      const input = screen.getByLabelText("Edit tag Original");
+      input.focus();
       fireEvent.click(screen.getByLabelText("Confirm edit"));
-      expect(commitEdit).toHaveBeenCalled();
+      expect(commitEdit).toHaveBeenCalledTimes(1);
     });
 
     it("delegates edit keydown to manager.handleEditKeyDown", () => {
