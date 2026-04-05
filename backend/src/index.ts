@@ -7,7 +7,6 @@ import { fileURLToPath } from "url";
 import { auth } from "./lib/auth.js";
 import { notFoundHandler, errorHandler } from "./middleware/errors.js";
 
-// imports for future iterations
 import videosRouter from "./domains/videos/videos.router";
 import authRouter from "./domains/auth/auth.router";
 import annotationsRouter from "./domains/annotations/annotations.router";
@@ -34,22 +33,15 @@ export function createApp() {
 
   app.use(express.json());
 
-// domain routes for future iterations
-app.use("/domain/videos", videosRouter);
-app.use("/domain/auth", authRouter);
-app.use("/domain/annotations", annotationsRouter);
-// app.use("/domain/clips", clipsRouter);
-// app.use("/domain/accounts", accountsRouter);
-// app.use("/domain/audit", auditRouter);
   // health check (no auth required)
   app.get("/health", (req, res) => {
     res.json({ status: "ok" });
   });
 
-  // domain routes for future iterations
+  // domain routes
   app.use("/domain/videos", videosRouter);
   app.use("/domain/auth", authRouter);
-  // app.use("/domain/annotations", annotationsRouter);
+  app.use("/domain/annotations", annotationsRouter);
   // app.use("/domain/clips", clipsRouter);
   // app.use("/domain/accounts", accountsRouter);
   // app.use("/domain/audit", auditRouter);

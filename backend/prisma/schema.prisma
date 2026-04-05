@@ -8,14 +8,8 @@ datasource db {
 }
 
 // ============================================================
-// ENUMS — match your SQL exactly
+// ENUMS
 // ============================================================
-
-enum resource_type {
-  SITE
-  STUDY
-  VIDEO
-}
 
 enum permission_level {
   READ
@@ -31,10 +25,23 @@ enum video_status {
   FAILED
 }
 
+enum study_status {
+  NOT_STARTED
+  IN_PROGRESS
+  FINISHED
+}
+
+enum review_status {
+  NOT_REVIEWED
+  IN_REVIEW
+  REVIEWED
+}
+
 enum annotation_type {
   text_comment
   drawing_box
   freehand_drawing
+  tag
 }
 
 enum action_type {
@@ -42,6 +49,7 @@ enum action_type {
   READ
   UPDATE
   DELETE
+  DOWNLOAD
   LOGIN
 }
 
@@ -51,6 +59,9 @@ enum entity_type {
   USER
   STUDY
   SEQUENCE
+  CLIP
+  SITE
+  PERMISSIONS
 }
 
 enum user_role {
@@ -65,14 +76,19 @@ enum user_role {
 // ============================================================
 
 model User {
-  id            String   @id
+  id            String     @id
   name          String
-  email         String   @unique
+  email         String     @unique
   emailVerified Boolean
   image         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @default(now())
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @default(now())
+  role          user_role?
+  caregiverId   String?    @map("caregiver_id")
+  siteId        String?    @map("site_id") @db.Uuid
+  isDeactivated Boolean    @default(false) @map("is_deactivated")
 
+  site              Site?                    @relation(fields: [siteId], references: [id])
   sessions          Session[]
   accounts          Account[]
   caregiverPatients CaregiverPatient[]
@@ -160,21 +176,33 @@ model Site {
   name      String
   createdAt DateTime @default(now()) @map("created_at")
 
-  siteStudies SiteStudy[]
-  patients    Patient[]
-  auditLogs   AuditLog[]
+  siteStudies       SiteStudy[]
+  patients          Patient[]
+  users             User[]
+  userPermissions   UserPermission[]
+  annotations       Annotation[]
+  videoClips        VideoClip[]
+  stitchedSequences StitchedSequence[]
+  videoStudies      VideoStudy[]
+  auditLogs         AuditLog[]
 
   @@map("sites")
 }
 
 model Study {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name      String
-  createdAt DateTime @default(now()) @map("created_at")
+  status    study_status @default(NOT_STARTED)
+  createdAt DateTime     @default(now()) @map("created_at")
 
   siteStudies       SiteStudy[]
   patients          Patient[]
+  caregiverPatients CaregiverPatient[]
+  userPermissions   UserPermission[]
   stitchedSequences StitchedSequence[]
+  annotations       Annotation[]
+  videoClips        VideoClip[]
+  videoStudies      VideoStudy[]
 
   @@map("studies")
 }
@@ -196,35 +224,40 @@ model Patient {
   siteId     String  @map("site_id") @db.Uuid
   identifier String?
 
-  study             Study              @relation(fields: [studyId], references: [id], onDelete: Cascade)
-  site              Site               @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  videos            Video[]
-  caregiverPatients CaregiverPatient[]
+  study  Study   @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  site   Site    @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  videos Video[]
 
   @@index([identifier])
   @@map("patient")
 }
 
+// Caregiver-to-study membership (replaces previous patient-level link)
 model CaregiverPatient {
-  patientId   String @map("patient_id") @db.Uuid
-  caregiverId String @map("caregiver_id") // text FK to user
+  studyId String @map("study_id") @db.Uuid
+  userId  String @map("user_id")
 
-  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  caregiver User    @relation(fields: [caregiverId], references: [id], onDelete: Cascade)
+  study Study @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@id([patientId, caregiverId])
+  @@id([studyId, userId])
   @@map("caregiver_patient")
 }
 
+// Explicit per-resource permissions (study / site / video scoped)
 model UserPermission {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId          String           @map("user_id")
-  resourceId      String           @map("resource_id") @db.Uuid
+  studyId         String?          @map("study_id") @db.Uuid
+  siteId          String?          @map("site_id") @db.Uuid
+  videoId         String?          @map("video_id") @db.Uuid
   permissionLevel permission_level @map("permission_level")
-  resourceType    resource_type    @map("resource_type")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  study Study? @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  site  Site?  @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  video Video? @relation(fields: [videoId], references: [id], onDelete: Cascade)
 
-  @@id([userId, resourceId])
   @@map("user_permissions")
 }
 
@@ -243,27 +276,31 @@ model UserRole {
 // ============================================================
 
 model Video {
-  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  patientId        String       @map("patient_id") @db.Uuid
-  uploadedByUserId String       @map("uploaded_by_user_id") // text FK to user
-  status           video_status @default(UPLOADING)
-  durationSeconds  Int?         @map("duration_seconds")
-  createdAt        DateTime     @default(now()) @map("created_at")
-  takenAt          DateTime?    @map("taken_at")
-  videoReviewComments String?    @map("video_review_comments")
+  id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patientId           String       @map("patient_id") @db.Uuid
+  uploadedByUserId    String       @map("uploaded_by_user_id")
+  s3Key               String?      @map("s3_key")
+  status              video_status @default(UPLOADING)
+  durationSeconds     Int?         @map("duration_seconds")
+  createdAt           DateTime     @default(now()) @map("created_at")
+  takenAt             DateTime?    @map("taken_at")
+  videoReviewComments String?      @map("video_review_comments")
 
   patient           Patient                  @relation(fields: [patientId], references: [id], onDelete: Cascade)
   uploadedBy        User                     @relation("uploader", fields: [uploadedByUserId], references: [id])
   caregiverMetadata CaregiverVideoMetadata[]
   annotations       Annotation[]
   videoClips        VideoClip[]
+  stitchedSequences StitchedSequence[]
+  videoStudies      VideoStudy[]
+  userPermissions   UserPermission[]
 
   @@map("videos")
 }
 
 model CaregiverVideoMetadata {
   videoId         String  @map("video_id") @db.Uuid
-  caregiverUserId String  @map("caregiver_user_id") // text FK to user
+  caregiverUserId String  @map("caregiver_user_id")
   privateTitle    String? @map("private_title")
   privateNotes    String? @map("private_notes")
   tags            Json?
@@ -276,13 +313,34 @@ model CaregiverVideoMetadata {
 }
 
 // ============================================================
+// VIDEO STUDY — clinical reviewer link between video, study, site
+// ============================================================
+
+model VideoStudy {
+  studyId         String        @map("study_id") @db.Uuid
+  siteId          String        @map("site_id") @db.Uuid
+  videoId         String        @map("video_id") @db.Uuid
+  commentOverview String?       @map("comment_overview")
+  reviewStatus    review_status @default(NOT_REVIEWED) @map("review_status")
+
+  study Study @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  site  Site  @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@id([studyId, videoId, siteId])
+  @@map("video_study")
+}
+
+// ============================================================
 // ANNOTATIONS, CLIPS & SEQUENCES
 // ============================================================
 
 model Annotation {
   id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   videoId      String          @map("video_id") @db.Uuid
-  authorUserId String          @map("author_user_id") // text FK to user
+  authorUserId String          @map("author_user_id")
+  studyId      String          @map("study_id") @db.Uuid
+  siteId       String          @map("site_id") @db.Uuid
   type         annotation_type
   timestampMs  Int             @map("timestamp_ms")
   durationMs   Int?            @map("duration_ms")
@@ -291,6 +349,8 @@ model Annotation {
 
   video  Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
   author User  @relation(fields: [authorUserId], references: [id])
+  study  Study @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  site   Site  @relation(fields: [siteId], references: [id], onDelete: Cascade)
 
   @@map("annotations")
 }
@@ -298,7 +358,9 @@ model Annotation {
 model VideoClip {
   id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   sourceVideoId   String   @map("source_video_id") @db.Uuid
-  createdByUserId String   @map("created_by_user_id") // text FK to user
+  createdByUserId String   @map("created_by_user_id")
+  studyId         String   @map("study_id") @db.Uuid
+  siteId          String   @map("site_id") @db.Uuid
   title           String?
   startTimeMs     Int      @map("start_time_ms")
   endTimeMs       Int      @map("end_time_ms")
@@ -306,6 +368,8 @@ model VideoClip {
 
   sourceVideo   Video          @relation(fields: [sourceVideoId], references: [id], onDelete: Cascade)
   createdBy     User           @relation(fields: [createdByUserId], references: [id])
+  study         Study          @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  site          Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
   sequenceItems SequenceItem[]
 
   @@map("video_clips")
@@ -314,14 +378,18 @@ model VideoClip {
 model StitchedSequence {
   id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   studyId         String  @map("study_id") @db.Uuid
-  createdByUserId String  @map("created_by_user_id") // text FK to user
+  siteId          String  @map("site_id") @db.Uuid
+  videoId         String  @map("video_id") @db.Uuid
+  createdByUserId String  @map("created_by_user_id")
   title           String?
 
   study         Study          @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  site          Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  video         Video          @relation(fields: [videoId], references: [id], onDelete: Cascade)
   createdBy     User           @relation(fields: [createdByUserId], references: [id])
   sequenceItems SequenceItem[]
 
-  @@map("stiched_sequences") // note: matches your SQL typo "stiched"
+  @@map("stiched_sequences") // note: matches SQL typo "stiched"
 }
 
 model SequenceItem {
@@ -342,7 +410,7 @@ model SequenceItem {
 
 model AuditLog {
   id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  actorUserId String?     @map("actor_user_id") // text FK to user, nullable
+  actorUserId String?     @map("actor_user_id")
   actionType  action_type @map("action_type")
   entityType  entity_type @map("entity_type")
   entityId    String?     @map("entity_id") @db.Uuid
