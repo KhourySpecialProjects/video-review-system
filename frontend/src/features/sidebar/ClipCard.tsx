@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardAction, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Pencil, X, ArrowRight, ArrowUpRight, GripVertical } from "lucide-react";
+import { Pencil, X, ArrowRight, ArrowUpRight, Plus } from "lucide-react";
 import { formatDuration } from "@/lib/format";
 
 export interface ClipCardProps {
-    id: string;
     title: string;
     startMs: number;
     endMs: number;
@@ -14,10 +13,11 @@ export interface ClipCardProps {
     onJumpEnd?: () => void;
     onEdit: () => void;
     onDelete: () => void;
+    onAdd?: () => void;
+    onAddToSequence?: () => void;
 }
 
 export function ClipCard({
-    id,
     title,
     startMs,
     endMs,
@@ -26,6 +26,8 @@ export function ClipCard({
     onJumpEnd,
     onEdit,
     onDelete,
+    onAdd,
+    onAddToSequence,
 }: ClipCardProps) {
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
@@ -33,82 +35,78 @@ export function ClipCard({
     const endTime = formatDuration(endMs / 1000);
     const duration = formatDuration(Math.max(0, endMs - startMs) / 1000);
 
-    function handleDragStart(e: React.DragEvent) {
-        e.dataTransfer.setData("clipId", id);
-        e.dataTransfer.effectAllowed = "move";
-    }
-
     return (
         <Card
-            draggable
-            onDragStart={handleDragStart}
-            className="relative w-full overflow-hidden bg-card text-card-foreground"
+            className="relative w-full overflow-hidden bg-card text-card-foreground border-l-4"
+            style={{ borderLeftColor: color }}
         >
-            {/* Left colored border strip */}
-            <div
-                className="absolute left-0 top-0 bottom-0 w-1"
-                style={{ backgroundColor: color }}
-            />
-
-            <div className="flex flex-col pt-2 pr-2 pb-4 pl-5 gap-3">
-                {/* Top row: Title and Actions */}
-                <div className="flex items-start justify-between gap-4">
-                    <h3 className="text-lg font-semibold leading-none tracking-tight pt-2 line-clamp-2 break-words flex-1">
-                        {title}
-                    </h3>
-                    <div className="flex items-center gap-1 shrink-0">
-                        {isConfirmingDelete ? (
-                            <>
-                                <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    onClick={() => { setIsConfirmingDelete(false); onDelete(); }}
-                                    aria-label="Confirm delete"
-                                    className="cursor-pointer"
-                                >
-                                    Delete
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setIsConfirmingDelete(false)}
-                                    aria-label="Cancel delete"
-                                    className="cursor-pointer"
-                                >
-                                    Cancel
-                                </Button>
-                            </>
-                        ) : (
-                            <>
+            <CardHeader className="pb-2">
+                <CardTitle className="leading-tight tracking-tight line-clamp-2 break-words mr-2" title={title}>
+                    {title}
+                </CardTitle>
+                <CardAction className="flex items-center gap-1 shrink-0">
+                    {isConfirmingDelete ? (
+                        <>
+                            <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => { setIsConfirmingDelete(false); onDelete(); }}
+                                aria-label="Confirm delete"
+                                className="cursor-pointer"
+                            >
+                                Delete
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setIsConfirmingDelete(false)}
+                                aria-label="Cancel delete"
+                                className="cursor-pointer"
+                            >
+                                Cancel
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            {onAdd && (
                                 <Button
                                     variant="ghost"
-                                    size="icon"
-                                    onClick={onEdit}
-                                    aria-label="Edit clip"
+                                    size="icon-sm"
+                                    onClick={onAdd}
+                                    aria-label="Add clip"
                                     className="h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer"
                                 >
-                                    <Pencil className="h-4 w-4" />
+                                    <Plus className="h-4 w-4" />
                                 </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setIsConfirmingDelete(true)}
-                                    aria-label="Delete clip"
-                                    className="h-8 w-8 text-muted-foreground hover:text-destructive cursor-pointer"
-                                >
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </>
-                        )}
-                    </div>
-                </div>
-
-                {/* Middle row: duration */}
-                <div className="flex items-center justify-center py-2 sm:py-4 xl:py-6 transition-all duration-300">
+                            )}
+                            <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={onEdit}
+                                aria-label="Edit clip"
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer"
+                            >
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => setIsConfirmingDelete(true)}
+                                aria-label="Delete clip"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive cursor-pointer"
+                            >
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </>
+                    )}
+                </CardAction>
+            </CardHeader>
+            
+            <CardContent className="flex flex-col gap-4">
+                <div className="flex items-center justify-center py-2 transition-all duration-300">
                     <span className="text-sm font-medium" style={{ color }}>{duration}</span>
                 </div>
-
-                {/* Bottom row: timestamps, jump, and drag hint */}
+                
                 <div className="flex flex-col gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -141,12 +139,19 @@ export function ClipCard({
                         </Button>
                     </div>
 
-                    <div className="flex items-center gap-2 text-xs cursor-grab active:cursor-grabbing">
-                        <GripVertical className="h-4 w-4 opacity-50" />
-                        <span>Drag to stitch timeline</span>
+                    <div className="flex items-center pt-2">
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={onAddToSequence}
+                            className="w-full flex items-center justify-center gap-2 border-dashed text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                        >
+                            <Plus className="h-3 w-3" />
+                            Add to sequence
+                        </Button>
                     </div>
                 </div>
-            </div>
+            </CardContent>
         </Card>
     );
 }
