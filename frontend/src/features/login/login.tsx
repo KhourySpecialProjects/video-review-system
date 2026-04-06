@@ -9,21 +9,21 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
-import { useLogin } from "@/hooks/use-login";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { Form, useActionData, useNavigation } from "react-router";
+import { clientAction } from "@/hooks/use-login";
 
-/**
- * Login Component
- * 
- * Renders the primary user interface for authentication.
- */
+export { clientAction };
 
 export function Login() {
-    // Destructure state and actions from the login hook
-    const { isSubmitting, fieldErrors, formError, handleSubmit } = useLogin();
+    const actionData = useActionData<typeof clientAction>();
+    const navigation = useNavigation();
+    const isSubmitting = navigation.state === "submitting";
+
+    const fieldErrors = (actionData && "fieldErrors" in actionData ? actionData.fieldErrors : {}) ?? {};
+    const formError = actionData && "formError" in actionData ? actionData.formError : undefined;
 
     return (
-        // Main container to center the login card vertically and horizontally
         <div className="flex min-h-screen items-center justify-center p-4 md:p-8">
 
             <Card className="w-full max-w-sm shadow-xl border-primary/10">
@@ -37,11 +37,7 @@ export function Login() {
                 </CardHeader>
 
                 <CardContent>
-                    {/* 
-            The form element triggers the submit handler defined in `useLogin`. 
-            This handles both preventing default refresh and triggering validation.
-          */}
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <Form method="post" className="space-y-4">
 
                         {/* Conditional rendering for general/server-side errors */}
                         {formError && (
@@ -63,10 +59,8 @@ export function Login() {
                                 placeholder="m@example.com"
                                 required
                                 autoComplete="email"
-                                // Apply a red border dynamically if there is an email validation error
                                 className={fieldErrors.email ? "border-destructive focus-visible:ring-destructive" : ""}
                             />
-                            {/* Display specific email error messages */}
                             {fieldErrors.email && (
                                 <p className="text-xs font-medium text-destructive">{fieldErrors.email}</p>
                             )}
@@ -91,10 +85,8 @@ export function Login() {
                                 type="password"
                                 required
                                 autoComplete="current-password"
-                                // Apply a red border dynamically if there is a password validation error
                                 className={fieldErrors.password ? "border-destructive focus-visible:ring-destructive" : ""}
                             />
-                            {/* Display specific password error messages */}
                             {fieldErrors.password && (
                                 <p className="text-xs font-medium text-destructive">{fieldErrors.password}</p>
                             )}
@@ -106,10 +98,15 @@ export function Login() {
                             className="w-full mt-2 transition-all"
                             disabled={isSubmitting}
                         >
-                            {isSubmitting ? "Logging in..." : "Log in"}
+                            {isSubmitting ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Logging in...
+                                </>
+                            ) : "Log in"}
                         </Button>
 
-                    </form>
+                    </Form>
                 </CardContent>
             </Card>
         </div>

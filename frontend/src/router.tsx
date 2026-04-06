@@ -4,7 +4,7 @@ import Home, { clientLoader as homeLoader, clientAction as homeAction } from "./
 import VideoView, { clientLoader as videoLoader, clientAction as videoAction } from "./routes/video-view";
 import { fetchTutorial } from "./lib/mock-data";
 import TutorialPage from "./routes/TutorialPage";
-import { Login } from "./features/login/login";
+import { Login, clientAction as loginAction } from "./features/login/login";
 
 export const router = createBrowserRouter([
     {
@@ -30,10 +30,11 @@ export const router = createBrowserRouter([
                   return { tutorialPromise: fetchTutorial() };
               },
             },
-            {
-              path: "login/caregiver",
-              element: <Login />,
-            }
         ],
+    },
+    {
+        path: "/login",
+        element: <Login />,
+        action: loginAction,
     },
 ]);
