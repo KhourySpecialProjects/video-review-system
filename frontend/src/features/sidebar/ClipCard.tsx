@@ -41,8 +41,8 @@ export function ClipCard({
 }: ClipCardProps) {
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
-    const startTime = formatDuration(startMs / 1000);
-    const endTime = formatDuration(endMs / 1000);
+    const startTime = formatDuration(Math.max(0, startMs) / 1000);
+    const endTime = formatDuration(Math.max(0, endMs) / 1000);
     const duration = formatDuration(Math.max(0, endMs - startMs) / 1000);
 
     return (
