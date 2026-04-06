@@ -4,29 +4,39 @@ import { Button } from "@/components/ui/button";
 import { Pencil, X, ArrowRight, ArrowUpRight, Plus } from "lucide-react";
 import { formatDuration } from "@/lib/format";
 
+/** Props for the ClipCard component. */
 export interface ClipCardProps {
+    /** Display name of the clip. */
     title: string;
+    /** Clip start time in milliseconds. */
     startMs: number;
+    /** Clip end time in milliseconds. */
     endMs: number;
+    /** Accent color for the left border and time labels. Defaults to the primary theme color. */
     color?: string;
+    /** Called when the user clicks the Jump button to seek to the clip's start time. */
     onJumpStart: () => void;
-    onJumpEnd?: () => void;
+    /** Called when the user confirms editing the clip. */
     onEdit: () => void;
+    /** Called when the user confirms deleting the clip. */
     onDelete: () => void;
-    onAdd?: () => void;
+    /** Called when the user clicks "Add to sequence". */
     onAddToSequence?: () => void;
 }
 
+/**
+ * Displays a single clip's title, duration, and start/end times.
+ * Includes actions to jump to the clip's start, edit, delete, and add to a sequence.
+ * Delete requires a confirmation step before the callback is invoked.
+ */
 export function ClipCard({
     title,
     startMs,
     endMs,
     color = "hsl(var(--primary))",
     onJumpStart,
-    onJumpEnd,
     onEdit,
     onDelete,
-    onAdd,
     onAddToSequence,
 }: ClipCardProps) {
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -41,7 +51,7 @@ export function ClipCard({
             style={{ borderLeftColor: color }}
         >
             <CardHeader className="pb-2">
-                <CardTitle className="leading-tight tracking-tight line-clamp-2 break-words mr-2" title={title}>
+                <CardTitle className="leading-tight tracking-tight line-clamp-2 wrap-break-word mr-2" title={title}>
                     {title}
                 </CardTitle>
                 <CardAction className="flex items-center gap-1 shrink-0">
@@ -68,17 +78,6 @@ export function ClipCard({
                         </>
                     ) : (
                         <>
-                            {onAdd && (
-                                <Button
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    onClick={onAdd}
-                                    aria-label="Add clip"
-                                    className="h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer"
-                                >
-                                    <Plus className="h-4 w-4" />
-                                </Button>
-                            )}
                             <Button
                                 variant="ghost"
                                 size="icon-sm"
@@ -112,19 +111,7 @@ export function ClipCard({
                         <div className="flex items-center gap-2">
                             <span>{startTime}</span>
                             <ArrowRight className="h-4 w-4" />
-                            {onJumpEnd ? (
-                                <Button
-                                    variant="link"
-                                    onClick={onJumpEnd}
-                                    aria-label="Jump to end"
-                                    className="px-0 h-auto font-normal text-current hover:text-current hover:underline"
-                                    style={{ color }}
-                                >
-                                    {endTime}
-                                </Button>
-                            ) : (
                                 <span>{endTime}</span>
-                            )}
                         </div>
 
                         <Button
