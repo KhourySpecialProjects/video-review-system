@@ -22,10 +22,7 @@ import { z } from "zod";
 export async function createAccount(input: CreateAccountWithRoleInput) {
   const { email, role, siteId } = createAccountWithRoleSchema.parse(input);
 
-  if (role === "SITE_COORDINATOR") {
-    if (!siteId) {
-      throw AppError.badRequest("siteId is required for SITE_COORDINATOR role");
-    }
+if (role === "SITE_COORDINATOR") {
     const site = await prisma.site.findUnique({ where: { id: siteId } });
     if (!site) {
       throw AppError.notFound("Site not found");
