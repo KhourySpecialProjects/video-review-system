@@ -12,7 +12,7 @@ import videosRouter from "./domains/videos/videos.router.js";
 import authRouter from "./domains/auth/auth.router.js";
 // import annotationsRouter from "./domains/annotations/annotations.router.js";
 // import clipsRouter from "./domains/clips/clips.router.js";
-// import accountsRouter from "./domains/accounts/accounts.router.js";
+import accountsRouter from "./domains/accounts/accounts.router.js";
 // import auditRouter from "./domains/audit/audit.router.js";
 
 dotenv.config();
@@ -44,7 +44,7 @@ export function createApp() {
   app.use("/domain/auth", authRouter);
   // app.use("/domain/annotations", annotationsRouter);
   // app.use("/domain/clips", clipsRouter);
-  // app.use("/domain/accounts", accountsRouter);
+  app.use("/domain/accounts", accountsRouter);
   // app.use("/domain/audit", auditRouter);
 
   // error handling — must be registered after all routes
