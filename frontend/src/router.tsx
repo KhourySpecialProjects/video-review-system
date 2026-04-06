@@ -3,6 +3,8 @@ import Root from "./routes/root";
 import Home, { clientLoader as homeLoader, clientAction as homeAction } from "./routes/home";
 import VideoView, { clientLoader as videoLoader, clientAction as videoAction } from "./routes/video-view";
 import VideoReview from "./routes/VideoReview";
+import Reviews from "./routes/reviews";
+import { reviewsLoader } from "./features/reviews/reviewsLoader";
 import { fetchTutorial } from "./lib/mock-data";
 import TutorialPage from "./routes/TutorialPage";
 
@@ -26,6 +28,11 @@ export const router = createBrowserRouter([
             {
                 path: "review",
                 element: <VideoReview />,
+            },
+            {
+                path: "reviews",
+                element: <Reviews />,
+                loader: reviewsLoader,
             },
             {
               path: "tutorials",
