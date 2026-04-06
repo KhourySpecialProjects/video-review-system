@@ -16,7 +16,6 @@ import { useAnnotationState } from "@/features/video/annotations/useAnnotationSt
 import { AnnotationCanvas } from "@/features/video/annotations/drawing/canvas/AnnotationCanvas";
 import { AnnotationToolbar } from "@/features/video/annotations/drawing/toolbar/AnnotationToolbar";
 import type { AnnotationTool, DrawingSettings } from "@/features/video/annotations/types";
-import { VideoPlayer } from "@/features/video/videoPlayer/VideoPlayer";
 
 export default function VideoReview() {
     const videoRef = useRef<HTMLVideoElement>(null);
