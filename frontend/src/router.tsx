@@ -4,6 +4,8 @@ import Home from "./routes/home";
 import VideoView from "./routes/video-view";
 import { AllVideos } from "./features/video/allVideos/AllVideos";
 import VideoReview from "./routes/VideoReview";
+import Reviews from "./routes/reviews";
+import { reviewsLoader } from "./features/reviews/reviewsLoader";
 import { fetchTutorial } from "./lib/mock-data";
 import TutorialPage from "./routes/TutorialPage";
 import SignupPage from "./routes/Signup";
@@ -52,12 +54,17 @@ export const router = createBrowserRouter([
                 action: videoReviewAction,
             },
             {
-                path: "tutorials",
-                element: <TutorialPage />,
-                loader: () => {
-                    return { tutorialPromise: fetchTutorial() };
-                },
+                path: "reviews",
+                element: <Reviews />,
+                loader: reviewsLoader,
             },
+            {
+              path: "tutorials",
+              element: <TutorialPage />,
+              loader: () => {
+                  return { tutorialPromise: fetchTutorial() };
+              },
+            }
         ],
     },
     {
