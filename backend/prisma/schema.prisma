@@ -20,8 +20,7 @@ enum permission_level {
 
 enum video_status {
   UPLOADING
-  PROCESSING
-  READY
+  UPLOADED
   FAILED
 }
 
@@ -89,7 +88,7 @@ model User {
   siteId        String     @map("site_id") @db.Uuid
   isDeactivated Boolean    @default(false) @map("is_deactivated")
 
-  site              Site?                    @relation(fields: [siteId], references: [id])
+  site              Site                     @relation(fields: [siteId], references: [id])
   sessions          Session[]
   accounts          Account[]
   caregiverPatients CaregiverPatient[]
