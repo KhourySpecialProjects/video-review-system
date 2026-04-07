@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/resizable";
 import { ClipTimeline } from "@/features/video/clips/ClipTimeline";
 import { useClipTimeline } from "@/features/video/clips/useClipTimeline";
+import { TimestampAnnotation } from "@/features/sidebar/TimestampAnnotation";
 
 export default function VideoReview() {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -47,8 +48,24 @@ export default function VideoReview() {
 
                 {/* Right sidebar — full height */}
                 <ResizablePanel defaultSize="20%" minSize="15%">
-                    <div className="flex h-full items-center justify-center rounded-md bg-muted text-muted-foreground">
-                        Sidebar
+                    <div className="flex h-full flex-col gap-4 p-4 overflow-y-auto border-l bg-background">
+                        <h2 className="font-semibold text-lg mb-2">Annotations</h2>
+                        <TimestampAnnotation
+                            timestamp="01:23"
+                            tag="Feedback"
+                            comment="This section could be improved. Try adding more examples."
+                            onNavigate={(ts) => console.log("Navigate to:", ts)}
+                            onEdit={() => console.log("Edit clicked")}
+                            onDelete={() => console.log("Delete clicked")}
+                        />
+                        <TimestampAnnotation
+                            timestamp="04:56"
+                            tag="Praise"
+                            comment="Great job explaining this complex concept!"
+                            onNavigate={(ts) => console.log("Navigate to:", ts)}
+                            onEdit={() => console.log("Edit clicked")}
+                            onDelete={() => console.log("Delete clicked")}
+                        />
                     </div>
                 </ResizablePanel>
             </ResizablePanelGroup>

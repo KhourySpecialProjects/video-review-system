@@ -28,12 +28,12 @@ export const router = createBrowserRouter([
                 element: <VideoReview />,
             },
             {
-              path: "tutorials",
-              element: <TutorialPage />,
-              loader: () => {
-                  return { tutorialPromise: fetchTutorial() };
-              },
-            }
+                path: "tutorials",
+                element: <TutorialPage />,
+                loader: () => {
+                    return { tutorialPromise: fetchTutorial() };
+                },
+            },
         ],
     },
 ]);
