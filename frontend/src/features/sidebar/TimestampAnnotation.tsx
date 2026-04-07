@@ -17,8 +17,6 @@ import { Textarea } from "@/components/ui/textarea"
 export interface TimestampAnnotationProps {
     /** The formatted timestamp string, e.g., "01:23" */
     timestamp: string
-    /** The tag categorized for this comment */
-    tag: string
     /** The text of the comment */
     comment: string
     /** Callback fired when the user selects to navigate to this timestamp */
@@ -34,7 +32,6 @@ export interface TimestampAnnotationProps {
  */
 export function TimestampAnnotation({
     timestamp,
-    tag,
     comment,
     onNavigate,
     onEdit,
@@ -63,9 +60,6 @@ export function TimestampAnnotation({
                     <Badge variant="secondary" className="font-mono">
                         <Clock className="w-3 h-3 mr-1" />
                         {timestamp}
-                    </Badge>
-                    <Badge variant="outline">
-                        {tag}
                     </Badge>
                 </CardTitle>
                 <CardAction className="flex relative items-center gap-1 z-10">
