@@ -1,4 +1,4 @@
-import { useState } from "react";
+
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -20,8 +20,9 @@ export interface VideoMetadata {
  * Props for the VideoMetadataSidebar component.
  */
 interface VideoMetadataSidebarProps {
-    /** Metadata to display in the sidebar. */
     metadata: VideoMetadata;
+    collapsed: boolean;
+    onToggle: () => void;
 }
 
 /**
@@ -47,7 +48,7 @@ function formatDuration(seconds: number): string {
  * @returns A formatted date/time string.
  */
 function formatDate(date: Date): string {
-    return date.toLocaleDateString("en-US", {
+    return date.toLocaleDateString(undefined, {
         year: "numeric",
         month: "long",
         day: "numeric",
@@ -55,7 +56,6 @@ function formatDate(date: Date): string {
         minute: "2-digit",
     });
 }
-
 /**
  * VideoMetadataSidebar displays general metadata about a video
  * and its associated patient in a collapsible left sidebar panel.
@@ -63,8 +63,7 @@ function formatDate(date: Date): string {
  * Shows patient ID, video duration, and the date/time the video was recorded.
  * Can be collapsed to save space during review.
  */
-export function VideoMetadataSidebar({ metadata }: VideoMetadataSidebarProps) {
-    const [collapsed, setCollapsed] = useState(false);
+export function VideoMetadataSidebar({ metadata, collapsed, onToggle }: VideoMetadataSidebarProps) {
 
     return (
         <div
@@ -76,7 +75,7 @@ export function VideoMetadataSidebar({ metadata }: VideoMetadataSidebarProps) {
             <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setCollapsed((prev) => !prev)}
+                onClick={onToggle}
                 className="absolute -right-4 top-4 z-10 size-8 rounded-full border border-border bg-bg-light shadow-sm"
                 aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
