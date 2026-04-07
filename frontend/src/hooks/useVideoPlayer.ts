@@ -9,6 +9,7 @@ type VideoPlayerState = {
     isMuted: boolean;
     showControls: boolean;
     speed: number;
+    volume: number;
 };
 
 /**
@@ -19,7 +20,8 @@ type VideoPlayerAction =
     | { type: "SET_CURRENT_TIME"; payload: number }
     | { type: "SET_MUTED"; payload: boolean }
     | { type: "SET_SHOW_CONTROLS"; payload: boolean }
-    | { type: "SET_SPEED"; payload: number };
+    | { type: "SET_SPEED"; payload: number }
+    | { type: "SET_VOLUME"; payload: number };
 
 const initialState: VideoPlayerState = {
     isPlaying: false,
@@ -27,6 +29,7 @@ const initialState: VideoPlayerState = {
     isMuted: false,
     showControls: true,
     speed: 1.0,
+    volume: 1,
 };
 
 /**
@@ -47,6 +50,8 @@ function videoPlayerReducer(
             return { ...state, showControls: action.payload };
         case "SET_SPEED":
             return { ...state, speed: action.payload };
+        case "SET_VOLUME":
+            return { ...state, volume: action.payload };
         default:
             return state;
     }
@@ -74,17 +79,23 @@ export function useVideoPlayer() {
             dispatch({ type: "SET_PLAYING", payload: false });
             dispatch({ type: "SET_CURRENT_TIME", payload: 0 });
         };
+        const onVolumeChange = () => {
+            dispatch({ type: "SET_VOLUME", payload: video.volume });
+            dispatch({ type: "SET_MUTED", payload: video.muted });
+        };
 
         video.addEventListener("timeupdate", onTimeUpdate);
         video.addEventListener("play", onPlay);
         video.addEventListener("pause", onPause);
         video.addEventListener("ended", onEnded);
+        video.addEventListener("volumechange", onVolumeChange);
 
         return () => {
             video.removeEventListener("timeupdate", onTimeUpdate);
             video.removeEventListener("play", onPlay);
             video.removeEventListener("pause", onPause);
             video.removeEventListener("ended", onEnded);
+            video.removeEventListener("volumechange", onVolumeChange);
         };
     }, []);
 
@@ -129,6 +140,13 @@ export function useVideoPlayer() {
     const setSpeed = (value: number) =>
         dispatch({ type: "SET_SPEED", payload: value });
 
+    const setVolume = (value: number) => {
+        const video = videoRef.current;
+        if (!video) return;
+        video.volume = value;
+        dispatch({ type: "SET_VOLUME", payload: value });
+    };
+
     return {
         videoRef,
         isPlaying: state.isPlaying,
@@ -142,5 +160,7 @@ export function useVideoPlayer() {
         handleSeek,
         speed: state.speed,
         setSpeed,
+        volume: state.volume,
+        setVolume,
     };
 }

@@ -34,6 +34,8 @@ export function VideoPlayer({ src, duration, poster, title, player }: VideoPlaye
         toggleFullscreen,
         speed,
         setSpeed,
+        volume,
+        setVolume,
     } = player;
 
     return (
@@ -83,6 +85,7 @@ export function VideoPlayer({ src, duration, poster, title, player }: VideoPlaye
                         }
                     }}
                     thumbAriaLabel="Seek video"
+                    getThumbTooltipLabel={(v) => formatDuration(Math.floor(v))}
                     className="mb-2"
                 />
 
@@ -101,18 +104,33 @@ export function VideoPlayer({ src, duration, poster, title, player }: VideoPlaye
                             )}
                         </button>
 
-                        {/* Mute */}
-                        <button
-                            onClick={toggleMute}
-                            className="text-white transition-colors hover:text-primary"
-                            aria-label={isMuted ? "Unmute" : "Mute"}
-                        >
-                            {isMuted ? (
-                                <VolumeX className="size-5" />
-                            ) : (
-                                <Volume2 className="size-5" />
-                            )}
-                        </button>
+                        {/* Volume */}
+                        <div className="flex items-center gap-1.5">
+                            <button
+                                onClick={toggleMute}
+                                className="text-white transition-colors hover:text-primary"
+                                aria-label={isMuted ? "Unmute" : "Mute"}
+                            >
+                                {isMuted ? (
+                                    <VolumeX className="size-5" />
+                                ) : (
+                                    <Volume2 className="size-5" />
+                                )}
+                            </button>
+                            <Slider
+                                min={0}
+                                max={1}
+                                step={0.01}
+                                value={volume}
+                                onValueChange={(value) => {
+                                    const v = Array.isArray(value) ? value[0] : value;
+                                    setVolume(v);
+                                }}
+                                thumbAriaLabel="Volume"
+                                getThumbTooltipLabel={(v) => `${Math.round(v * 100)}%`}
+                                className="w-20"
+                            />
+                        </div>
 
                         {/* Time */}
                         <span className="text-xs font-medium text-white">

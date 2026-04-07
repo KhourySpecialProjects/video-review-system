@@ -4,6 +4,9 @@ import * as React from "react"
 import { Slider as SliderPrimitive } from "@base-ui/react/slider"
 
 import { cn } from "@/lib/utils"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+
+const THUMB_CLASS = "border-primary ring-ring/50 size-4 rounded-full border bg-white shadow-sm transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden block shrink-0 select-none disabled:pointer-events-none disabled:opacity-50"
 
 function Slider({
   className,
@@ -12,8 +15,12 @@ function Slider({
   min = 0,
   max = 100,
   thumbAriaLabel,
+  getThumbTooltipLabel,
   ...props
-}: SliderPrimitive.Root.Props & { thumbAriaLabel?: string }) {
+}: SliderPrimitive.Root.Props & {
+  thumbAriaLabel?: string;
+  getThumbTooltipLabel?: (value: number) => string;
+}) {
   const _values = React.useMemo(
     () =>
       Array.isArray(value)
@@ -45,14 +52,29 @@ function Slider({
             className="bg-primary select-none data-horizontal:h-full data-vertical:w-full"
           />
         </SliderPrimitive.Track>
-        {Array.from({ length: _values.length }, (_, index) => (
-          <SliderPrimitive.Thumb
-            data-slot="slider-thumb"
-            key={index}
-            getAriaLabel={thumbAriaLabel ? () => thumbAriaLabel : undefined}
-            className="border-primary ring-ring/50 size-4 rounded-full border bg-white shadow-sm transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden block shrink-0 select-none disabled:pointer-events-none disabled:opacity-50"
-          />
-        ))}
+        {Array.from({ length: _values.length }, (_, index) =>
+          getThumbTooltipLabel ? (
+            <Tooltip key={index}>
+              <TooltipTrigger
+                render={
+                  <SliderPrimitive.Thumb
+                    data-slot="slider-thumb"
+                    getAriaLabel={thumbAriaLabel ? () => thumbAriaLabel : undefined}
+                    className={THUMB_CLASS}
+                  />
+                }
+              />
+              <TooltipContent>{getThumbTooltipLabel(_values[index])}</TooltipContent>
+            </Tooltip>
+          ) : (
+            <SliderPrimitive.Thumb
+              data-slot="slider-thumb"
+              key={index}
+              getAriaLabel={thumbAriaLabel ? () => thumbAriaLabel : undefined}
+              className={THUMB_CLASS}
+            />
+          )
+        )}
       </SliderPrimitive.Control>
     </SliderPrimitive.Root>
   )
