@@ -15,6 +15,8 @@ import { useTags } from "@/features/annotate/video-summary/tags/useTags";
 import { useAnnotationState } from "@/features/video/annotations/useAnnotationState";
 import { AnnotationCanvas } from "@/features/video/annotations/drawing/canvas/AnnotationCanvas";
 import { AnnotationToolbar } from "@/features/video/annotations/drawing/toolbar/AnnotationToolbar";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useVideoPlayer } from "@/hooks/useVideoPlayer";
 import type { AnnotationTool, DrawingSettings } from "@/features/video/annotations/types";
 
 export default function VideoReview() {
@@ -30,6 +32,8 @@ export default function VideoReview() {
     const { tags, addTag, removeTag, editTag } = useTags();
     const tagManager = useTagManager({ onAddTag: addTag, onEditTag: editTag });
     const annotationState = useAnnotationState();
+    const player = useVideoPlayer();
+useKeyboardShortcuts({ player });
     const [tool, setTool] = useState<AnnotationTool>("freehand");
     const [settings, setSettings] = useState<DrawingSettings>({
         color: "#ef4444",
