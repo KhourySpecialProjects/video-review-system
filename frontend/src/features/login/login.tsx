@@ -37,7 +37,7 @@ export function Login() {
                 </CardHeader>
 
                 <CardContent>
-                    <Form method="post" className="space-y-4">
+                    <Form noValidate method="post" className="space-y-4">
 
                         {/* Conditional rendering for general/server-side errors */}
                         {formError && (
@@ -74,9 +74,12 @@ export function Login() {
                                 {/* Link this to the actual password reset route when implemented.
                                     Example: <Link to="/forgot-password" ... >Forgot password?</Link>
                                 */}
-                                <a href="#" className="text-xs font-medium text-primary hover:underline">
+                                <button
+                                type="button"
+                                className="text-xs font-medium text-primary hover:underline cursor-pointer"
+                                >
                                     Forgot password?
-                                </a>
+                                </button>
                             </div>
 
                             <Input
@@ -95,7 +98,7 @@ export function Login() {
                         {/* Submit Button. Disabled and updates text while request is processing. */}
                         <Button
                             type="submit"
-                            className="w-full mt-2 transition-all"
+                            className="w-full mt-2 transition-all cursor-pointer"
                             disabled={isSubmitting}
                         >
                             {isSubmitting ? (
