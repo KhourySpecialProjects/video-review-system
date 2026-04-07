@@ -27,22 +27,6 @@ router.get("/", async (req, res) => {
 });
 
 /**
- * GET /domain/videos/:id - get video by id
- *
- * @param id - uuid of the video to fetch
- *
- * @returns 200 with the video object
- * @returns 404 if no video with that id exists
- */
-router.get("/:id", async (req, res) => {
-  const video = await videosService.getVideoById(req.params.id);
-  if (!video) {
-    throw AppError.notFound("Video not found");
-  }
-  res.json(video);
-});
-
-/**
  * GET /domain/videos/:id/stream - generates a presigned URL for streaming a video
  *
  * @param id - uuid of the video

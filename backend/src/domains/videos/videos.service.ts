@@ -27,21 +27,6 @@ export async function listVideos({limit = 20, offset = 0}) {
 };
 
 /**
- * finds a single video by its uuid.
- *
- * @param id - uuid of the video
- * 
- * @returns the video object, or null if not found
- */
-export async function getVideoById(id: string) {
-  // findUnique returns null if not found, can handle in the controller
-  const video = await prisma.video.findUnique({
-    where: { id },
-  });
-  return video;
-}
-
-/**
  * generates a temporary presigned URL for streaming/downloading
  * a video file from S3.
  *
@@ -93,8 +78,10 @@ interface CreateVideoParams extends CreateVideoInput {
  *
  * @param params.patientId - The patient this video belongs to
  * @param params.uploadedByUserId - The authenticated user uploading
- * @param params.contentType - MIME type of the file (e.g., "video/mp4")
- * @param params.takenAt - Optional timestamp of when video was recorded
+ * @param params.videoName - Original filename for reference 
+ * @param params.durationSeconds - duration of the video in seconds
+ * @param params.createdAt - when the video record was created
+ * @param params.takenAt - timestamp of when video was recorded
  * 
  * @returns The created video record plus a presigned upload URL
  */

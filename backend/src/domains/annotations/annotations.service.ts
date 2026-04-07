@@ -1,8 +1,7 @@
 import { Prisma } from "../../generated/prisma/index.js";
 import prisma from "../../lib/prisma.js";
-//import type { Annotation } from "../../generated/prisma/client";
-import type { CreateAnnotationInput, CreateAnnotationParams, UpdateAnnotationInput } from "./annotations.types";
-import { timeStamp } from "console";
+import { AppError } from "../../middleware/errors.js";
+import type { CreateAnnotationParams, UpdateAnnotationInput } from "./annotations.types";
 
 /**
  * retrieves a paginated list of annotations for a video, ordered by timestamp
@@ -18,7 +17,7 @@ export async function listAnnotationsByVideo(videoId: string, {limit = 20, offse
   const [annotations, total] = await Promise.all([
     prisma.annotation.findMany({
       where: { videoId },
-      orderBy: { timestampMs: "asc" },
+      orderBy: { timestampS: "asc" },
       skip: offset,
       take: limit,
     }),
@@ -49,9 +48,11 @@ export async function getAnnotationById(id: string) {
  *
  * @param data.videoId - uuid of the video to annotate
  * @param data.authorUserId - uuid of the user creating the annotation
- * @param data.type - annotation type (text_comment, drawing_box, freehand_drawing)
- * @param data.timestampMs - position in the video in milliseconds
- * @param data.durationMs - (optional) how long the annotation spans
+ * @param data.studyId - uuid of the associated study
+ * @param data.siteId - uuid of the associated site
+ * @param data.type - annotation type (text_comment, drawing_box, drawing_circle, freehand_drawing, or tag)
+ * @param data.timestampSeconds - position in the video in seconds
+ * @param data.durationSeconds - how long the annotation spans
  * @param data.payload - (optional) type-specific JSON data
  * 
  * @returns the newly created annotation
@@ -61,9 +62,11 @@ export async function getAnnotationById(id: string) {
 export async function createAnnotation({   
   videoId, 
   authorUserId,
+  studyId,
+  siteId,
   type,
-  timestampMs,
-  durationMs,
+  timestampSeconds,
+  durationSeconds,
   payload, }: CreateAnnotationParams) {
 
     // verify the video exists before creating an annotation
@@ -72,17 +75,19 @@ export async function createAnnotation({
     });
 
     if (!video) {
-      throw new Error("Video not found");
+      throw AppError.notFound("Video not found");
     }
   
   const annotation = await prisma.annotation.create({
     data: {
       videoId,
       authorUserId,
+      studyId,
+      siteId,
       type,
-      timestampMs,
-      durationMs,
-      payload: payload as Prisma.JsonValue ?? undefined, // cast to Prisma.JsonValue for storage
+      timestampS: timestampSeconds,
+      durationS: durationSeconds,
+      payload: payload as Prisma.InputJsonValue,
     },
   });
   return annotation;
@@ -99,15 +104,16 @@ export async function createAnnotation({
  * @throws {P2025} if no annotation with that id exists
  */
 export async function updateAnnotation(id: string, data: UpdateAnnotationInput) {
-  // primsa will throw if video doesn't exist, can handle in the controller
-  const annotation  = await prisma.annotation .update({
+  // prisma will throw if annotation doesn't exist, can handle in the controller
+  const annotation = await prisma.annotation.update({
     where: { id },
-      data: {
-      ...data,
-      payload: data.payload as Prisma.JsonValue ?? undefined,
+    data: {
+      timestampS: data.timestampSeconds,
+      durationS: data.durationSeconds,
+      payload: data.payload as Prisma.InputJsonValue,
     },
   });
-  return annotation ;
+  return annotation;
 }
 
 /**

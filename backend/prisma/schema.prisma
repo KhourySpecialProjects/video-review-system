@@ -324,8 +324,8 @@ model Annotation {
   studyId      String          @map("study_id") @db.Uuid
   siteId       String          @map("site_id") @db.Uuid
   type         annotation_type
-  timestampS  Int             @map("timestamp_S")
-  durationS   Int             @map("duration_S")
+  timestampS   Int             @map("timestamp_S")
+  durationS    Int             @map("duration_S")
   payload      Json
   createdAt    DateTime        @default(now()) @map("created_at")
 
