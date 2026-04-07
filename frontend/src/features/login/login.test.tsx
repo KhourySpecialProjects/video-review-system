@@ -1,35 +1,35 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import { createMemoryRouter, RouterProvider } from "react-router";
 import { Login } from "./login";
-import * as useLoginModule from "@/hooks/use-login";
+import * as ReactRouter from "react-router";
 
-const mockHandleSubmit = vi.fn(async (e: React.SyntheticEvent<HTMLFormElement>) => {
-  e.preventDefault();
+vi.mock("react-router", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react-router")>();
+  return {
+    ...actual,
+    useActionData: vi.fn(),
+    useNavigation: vi.fn(),
+  };
 });
 
-const defaultHook: ReturnType<typeof useLoginModule.useLogin> = {
-  isSubmitting: false,
-  fieldErrors: {},
-  formError: undefined,
-  handleSubmit: mockHandleSubmit,
-};
+const mockUseActionData = vi.mocked(ReactRouter.useActionData);
+const mockUseNavigation = vi.mocked(ReactRouter.useNavigation);
+
+const idleNavigation = { state: "idle" } as ReturnType<typeof ReactRouter.useNavigation>;
+const submittingNavigation = { state: "submitting" } as ReturnType<typeof ReactRouter.useNavigation>;
 
 beforeEach(() => {
-  vi.restoreAllMocks();
-  mockHandleSubmit.mockImplementation(async (e: React.SyntheticEvent<HTMLFormElement>) => {
-    e.preventDefault();
-  });
+  vi.resetAllMocks();
+  mockUseActionData.mockReturnValue(undefined);
+  mockUseNavigation.mockReturnValue(idleNavigation);
 });
 
-function renderLogin(overrides: Partial<typeof defaultHook> = {}) {
-  vi.spyOn(useLoginModule, "useLogin").mockReturnValue({ ...defaultHook, ...overrides });
-  return render(
-    <MemoryRouter>
-      <Login />
-    </MemoryRouter>
-  );
+function renderLogin() {
+  const router = createMemoryRouter([
+    { path: "/", element: <Login />, action: async () => null },
+  ]);
+  return render(<RouterProvider router={router} />);
 }
 
 describe("Login", () => {
@@ -52,7 +52,8 @@ describe("Login", () => {
   });
 
   it("shows 'Logging in...' and disables button while submitting", () => {
-    renderLogin({ isSubmitting: true });
+    mockUseNavigation.mockReturnValue(submittingNavigation);
+    renderLogin();
     const button = screen.getByRole("button", { name: /logging in/i });
     expect(button).toBeDisabled();
   });
@@ -63,7 +64,8 @@ describe("Login", () => {
   });
 
   it("displays form-level error alert", () => {
-    renderLogin({ formError: "Incorrect email or password. Please try again." });
+    mockUseActionData.mockReturnValue({ formError: "Incorrect email or password. Please try again." });
+    renderLogin();
     expect(screen.getByText(/incorrect email or password/i)).toBeInTheDocument();
   });
 
@@ -73,31 +75,32 @@ describe("Login", () => {
   });
 
   it("displays email field error", () => {
-    renderLogin({ fieldErrors: { email: "Invalid email address" } });
+    mockUseActionData.mockReturnValue({ fieldErrors: { email: "Invalid email address" } });
+    renderLogin();
     expect(screen.getByText("Invalid email address")).toBeInTheDocument();
   });
 
   it("displays password field error", () => {
-    renderLogin({ fieldErrors: { password: "Password is required" } });
+    mockUseActionData.mockReturnValue({ fieldErrors: { password: "Password is required" } });
+    renderLogin();
     expect(screen.getByText("Password is required")).toBeInTheDocument();
   });
 
   it("applies destructive style to email input when there is an email error", () => {
-    renderLogin({ fieldErrors: { email: "Invalid email address" } });
+    mockUseActionData.mockReturnValue({ fieldErrors: { email: "Invalid email address" } });
+    renderLogin();
     expect(screen.getByLabelText(/email/i)).toHaveClass("border-destructive");
   });
 
   it("applies destructive style to password input when there is a password error", () => {
-    renderLogin({ fieldErrors: { password: "Password is required" } });
+    mockUseActionData.mockReturnValue({ fieldErrors: { password: "Password is required" } });
+    renderLogin();
     expect(screen.getByLabelText(/password/i)).toHaveClass("border-destructive");
   });
 
-  it("calls handleSubmit when the form is submitted", async () => {
-    const user = userEvent.setup();
+  it("form has correct method for action submission", () => {
     renderLogin();
-    await user.type(screen.getByLabelText(/email/i), "test@example.com");
-    await user.type(screen.getByLabelText(/password/i), "secret");
-    await user.click(screen.getByRole("button", { name: /log in/i }));
-    expect(mockHandleSubmit).toHaveBeenCalledOnce();
+    const form = screen.getByRole("button", { name: /log in/i }).closest("form");
+    expect(form).toHaveAttribute("method", "post");
   });
 });
