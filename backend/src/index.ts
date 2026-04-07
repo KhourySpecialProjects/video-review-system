@@ -43,7 +43,7 @@ export function createApp() {
   app.use("/domain/auth", authRouter);
   app.use("/domain/annotations", annotationsRouter);
   // app.use("/domain/clips", clipsRouter);
-  // app.use("/domain/accounts", accountsRouter);
+  app.use("/domain/accounts", accountsRouter);
   // app.use("/domain/audit", auditRouter);
 
   // error handling — must be registered after all routes
