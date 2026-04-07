@@ -52,7 +52,6 @@ export default function VideoReview() {
                         <h2 className="font-semibold text-lg mb-2">Annotations</h2>
                         <TimestampAnnotation
                             timestamp="01:23"
-                            tag="Seizure"
                             comment="Seizure begins at this time."
                             onNavigate={(ts) => console.log("Navigate to:", ts)}
                             onEdit={(newComment) => console.log("Edit saved:", newComment)}
@@ -60,7 +59,6 @@ export default function VideoReview() {
                         />
                         <TimestampAnnotation
                             timestamp="04:56"
-                            tag="Symptoms"
                             comment="Patient is experiencing confusion."
                             onNavigate={(ts) => console.log("Navigate to:", ts)}
                             onEdit={(newComment) => console.log("Edit saved:", newComment)}

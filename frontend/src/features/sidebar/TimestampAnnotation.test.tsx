@@ -5,7 +5,6 @@ import { TimestampAnnotation, type TimestampAnnotationProps } from "./TimestampA
 describe("TimestampAnnotation", () => {
   const defaultProps: TimestampAnnotationProps = {
     timestamp: "01:23",
-    tag: "Feedback",
     comment: "This section could be improved.",
     onNavigate: vi.fn(),
     onEdit: vi.fn(),
@@ -16,7 +15,6 @@ describe("TimestampAnnotation", () => {
     render(<TimestampAnnotation {...defaultProps} />)
     
     expect(screen.getByText("01:23")).toBeInTheDocument()
-    expect(screen.getByText("Feedback")).toBeInTheDocument()
     expect(screen.getByText("This section could be improved.")).toBeInTheDocument()
   })
 
