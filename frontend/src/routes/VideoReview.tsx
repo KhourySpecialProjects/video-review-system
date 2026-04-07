@@ -52,18 +52,18 @@ export default function VideoReview() {
                         <h2 className="font-semibold text-lg mb-2">Annotations</h2>
                         <TimestampAnnotation
                             timestamp="01:23"
-                            tag="Feedback"
-                            comment="This section could be improved. Try adding more examples."
+                            tag="Seizure"
+                            comment="Seizure begins at this time."
                             onNavigate={(ts) => console.log("Navigate to:", ts)}
-                            onEdit={() => console.log("Edit clicked")}
+                            onEdit={(newComment) => console.log("Edit saved:", newComment)}
                             onDelete={() => console.log("Delete clicked")}
                         />
                         <TimestampAnnotation
                             timestamp="04:56"
-                            tag="Praise"
-                            comment="Great job explaining this complex concept!"
+                            tag="Symptoms"
+                            comment="Patient is experiencing confusion."
                             onNavigate={(ts) => console.log("Navigate to:", ts)}
-                            onEdit={() => console.log("Edit clicked")}
+                            onEdit={(newComment) => console.log("Edit saved:", newComment)}
                             onDelete={() => console.log("Delete clicked")}
                         />
                     </div>

@@ -27,17 +27,35 @@ describe("TimestampAnnotation", () => {
     expect(defaultProps.onNavigate).toHaveBeenCalledWith("01:23")
   })
 
-  it("calls onEdit when Edit button is clicked", () => {
+  it("shows a textarea when Edit button is clicked", () => {
     render(<TimestampAnnotation {...defaultProps} />)
-    const editButton = screen.getByLabelText("Edit comment")
-    fireEvent.click(editButton)
-    expect(defaultProps.onEdit).toHaveBeenCalled()
+    fireEvent.click(screen.getByLabelText("Edit comment"))
+    expect(screen.getByLabelText("Edit comment text")).toBeInTheDocument()
   })
 
-  it("calls onDelete when Delete button is clicked", () => {
+  it("calls onEdit with updated text when Save is clicked", () => {
     render(<TimestampAnnotation {...defaultProps} />)
-    const deleteButton = screen.getByLabelText("Delete comment")
-    fireEvent.click(deleteButton)
+    fireEvent.click(screen.getByLabelText("Edit comment"))
+    const textarea = screen.getByLabelText("Edit comment text")
+    fireEvent.change(textarea, { target: { value: "Updated comment." } })
+    fireEvent.click(screen.getByLabelText("Save comment"))
+    expect(defaultProps.onEdit).toHaveBeenCalledWith("Updated comment.")
+  })
+
+  it("discards changes and hides textarea when Cancel is clicked", () => {
+    render(<TimestampAnnotation {...defaultProps} />)
+    fireEvent.click(screen.getByLabelText("Edit comment"))
+    const textarea = screen.getByLabelText("Edit comment text")
+    fireEvent.change(textarea, { target: { value: "Discarded change." } })
+    fireEvent.click(screen.getByLabelText("Cancel edit"))
+    expect(screen.queryByLabelText("Edit comment text")).not.toBeInTheDocument()
+    expect(screen.getByText("This section could be improved.")).toBeInTheDocument()
+  })
+
+  it("calls onDelete after confirming deletion", () => {
+    render(<TimestampAnnotation {...defaultProps} />)
+    fireEvent.click(screen.getByLabelText("Delete comment"))
+    fireEvent.click(screen.getByLabelText("Confirm delete"))
     expect(defaultProps.onDelete).toHaveBeenCalled()
   })
 })

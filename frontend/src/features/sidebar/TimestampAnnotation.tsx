@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 
 /**
  * Props for the TimestampAnnotation component
@@ -22,8 +23,8 @@ export interface TimestampAnnotationProps {
     comment: string
     /** Callback fired when the user selects to navigate to this timestamp */
     onNavigate: (timestamp: string) => void
-    /** Callback fired when the user edits the comment */
-    onEdit: () => void
+    /** Callback fired when the user saves an edited comment */
+    onEdit: (newComment: string) => void
     /** Callback fired when the user deletes the comment */
     onDelete: () => void
 }
@@ -40,6 +41,20 @@ export function TimestampAnnotation({
     onDelete,
 }: TimestampAnnotationProps) {
     const [confirmingDelete, setConfirmingDelete] = useState(false)
+    const [isEditing, setIsEditing] = useState(false)
+    const [savedComment, setSavedComment] = useState(comment)
+    const [editedComment, setEditedComment] = useState(comment)
+
+    function handleSave() {
+        setSavedComment(editedComment)
+        onEdit(editedComment)
+        setIsEditing(false)
+    }
+
+    function handleCancelEdit() {
+        setEditedComment(savedComment)
+        setIsEditing(false)
+    }
 
     return (
         <Card className="w-full">
@@ -78,6 +93,27 @@ export function TimestampAnnotation({
                                 Cancel
                             </Button>
                         </>
+                    ) : isEditing ? (
+                        <>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleSave}
+                                aria-label="Save comment"
+                                className="cursor-pointer"
+                            >
+                                Save
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleCancelEdit}
+                                aria-label="Cancel edit"
+                                className="cursor-pointer"
+                            >
+                                Cancel
+                            </Button>
+                        </>
                     ) : (
                         <>
                             <Button
@@ -92,7 +128,7 @@ export function TimestampAnnotation({
                             <Button
                                 variant="ghost"
                                 size="icon-sm"
-                                onClick={onEdit}
+                                onClick={() => setIsEditing(true)}
                                 aria-label="Edit comment"
                                 className="cursor-pointer"
                             >
@@ -112,7 +148,18 @@ export function TimestampAnnotation({
                 </CardAction>
             </CardHeader>
             <CardContent>
-                <p className="text-sm text-foreground">{comment}</p>
+                {isEditing ? (
+                    <Textarea
+                        value={editedComment}
+                        onChange={(e) => setEditedComment(e.target.value)}
+                        aria-label="Edit comment text"
+                        className="text-sm resize-none"
+                        rows={3}
+                        autoFocus
+                    />
+                ) : (
+                    <p className="text-sm text-foreground">{savedComment}</p>
+                )}
             </CardContent>
         </Card>
     )
