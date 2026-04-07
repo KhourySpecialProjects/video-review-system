@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { VideoTimeline } from "./VideoTimeline";
 import {
-    VideoTimeline,
     annotationsToMarkers,
     type TimelineMarker,
-} from "./VideoTimeline";
+} from "./useVideoTimeline";
 import type { Annotation } from "@/features/video/annotations/types";
 
 /** Helper to render VideoTimeline wrapped in TooltipProvider */
@@ -68,6 +68,42 @@ describe("VideoTimeline", () => {
         renderTimeline({ duration: 120, currentTime: 0, markers: [] });
         expect(screen.getByText("0:00")).toBeInTheDocument();
         expect(screen.getByText("2:00")).toBeInTheDocument();
+    });
+
+    it("timeline bar has slider role and ARIA attributes", () => {
+        renderTimeline({ duration: 120, currentTime: 30, markers: [] });
+        const bar = screen.getByRole("slider");
+        expect(bar).toHaveAttribute("aria-valuemin", "0");
+        expect(bar).toHaveAttribute("aria-valuemax", "120");
+        expect(bar).toHaveAttribute("aria-valuenow", "30");
+    });
+
+    it("ArrowRight key seeks forward 5 seconds", () => {
+        const onSeek = vi.fn();
+        renderTimeline({ duration: 120, currentTime: 30, markers: [], onSeek });
+        fireEvent.keyDown(screen.getByRole("slider"), { key: "ArrowRight" });
+        expect(onSeek).toHaveBeenCalledWith(35);
+    });
+
+    it("ArrowLeft key seeks backward 5 seconds", () => {
+        const onSeek = vi.fn();
+        renderTimeline({ duration: 120, currentTime: 30, markers: [], onSeek });
+        fireEvent.keyDown(screen.getByRole("slider"), { key: "ArrowLeft" });
+        expect(onSeek).toHaveBeenCalledWith(25);
+    });
+
+    it("ArrowLeft does not seek below 0", () => {
+        const onSeek = vi.fn();
+        renderTimeline({ duration: 120, currentTime: 2, markers: [], onSeek });
+        fireEvent.keyDown(screen.getByRole("slider"), { key: "ArrowLeft" });
+        expect(onSeek).toHaveBeenCalledWith(0);
+    });
+
+    it("ArrowRight does not seek beyond duration", () => {
+        const onSeek = vi.fn();
+        renderTimeline({ duration: 120, currentTime: 118, markers: [], onSeek });
+        fireEvent.keyDown(screen.getByRole("slider"), { key: "ArrowRight" });
+        expect(onSeek).toHaveBeenCalledWith(120);
     });
 });
 

@@ -22,7 +22,7 @@ export default function VideoReview() {
     const videoRef = useRef<HTMLVideoElement>(null);
     const videoContainerRef = useRef<HTMLDivElement>(null);
 
-    const timeline = useClipTimeline(120, videoRef, (clip) => {
+    const timeline = useClipTimeline(videoDuration, videoRef, (clip) => {
         console.log("Clip created:", clip);
     });
 
@@ -38,14 +38,21 @@ export default function VideoReview() {
     });
     const [drawingEnabled, setDrawingEnabled] = useState(true);
     const [videoCurrentTime, setVideoCurrentTime] = useState(0);
+    const [videoDuration, setVideoDuration] = useState(0);
 
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
 
         const onTimeUpdate = () => setVideoCurrentTime(video.currentTime);
+        const onLoadedMetadata = () => setVideoDuration(video.duration ?? 0);
+
         video.addEventListener("timeupdate", onTimeUpdate);
-        return () => video.removeEventListener("timeupdate", onTimeUpdate);
+        video.addEventListener("loadedmetadata", onLoadedMetadata);
+        return () => {
+            video.removeEventListener("timeupdate", onTimeUpdate);
+            video.removeEventListener("loadedmetadata", onLoadedMetadata);
+        };
     }, []);
 
     return (
@@ -106,7 +113,7 @@ export default function VideoReview() {
                             <div className="flex h-full flex-col gap-3 overflow-y-auto p-4">
                                 {/* Video timeline with annotation markers */}
 <VideoTimeline
-    duration={120}
+    duration={videoDuration}
     currentTime={videoCurrentTime}
     markers={annotationsToMarkers(annotationState.annotations)}
     onSeek={(time) => {
@@ -116,7 +123,7 @@ export default function VideoReview() {
     }}
 />
 
-                                <ClipTimeline duration={120} timeline={timeline} />
+                                <ClipTimeline duration={videoDuration} timeline={timeline} />
                             </div>
                         </ResizablePanel>
                     </ResizablePanelGroup>

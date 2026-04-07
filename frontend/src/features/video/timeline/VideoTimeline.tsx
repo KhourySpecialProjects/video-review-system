@@ -1,73 +1,19 @@
 import { useRef } from "react";
+import { formatDuration } from "@/lib/format";
 import {
     Tooltip,
     TooltipContent,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { Annotation } from "@/features/video/annotations/types";
+import {
+    MARKER_COLORS,
+    MARKER_LABELS,
+    buildTimeLabels,
+} from "./useVideoTimeline";
+import type { TimelineMarkerType, TimelineMarker } from "./useVideoTimeline";
 
-/**
- * Marker categories displayed on the timeline.
- * Maps annotation types to display labels and colors.
- */
-export type TimelineMarkerType = "drawing" | "timestamp-comment";
-
-/**
- * A single marker displayed on the video timeline.
- */
-export type TimelineMarker = {
-    /** Unique identifier for the marker. */
-    id: string;
-    /** Time in seconds where the marker appears. */
-    timestamp: number;
-    /** The category of the marker — drawing or timestamp comment. */
-    markerType: TimelineMarkerType;
-    /** Optional label shown in the tooltip. */
-    label?: string;
-};
-
-/**
- * Color configuration for each marker type.
- */
-const MARKER_COLORS: Record<TimelineMarkerType, string> = {
-    "drawing": "#ef4444",
-    "timestamp-comment": "#f59e0b",
-};
-
-/**
- * Human-readable labels for each marker type shown in the legend.
- */
-const MARKER_LABELS: Record<TimelineMarkerType, string> = {
-    "drawing": "Drawing",
-    "timestamp-comment": "Timestamp Comment",
-};
-
-/**
- * Formats a time in seconds to MM:SS format.
- *
- * @param seconds - The time in seconds to format.
- * @returns A string in MM:SS format.
- */
-function formatTime(seconds: number): string {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-}
-
-/**
- * Converts an array of Annotation objects into TimelineMarkers.
- *
- * @param annotations - The annotations to convert.
- * @returns An array of TimelineMarker objects.
- */
-export function annotationsToMarkers(annotations: Annotation[]): TimelineMarker[] {
-    return annotations.map((a) => ({
-        id: a.id,
-        timestamp: a.timestamp,
-        markerType: "drawing" as TimelineMarkerType,
-        label: `${a.type} at ${formatTime(a.timestamp)}`,
-    }));
-}
+export type { TimelineMarkerType, TimelineMarker };
+export { annotationsToMarkers } from "./useVideoTimeline";
 
 /**
  * Props for the VideoTimeline component.
@@ -89,6 +35,7 @@ interface VideoTimelineProps {
  *
  * Clicking a marker or anywhere on the timeline seeks the video to that time.
  * Hovering a marker shows a tooltip with its timestamp and label.
+ * Arrow keys seek by 5 seconds while the bar is focused.
  */
 export function VideoTimeline({
     duration,
@@ -98,18 +45,9 @@ export function VideoTimeline({
 }: VideoTimelineProps) {
     const barRef = useRef<HTMLDivElement>(null);
 
-    /** Number of time labels to show based on duration. */
-    const labelCount = Math.min(Math.floor(duration / 60) + 1, 8);
-    const labelInterval = duration / labelCount;
-    const timeLabels = Array.from({ length: labelCount + 1 }, (_, i) =>
-        Math.round(i * labelInterval)
-    );
-
+    const timeLabels = buildTimeLabels(duration);
     const currentPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-    /**
-     * Handles click on the timeline bar to seek to a position.
-     */
     function handleBarClick(e: React.MouseEvent<HTMLDivElement>) {
         const bar = barRef.current;
         if (!bar) return;
@@ -117,6 +55,16 @@ export function VideoTimeline({
         const x = e.clientX - rect.left;
         const ratio = Math.max(0, Math.min(1, x / rect.width));
         onSeek(ratio * duration);
+    }
+
+    function handleBarKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+        if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+            e.preventDefault();
+            onSeek(Math.min(duration, currentTime + 5));
+        } else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+            e.preventDefault();
+            onSeek(Math.max(0, currentTime - 5));
+        }
     }
 
     return (
@@ -128,15 +76,22 @@ export function VideoTimeline({
             {/* Time labels */}
             <div className="relative mb-1 flex justify-between text-xs text-muted-foreground">
                 {timeLabels.map((t) => (
-                    <span key={t}>{formatTime(t)}</span>
+                    <span key={t}>{formatDuration(t)}</span>
                 ))}
             </div>
 
             {/* Timeline bar */}
             <div
                 ref={barRef}
+                role="slider"
+                tabIndex={0}
+                aria-label="Video timeline"
+                aria-valuemin={0}
+                aria-valuemax={duration}
+                aria-valuenow={currentTime}
                 onClick={handleBarClick}
-                className="relative h-12 w-full cursor-pointer rounded-md bg-muted"
+                onKeyDown={handleBarKeyDown}
+                className="relative h-12 w-full cursor-pointer rounded-md bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
                 {/* Current position needle */}
                 <div
@@ -149,34 +104,32 @@ export function VideoTimeline({
                     const percent = duration > 0
                         ? (marker.timestamp / duration) * 100
                         : 0;
-                    const color = MARKER_COLORS[marker.markerType];
+                    const colorClass = MARKER_COLORS[marker.markerType];
 
                     return (
                         <Tooltip key={marker.id}>
-                            <TooltipTrigger asChild>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onSeek(marker.timestamp);
-                                    }}
-                                    className="absolute top-0 h-full w-0.5 -translate-x-1/2 cursor-pointer transition-opacity hover:opacity-80"
-                                    style={{
-                                        left: `${percent}%`,
-                                        backgroundColor: color,
-                                    }}
-                                    aria-label={`Marker at ${formatTime(marker.timestamp)}`}
-                                >
-                                    {/* Marker pill at top */}
-                                    <span
-                                        className="absolute -top-5 left-1/2 -translate-x-1/2 rounded-full px-1.5 py-0.5 text-xs font-semibold text-white"
-                                        style={{ backgroundColor: color }}
+                            <TooltipTrigger
+                                render={
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onSeek(marker.timestamp);
+                                        }}
+                                        className={`absolute top-0 h-full w-0.5 -translate-x-1/2 cursor-pointer transition-opacity hover:opacity-80 ${colorClass}`}
+                                        style={{ left: `${percent}%` }}
+                                        aria-label={`Marker at ${formatDuration(Math.floor(marker.timestamp))}`}
                                     >
-                                        {formatTime(marker.timestamp)}
-                                    </span>
-                                </button>
-                            </TooltipTrigger>
+                                        {/* Marker pill at top */}
+                                        <span
+                                            className={`absolute -top-5 left-1/2 -translate-x-1/2 rounded-full px-1.5 py-0.5 text-xs font-semibold text-white ${colorClass}`}
+                                        >
+                                            {formatDuration(Math.floor(marker.timestamp))}
+                                        </span>
+                                    </button>
+                                }
+                            />
                             <TooltipContent>
-                                <p className="font-medium">{formatTime(marker.timestamp)}</p>
+                                <p className="font-medium">{formatDuration(Math.floor(marker.timestamp))}</p>
                                 {marker.label && (
                                     <p className="text-xs text-muted-foreground">{marker.label}</p>
                                 )}
@@ -190,10 +143,7 @@ export function VideoTimeline({
             <div className="mt-3 flex flex-wrap gap-4">
                 {(Object.keys(MARKER_COLORS) as TimelineMarkerType[]).map((type) => (
                     <div key={type} className="flex items-center gap-1.5">
-                        <span
-                            className="size-2.5 rounded-full"
-                            style={{ backgroundColor: MARKER_COLORS[type] }}
-                        />
+                        <span className={`size-2.5 rounded-full ${MARKER_COLORS[type]}`} />
                         <span className="text-xs text-muted-foreground">
                             {MARKER_LABELS[type]}
                         </span>
