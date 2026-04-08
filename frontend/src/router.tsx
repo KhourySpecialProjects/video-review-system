@@ -5,6 +5,8 @@ import VideoView, { clientLoader as videoLoader, clientAction as videoAction } f
 import VideoReview from "./routes/VideoReview";
 import { fetchTutorial } from "./lib/mock-data";
 import TutorialPage from "./routes/TutorialPage";
+import SignupPage from "./routes/Signup";
+import { signupLoader, signupAction } from "./features/auth/signup.service";
 
 export const router = createBrowserRouter([
     {
@@ -33,7 +35,13 @@ export const router = createBrowserRouter([
               loader: () => {
                   return { tutorialPromise: fetchTutorial() };
               },
-            }
+            },
         ],
     },
+    {
+        path: "/signup/:token",
+        element: <SignupPage />,
+        loader: signupLoader,
+        action: signupAction,
+    }
 ]);

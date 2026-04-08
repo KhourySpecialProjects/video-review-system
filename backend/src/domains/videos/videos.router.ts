@@ -1,7 +1,7 @@
 import { Router } from "express";
 import * as videosService from "./videos.service";
 import { AppError } from "../../middleware/errors";
-import { createVideoSchema, updateVideoSchema } from "./videos.types";
+import { createVideoSchema, completeUploadSchema, updateVideoSchema } from "./videos.types";
 
 const router = Router();
 
@@ -31,29 +31,31 @@ router.get("/", async (req, res) => {
  *
  * @param id - uuid of the video
  *
- * @returns 200 with { url, expiresIn }
+ * @returns 200 with { video, url, expiresIn }
  * @returns 404 if no video with that id exists
- * @returns 409 if the video is not yet READY
+ * @returns 409 if the video is not yet UPLOADED
  */
 router.get("/:id/stream", async (req, res) => {
   const result = await videosService.getVideoStreamUrl(req.params.id);
-  if (!result) {
-    throw AppError.notFound("Video not found");
-  }
   res.json(result);
 });
 
 /**
- * POST /domain/videos/upload - creates a video record and returns a presigned S3 upload URL
+ * POST /domain/videos/upload - creates a video record and initiates a multipart upload
  *
- * Flow: client receives the presigned URL and PUTs the file directly to S3,
- * then calls PUT /domain/videos/:id to update the status when done.
+ * Returns presigned URLs for each part so the client can upload chunks
+ * directly to S3 in parallel. The client tracks per-chunk progress via
+ * XHR/fetch upload progress events and aggregates them for total progress.
  *
  * @body patientId - uuid of the patient (required)
- * @body contentType - MIME type: video/mp4, video/webm, or video/quicktime (required)
- * @body takenAt - ISO datetime of when video was recorded (required)
+ * @body videoName - original filename (required)
+ * @body fileSize - total file size in bytes (required)
+ * @body durationSeconds - video length in seconds (required)
+ * @body createdAt - ISO datetime (required)
+ * @body takenAt - ISO datetime (required)
+ * @body contentType - MIME type, must be video/mp4 (required)
  *
- * @returns 201 with { video, uploadUrl, expiresIn }
+ * @returns 201 with { video, parts, partSize, totalParts, expiresIn }
  * @returns 400 if request body fails validation
  */
 router.post("/upload", async (req, res) => {
@@ -65,12 +67,49 @@ router.post("/upload", async (req, res) => {
   // TODO: get real user ID from auth middleware (req.user.id)
   const uploadedByUserId = "00000000-0000-0000-0000-000000000000";
 
-  const result = await videosService.createVideoWithUploadUrl({
+  const result = await videosService.initiateVideoUpload({
     ...parsed.data,
     uploadedByUserId,
   });
 
   res.status(201).json(result);
+});
+
+/**
+ * GET /domain/videos/:id/upload-status - get current upload progress for resuming
+ *
+ * Returns which parts S3 already has, fresh presigned URLs for remaining
+ * parts, and bytesUploaded so the frontend can show accurate resume progress.
+ *
+ * @param id - uuid of the video
+ *
+ * @returns 200 with { video, uploadedParts, remainingParts, bytesUploaded, partSize, totalParts, expiresIn }
+ * @returns 404 if no video with that id exists
+ * @returns 409 if the video is not in UPLOADING status
+ */
+router.get("/:id/upload-status", async (req, res) => {
+  const result = await videosService.getUploadStatus(req.params.id);
+  res.json(result);
+});
+
+/**
+ * POST /domain/videos/:id/complete-upload - finalize a multipart upload
+ *
+ * The client calls this after all parts have been uploaded to S3.
+ * Assembles the parts in S3 and updates the video status to UPLOADED.
+ *
+ * @param id - uuid of the video
+ * @body parts - array of { partNumber, etag } for every uploaded part
+ *
+ * @returns 200 with the updated video record
+ * @returns 400 if request body fails validation (handled by error middleware)
+ * @returns 404 if no video with that id exists
+ * @returns 409 if the video is not in UPLOADING status
+ */
+router.post("/:id/complete-upload", async (req, res) => {
+  const data = completeUploadSchema.parse(req.body);
+  const video = await videosService.completeVideoUpload(req.params.id, data);
+  res.json(video);
 });
 
 /**

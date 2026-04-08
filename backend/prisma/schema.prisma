@@ -93,7 +93,6 @@ model User {
   accounts          Account[]
   caregiverPatients CaregiverPatient[]
   userPermissions   UserPermission[]
-  userRoles         UserRole[]
   uploadedVideos    Video[]                  @relation("uploader")
   caregiverMetadata CaregiverVideoMetadata[]
   annotations       Annotation[]
@@ -157,11 +156,14 @@ model Invitation {
   id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email     String
   role      user_role
+  siteId    String    @map("site_id") @db.Uuid
   tokenHash String    @map("token_hash")
   expiresAt DateTime  @map("expires_at")
   usedAt    DateTime? @map("used_at")
   createdBy String    @map("created_by")
   createdAt DateTime  @default(now()) @map("created_at")
+
+  site Site @relation(fields: [siteId], references: [id])
 
   @@index([tokenHash])
   @@map("invitations")
@@ -184,6 +186,7 @@ model Site {
   stitchedSequences StitchedSequence[]
   videoStudies      VideoStudy[]
   auditLogs         AuditLog[]
+  invitations       Invitation[]
 
   @@map("sites")
 }
@@ -245,15 +248,6 @@ model UserPermission {
   @@map("user_permissions")
 }
 
-model UserRole {
-  userId String    @map("user_id")
-  role   user_role
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@id([userId, role])
-  @@map("user_roles")
-}
 
 // ============================================================
 // VIDEO STORAGE & PRIVATE METADATA
@@ -264,7 +258,10 @@ model Video {
   patientId           String       @map("patient_id") @db.Uuid
   uploadedByUserId    String       @map("uploaded_by_user_id")
   s3Key               String       @map("s3_key")
+  s3UploadId          String?      @map("s3_upload_id")
   status              video_status @default(UPLOADING)
+  fileSize            BigInt       @map("file_size")
+  totalParts          Int          @map("total_parts")
   durationSeconds     Int          @map("duration_seconds")
   createdAt           DateTime     @default(now()) @map("created_at")
   takenAt             DateTime?    @map("taken_at")
