@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { auth } from "../lib/auth.js";
 import prisma from "../lib/prisma.js";
 import { AppError } from "./errors.js";
-import type { permission_level, user_role } from "../generated/prisma/client.js";
+import type { user_role } from "../generated/prisma/client.js";
 
 // ────────────────────────────────────────────────────────────
 // Extend Express Request to carry the authenticated user
@@ -82,93 +82,150 @@ export async function authenticate(
 
 // ────────────────────────────────────────────────────────────
 // Layer 2: authorize
+// Role-based access control scoped to site, study, and video.
+//
+// Access model:
+//   SYSADMIN            → full access to everything
+//   SITE_COORDINATOR    → full governance over their site within their studies
+//   CLINICAL_REVIEWER   → read videos + create annotations/notes in their site & study
+//   CAREGIVER           → read, write, export their OWN videos in their site & study
 // ────────────────────────────────────────────────────────────
 
 /**
- * Checks whether a user's granted permission level exactly matches the required level.
- * Each permission (READ, WRITE, EXPORT, ADMIN) is independent
+ * The action the user is attempting to perform.
+ * Used by authorize to determine whether the user's role permits the operation.
  *
- * @param userLevel - the permission level the user has been granted
- * @param requiredLevel - the exact permission level needed for the action
- *
- * @returns true if userLevel matches requiredLevel exactly
+ * @value "read"   - viewing or listing a resource
+ * @value "write"  - creating or updating a resource
+ * @value "export" - downloading or exporting a resource
+ * @value "delete" - permanently removing a resource
+ * @value "manage" - full administrative control (create, update, delete, configure)
  */
-function hasExactPermission(
-  userLevel: permission_level,
-  requiredLevel: permission_level
-): boolean {
-  return userLevel === requiredLevel;
-}
+export type Action = "read" | "write" | "export" | "delete" | "manage";
+
+/**
+ * The type of resource being accessed.
+ * Used by authorize to apply resource-specific ownership and scoping rules.
+ *
+ * @value "video"      - a video record (ownership checked for CAREGIVER)
+ * @value "annotation" - an annotation, note, or drawing on a video
+ * @value "clip"       - a video clip carved from a source video
+ * @value "sequence"   - a stitched sequence of clips
+ * @value "study"      - a study record
+ * @value "site"       - a site record
+ * @value "user"       - a user account
+ */
+export type Resource =
+  | "video"
+  | "annotation"
+  | "clip"
+  | "sequence"
+  | "study"
+  | "site"
+  | "user";
 
 /**
  * Configuration options for the authorize middleware factory.
  *
- * @property allowedRoles - roles that are always granted access regardless of permissions
- * @property requiredPermission - the exact permission_level(s) that grant access; accepts a
- *           single level or an array when a route should accept any of several (e.g. ["READ", "WRITE"])
- * @property resourceKeys - custom param/body field names for resolving studyId, siteId, videoId
+ * @property action - the action being performed (read, write, export, delete, manage)
+ * @property resource - the type of resource being accessed
+ * @property getResourceOwnerId - optional async function to resolve the owner of the resource
+ *           for ownership checks (e.g. who uploaded a video). Receives the Express request
+ *           and should return the owner's user ID, or null if not found.
+ * @property getStudyId - optional async function to resolve which study the resource belongs to,
+ *           used to verify the user is enrolled in that study. Receives the Express request
+ *           and should return the study ID, or null if not applicable.
  */
 export interface AuthorizeOptions {
-  /** Roles that are always allowed (e.g. SYSADMIN bypasses everything). */
-  allowedRoles?: user_role[];
-
-  /**
-   * The exact permission level(s) that grant access. Each level is independent —
-   * WRITE does not imply READ, ADMIN does not imply EXPORT.
-   * Pass a single level or an array when multiple levels should be accepted.
-   */
-  requiredPermission?: permission_level | permission_level[];
-
-  /**
-   * Where to find the resource IDs for permission scoping.
-   * Defaults to checking req.params, then req.body.
-   */
-  resourceKeys?: {
-    studyId?: string;
-    siteId?: string;
-    videoId?: string;
-  };
+  action: Action;
+  resource: Resource;
+  getResourceOwnerId?: (req: Request) => Promise<string | null>;
+  getStudyId?: (req: Request) => Promise<string | null>;
 }
 
 /**
- * Factory that returns Express middleware for role-based and permission-based authorization.
+ * Checks whether the user belongs to the given study via the caregiver_patient table.
  *
- * Permissions are checked as exact matches — each level (READ, WRITE, EXPORT, ADMIN)
- * is independent. Having WRITE does not grant READ access.
+ * @param userId - the user's ID
+ * @param studyId - the study to check membership in
  *
- * Checks are applied in this order:
- * 1. If the user's role is in `allowedRoles`, access is granted immediately.
- * 2. If the user is a SYSADMIN, access is always granted (implicit bypass).
- * 3. If `requiredPermission` is set, the user_permissions table is queried for
- *    an entry that exactly matches one of the required levels, scoped to the
- *    resource IDs found in req.params, req.body, or req.query.
- * 4. If none of the above succeed, a 403 Forbidden error is thrown.
+ * @returns true if the user is enrolled in the study
+ */
+async function isUserInStudy(userId: string, studyId: string): Promise<boolean> {
+  const membership = await prisma.caregiverPatient.findUnique({
+    where: { studyId_userId: { studyId, userId } },
+  });
+  return membership !== null;
+}
+
+/**
+ * Checks whether the given study is linked to the given site via the sites_studies table.
  *
- * @param options - configuration for which roles and/or permission levels to require
+ * @param studyId - the study ID
+ * @param siteId - the site ID
+ *
+ * @returns true if the study is associated with the site
+ */
+async function isStudyInSite(studyId: string, siteId: string): Promise<boolean> {
+  const link = await prisma.siteStudy.findUnique({
+    where: { studyId_siteId: { studyId, siteId } },
+  });
+  return link !== null;
+}
+
+/**
+ * Factory that returns Express middleware enforcing role-based authorization
+ * scoped to the user's site, study enrollment, and resource ownership.
+ *
+ * Access rules:
+ * - SYSADMIN: unrestricted access to all resources and actions.
+ * - SITE_COORDINATOR: full governance (read, write, delete, manage) over all resources
+ *   within their site, but only for studies linked to that site.
+ * - CLINICAL_REVIEWER: can read and export videos, and read/write/export annotations,
+ *   clips, and sequences within their site and enrolled studies. Can delete annotations,
+ *   clips, and sequences they created (ownership enforced). Cannot delete videos or manage.
+ * - CAREGIVER: can read, write, export, and delete their OWN videos within their site
+ *   and enrolled studies. Cannot access other users' videos or manage resources.
+ *
+ * @param options - specifies the action, resource type, and optional ownership/study resolvers
  *
  * @returns Express middleware function
  *
  * @throws {AppError} 401 if req.user is not set (authenticate must run first)
- * @throws {AppError} 403 if the user lacks the required role or permission
+ * @throws {AppError} 403 if the user's role does not permit the action on the resource
  *
  * @example
- * // Require exact READ permission
+ * // Caregiver can read their own videos
  * router.get("/:id", authenticate, authorize({
- *   requiredPermission: "READ",
+ *   action: "read",
+ *   resource: "video",
+ *   getResourceOwnerId: async (req) => {
+ *     const video = await prisma.video.findUnique({ where: { id: req.params.id } });
+ *     return video?.uploadedByUserId ?? null;
+ *   },
+ *   getStudyId: async (req) => {
+ *     const vs = await prisma.videoStudy.findFirst({ where: { videoId: req.params.id } });
+ *     return vs?.studyId ?? null;
+ *   },
  * }), handler);
  *
  * @example
- * // Accept either READ or WRITE permission
- * router.get("/:id", authenticate, authorize({
- *   requiredPermission: ["READ", "WRITE"],
+ * // Site coordinator can manage anything in their site
+ * router.delete("/:id", authenticate, authorize({
+ *   action: "delete",
+ *   resource: "video",
+ * }), handler);
+ *
+ * @example
+ * // Clinical reviewer can create annotations
+ * router.post("/", authenticate, authorize({
+ *   action: "write",
+ *   resource: "annotation",
+ *   getStudyId: async (req) => req.body.studyId ?? null,
  * }), handler);
  */
 export function authorize(options: AuthorizeOptions) {
-  const acceptedLevels: permission_level[] = options.requiredPermission
-    ? Array.isArray(options.requiredPermission)
-      ? options.requiredPermission
-      : [options.requiredPermission]
-    : [];
+  const { action, resource, getResourceOwnerId, getStudyId } = options;
 
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     const user = req.user;
@@ -176,131 +233,109 @@ export function authorize(options: AuthorizeOptions) {
       throw AppError.unauthorized();
     }
 
-    // ── Role check: if user has an allowed role, skip permission lookup ──
-    if (options.allowedRoles?.includes(user.role)) {
-      next();
-      return;
-    }
-
-    // ── SYSADMIN always passes (implicit) ──
+    // ── SYSADMIN: unrestricted ──
     if (user.role === "SYSADMIN") {
       next();
       return;
     }
 
-    // ── Permission table check ──
-    if (acceptedLevels.length > 0) {
-      // Resolve resource IDs from params, body, or query
-      const studyId = (
-        req.params[options.resourceKeys?.studyId ?? "studyId"] ??
-        req.body?.[options.resourceKeys?.studyId ?? "studyId"] ??
-        (req.query?.studyId as string | undefined)
-      ) as string | undefined;
+    // ── Resolve study context if provided ──
+    const studyId = getStudyId ? await getStudyId(req) : null;
 
-      const siteId = (
-        req.params[options.resourceKeys?.siteId ?? "siteId"] ??
-        req.body?.[options.resourceKeys?.siteId ?? "siteId"] ??
-        (req.query?.siteId as string | undefined) ??
-        user.siteId // fall back to the user's own site
-      ) as string;
-
-      const videoId = (
-        req.params[options.resourceKeys?.videoId ?? "videoId"] ??
-        req.body?.[options.resourceKeys?.videoId ?? "videoId"] ??
-        req.params.id // common pattern: /videos/:id
-      ) as string | undefined;
-
-      // Build a flexible where clause — match any permission that covers
-      // the requested resource (site-wide, study-wide, or video-specific)
-      const permissions = await prisma.userPermission.findMany({
-        where: {
-          userId: user.id,
-          OR: [
-            // Site-level permission (covers everything in the site)
-            ...(siteId ? [{ siteId, studyId: null, videoId: null }] : []),
-            // Study-level permission
-            ...(studyId ? [{ studyId, videoId: null }] : []),
-            // Video-level permission
-            ...(videoId ? [{ videoId }] : []),
-            // Study + site combo
-            ...(studyId && siteId ? [{ studyId, siteId }] : []),
-          ],
-        },
-      });
-
-      const hasPermission = permissions.some((p) =>
-        acceptedLevels.some((level) => hasExactPermission(p.permissionLevel, level))
-      );
-
-      if (hasPermission) {
-        next();
-        return;
+    // ── If we have a study, verify it belongs to the user's site ──
+    if (studyId) {
+      const studyLinked = await isStudyInSite(studyId, user.siteId);
+      if (!studyLinked) {
+        throw AppError.forbidden("This study is not associated with your site");
       }
     }
 
-    // ── No allowed role matched, no permission found ──
+    // ── SITE_COORDINATOR: full governance within their site & studies ──
+    if (user.role === "SITE_COORDINATOR") {
+      // Coordinators can do anything within their site
+      // If a study is specified, we already verified it's in their site above
+      next();
+      return;
+    }
+
+    // ── CLINICAL_REVIEWER ──
+    if (user.role === "CLINICAL_REVIEWER") {
+      // Verify study enrollment if study context is available
+      if (studyId) {
+        const enrolled = await isUserInStudy(user.id, studyId);
+        if (!enrolled) {
+          throw AppError.forbidden("You are not enrolled in this study");
+        }
+      }
+
+      // Reviewers can READ and EXPORT videos (but never delete or write)
+      if (resource === "video" && ["read", "export"].includes(action)) {
+        next();
+        return;
+      }
+
+      // Reviewers can READ, WRITE, EXPORT, and DELETE their own annotations, clips, and sequences
+      if (
+        ["annotation", "clip", "sequence"].includes(resource) &&
+        ["read", "write", "export"].includes(action)
+      ) {
+        next();
+        return;
+      }
+
+      // Reviewers can DELETE annotations, clips, and sequences they created (ownership check)
+      if (
+        ["annotation", "clip", "sequence"].includes(resource) &&
+        action === "delete"
+      ) {
+        if (getResourceOwnerId) {
+          const ownerId = await getResourceOwnerId(req);
+          if (ownerId !== user.id) {
+            throw AppError.forbidden("You can only delete resources you created");
+          }
+        }
+        next();
+        return;
+      }
+
+      // Reviewers cannot delete videos or manage anything
+      throw AppError.forbidden("Clinical reviewers cannot perform this action");
+    }
+
+    // ── CAREGIVER ──
+    if (user.role === "CAREGIVER") {
+      // Verify study enrollment if study context is available
+      if (studyId) {
+        const enrolled = await isUserInStudy(user.id, studyId);
+        if (!enrolled) {
+          throw AppError.forbidden("You are not enrolled in this study");
+        }
+      }
+
+      // Caregivers can only interact with videos (not annotations, clips, etc.)
+      if (resource !== "video") {
+        throw AppError.forbidden("Caregivers can only access their own videos");
+      }
+
+      // Caregivers cannot manage (admin-level operations)
+      if (action === "manage") {
+        throw AppError.forbidden("Caregivers cannot perform this action");
+      }
+
+      // For read, write, export, delete — verify ownership
+      if (getResourceOwnerId) {
+        const ownerId = await getResourceOwnerId(req);
+        if (ownerId !== user.id) {
+          throw AppError.forbidden("You can only access your own videos");
+        }
+      }
+
+      // Action is read, write, export, or delete on their own video
+      next();
+      return;
+    }
+
+    // ── Unknown role — deny by default ──
     throw AppError.forbidden("You do not have permission to perform this action");
   };
 }
-
-// ────────────────────────────────────────────────────────────
-// Convenience shortcuts for common patterns
-// ────────────────────────────────────────────────────────────
-
-/**
- * Restricts access to SYSADMIN users only.
- *
- * @throws {AppError} 401 if req.user is not set
- * @throws {AppError} 403 if the user is not a SYSADMIN
- */
-export const requireSysadmin = authorize({ allowedRoles: ["SYSADMIN"] });
-
-/**
- * Restricts access to SYSADMIN and SITE_COORDINATOR users.
- *
- * @throws {AppError} 401 if req.user is not set
- * @throws {AppError} 403 if the user is not a SYSADMIN or SITE_COORDINATOR
- */
-export const requireCoordinatorOrAbove = authorize({
-  allowedRoles: ["SYSADMIN", "SITE_COORDINATOR"],
-});
-
-/**
- * Requires exactly READ permission from the user_permissions table.
- * Does not grant access to users with WRITE, EXPORT, or ADMIN — each level is independent.
- * SYSADMIN users bypass this check automatically.
- *
- * @throws {AppError} 401 if req.user is not set
- * @throws {AppError} 403 if the user lacks a READ permission entry
- */
-export const requireRead = authorize({ requiredPermission: "READ" });
-
-/**
- * Requires exactly WRITE permission from the user_permissions table.
- * Does not grant access to users with READ, EXPORT, or ADMIN — each level is independent.
- * SYSADMIN users bypass this check automatically.
- *
- * @throws {AppError} 401 if req.user is not set
- * @throws {AppError} 403 if the user lacks a WRITE permission entry
- */
-export const requireWrite = authorize({ requiredPermission: "WRITE" });
-
-/**
- * Requires exactly EXPORT permission from the user_permissions table.
- * Does not grant access to users with READ, WRITE, or ADMIN — each level is independent.
- * SYSADMIN users bypass this check automatically.
- *
- * @throws {AppError} 401 if req.user is not set
- * @throws {AppError} 403 if the user lacks an EXPORT permission entry
- */
-export const requireExport = authorize({ requiredPermission: "EXPORT" });
-
-/**
- * Requires exactly ADMIN permission from the user_permissions table.
- * Does not grant access to users with READ, WRITE, or EXPORT — each level is independent.
- * SYSADMIN users bypass this check automatically.
- *
- * @throws {AppError} 401 if req.user is not set
- * @throws {AppError} 403 if the user lacks an ADMIN permission entry
- */
-export const requireAdmin = authorize({ requiredPermission: "ADMIN" });
