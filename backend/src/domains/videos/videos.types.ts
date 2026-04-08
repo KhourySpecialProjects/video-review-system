@@ -13,7 +13,8 @@ import { z } from "zod";
  * @field contentType - MIME type of the uploaded file, must be video/mp4 for now
  */
 export const createVideoSchema = z.object({
-  patientId: z.uuid("patient_id must be a valid UUID"),
+  videoTitle: z.string().min(1, "title is required"),
+  videoDescription: z.string().optional(),
   videoName: z.string().min(1, "videoName is required"),
   fileSize: z.number().int().positive("fileSize must be a positive integer"),
   durationSeconds: z.number().int().positive(),
@@ -66,7 +67,47 @@ export const updateVideoSchema = z.object({
     },
   );
 
+/**
+ * Validation schema for searching and filtering videos.
+ * All fields are optional query parameters.
+ *
+ * @field q - free-text search across title and notes
+ * @field uploadedAfter - ISO datetime lower bound for upload date
+ * @field uploadedBefore - ISO datetime upper bound for upload date
+ * @field filmedAfter - ISO datetime lower bound for filmed date
+ * @field filmedBefore - ISO datetime upper bound for filmed date
+ * @field limit - max results to return (default: 50)
+ * @field offset - number of results to skip (default: 0)
+ */
+export const searchVideosSchema = z.object({
+  q: z.string().optional(),
+  uploadedAfter: z.iso.datetime().optional(),
+  uploadedBefore: z.iso.datetime().optional(),
+  filmedAfter: z.iso.datetime().optional(),
+  filmedBefore: z.iso.datetime().optional(),
+  limit: z.coerce.number().int().positive().optional().default(50),
+  offset: z.coerce.number().int().nonnegative().optional().default(0),
+});
+
+/**
+ * Shape returned by list/search endpoints — a frontend-friendly
+ * projection that joins caregiver metadata and uploader info
+ * onto the raw Video record.
+ */
+export type VideoListItem = {
+  id: string;
+  title: string;
+  description: string;
+  durationSeconds: number;
+  status: "UPLOADING" | "UPLOADED" | "FAILED";
+  fileSize: number;
+  createdAt: string;
+  takenAt: string | null;
+  uploadedBy: string;
+};
+
 // Inferred types from the validation schemas for use in the service layer
 export type CreateVideoInput = z.infer<typeof createVideoSchema>;
 export type CompleteUploadInput = z.infer<typeof completeUploadSchema>;
 export type UpdateVideoInput = z.infer<typeof updateVideoSchema>;
+export type SearchVideosInput = z.infer<typeof searchVideosSchema>;

@@ -1,29 +1,25 @@
-export type VideoStatus = "received" | "pending" | "processing";
+export type VideoStatus = "UPLOADING" | "UPLOADED" | "FAILED";
 
-export interface Video {
+/**
+ * Frontend representation of a video, matching the VideoListItem
+ * shape returned by the backend list/search/detail endpoints.
+ */
+export type Video = {
     id: string;
     title: string;
     description: string;
     /** Duration in seconds */
-    duration: number;
-    /**
-     * URL to the video thumbnail image.
-     * Will be an S3 presigned URL in production.
-     */
-    thumbnailUrl: string;
-    /**
-     * URL to the video source file.
-     * Will be an S3 presigned URL in production.
-     */
-    videoUrl: string;
-    /** ISO date string — when the video was uploaded */
-    uploadedAt: string;
-    /** ISO date string — when the video was filmed */
-    filmedAt: string;
-    /** Name of the person who filmed the video */
-    filmedBy: string;
+    durationSeconds: number;
     status: VideoStatus;
-}
+    /** File size in bytes */
+    fileSize: number;
+    /** ISO date string — when the video was uploaded */
+    createdAt: string;
+    /** ISO date string — when the video was filmed (null if unknown) */
+    takenAt: string | null;
+    /** Name of the person who uploaded the video */
+    uploadedBy: string;
+};
 
 export type TutorialCategory = {
     title: string;

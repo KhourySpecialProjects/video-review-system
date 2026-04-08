@@ -1,24 +1,24 @@
-import { redirect, type ActionFunctionArgs } from "react-router";
+import { type ActionFunctionArgs } from "react-router";
 import { z } from "zod";
 import { authClient } from "@/lib/auth-client";
 
-const loginSchema = z.object({
+const forgotPasswordSchema = z.object({
     email: z.string().min(1, "Email is required").pipe(z.email("Invalid email address")),
-    password: z.string().min(1, "Password is required"),
 });
 
 /**
- * Route action for the login form.
- * Validates fields with Zod, then calls Better Auth's signIn.email endpoint.
+ * Route action for the forgot password form.
+ * Validates the email, then calls Better Auth's forgetPassword endpoint.
+ * Always returns success to avoid leaking whether an email exists.
  *
  * @param request - The form submission request
- * @returns Field errors, a form error, or a redirect to / on success
+ * @returns Field errors or a success flag
  */
 export async function clientAction({ request }: ActionFunctionArgs) {
     const formData = await request.formData();
     const data = Object.fromEntries(formData);
 
-    const result = loginSchema.safeParse(data);
+    const result = forgotPasswordSchema.safeParse(data);
 
     if (!result.success) {
         const errors: Record<string, string> = {};
@@ -30,16 +30,15 @@ export async function clientAction({ request }: ActionFunctionArgs) {
         return { fieldErrors: errors };
     }
 
-    const { email, password } = result.data;
+    const { email } = result.data;
 
-    const response = await authClient.signIn.email({
+    const redirectTo = `${window.location.origin}/reset-password`;
+
+    await authClient.forgetPassword({
         email,
-        password,
+        redirectTo,
     });
 
-    if (response.error) {
-        return { formError: response.error.message ?? "Incorrect email or password. Please try again." };
-    }
-
-    return redirect("/");
+    // Always show success to avoid email enumeration
+    return { success: true };
 }

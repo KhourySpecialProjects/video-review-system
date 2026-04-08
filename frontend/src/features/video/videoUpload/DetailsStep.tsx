@@ -1,4 +1,3 @@
-import { useFetcher } from "react-router"
 import {
   Field,
   FieldDescription,
@@ -7,23 +6,23 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 
-interface DetailsStepProps {
+type DetailsStepProps = {
   title: string
   description: string
   onTitleChange: (value: string) => void
   onDescriptionChange: (value: string) => void
-  fetcher: ReturnType<typeof useFetcher>
 }
 
+/**
+ * @description Form fields for the video title and description in the upload dialog.
+ * @param props - Title/description values and change handlers
+ */
 export function DetailsStep({
   title,
   description,
   onTitleChange,
   onDescriptionChange,
-  fetcher
 }: DetailsStepProps) {
-  const actionData = fetcher.data as { fieldErrors?: Record<string, string> } | undefined;
-
   return (
     <FieldGroup>
       <Field>
@@ -40,9 +39,6 @@ export function DetailsStep({
           placeholder="Enter video title"
           required
         />
-        {actionData?.fieldErrors?.title && (
-          <p className="text-xs text-destructive">{actionData.fieldErrors.title}</p>
-        )}
       </Field>
 
       <Field>
@@ -56,9 +52,6 @@ export function DetailsStep({
           onChange={(e) => onDescriptionChange(e.target.value)}
           placeholder="Enter video description"
         />
-        {actionData?.fieldErrors?.description && (
-          <p className="text-xs text-destructive">{actionData.fieldErrors.description}</p>
-        )}
       </Field>
     </FieldGroup>
   )

@@ -1,12 +1,16 @@
 import { Router } from "express";
 import * as videosService from "./videos.service";
 import { AppError } from "../../middleware/errors";
-import { createVideoSchema, completeUploadSchema, updateVideoSchema } from "./videos.types";
+import { requireSession } from "../../middleware/auth";
+import { createVideoSchema, completeUploadSchema, updateVideoSchema, searchVideosSchema } from "./videos.types";
 
 const router = Router();
 
+// All video routes require authentication
+router.use(requireSession);
+
 /**
- * GET /domain/videos?limit=20&offset=0 - list videos with pagination
+ * GET /domain/videos?limit=20&offset=0 - list uploaded videos with pagination
  *
  * @query limit - number of videos to return (default: 20)
  * @query offset - number of videos to skip for pagination (default: 0)
@@ -22,7 +26,53 @@ router.get("/", async (req, res) => {
   const offset =
     Number.isInteger(parsedOffset) && parsedOffset >= 0 ? parsedOffset : 0;
 
-  const result = await videosService.listVideos({ limit, offset });
+  const result = await videosService.listVideos({
+    userId: req.authSession.user.id,
+    limit,
+    offset,
+  });
+  res.json(result);
+});
+
+/**
+ * GET /domain/videos/search - search and filter uploaded videos
+ *
+ * @query q - free-text search across title and notes
+ * @query uploadedAfter - ISO datetime lower bound for upload date
+ * @query uploadedBefore - ISO datetime upper bound for upload date
+ * @query filmedAfter - ISO datetime lower bound for filmed date
+ * @query filmedBefore - ISO datetime upper bound for filmed date
+ * @query limit - max results (default: 50)
+ * @query offset - results to skip (default: 0)
+ *
+ * @returns 200 with { videos, total, limit, offset }
+ */
+router.get("/search", async (req, res) => {
+  const parsed = searchVideosSchema.safeParse(req.query);
+  if (!parsed.success) {
+    throw AppError.badRequest(parsed.error.issues[0].message);
+  }
+
+  const result = await videosService.searchVideos({
+    ...parsed.data,
+    userId: req.authSession.user.id,
+  });
+  res.json(result);
+});
+
+/**
+ * GET /domain/videos/:id/detail - get a single video with metadata
+ *
+ * @param id - uuid of the video
+ *
+ * @returns 200 with VideoListItem
+ * @returns 404 if no video with that id exists
+ */
+router.get("/:id/detail", async (req, res) => {
+  const result = await videosService.getVideoDetail(
+    req.params.id,
+    req.authSession.user.id,
+  );
   res.json(result);
 });
 
@@ -31,7 +81,7 @@ router.get("/", async (req, res) => {
  *
  * @param id - uuid of the video
  *
- * @returns 200 with { video, url, expiresIn }
+ * @returns 200 with { url, expiresIn }
  * @returns 404 if no video with that id exists
  * @returns 409 if the video is not yet UPLOADED
  */
@@ -64,15 +114,23 @@ router.post("/upload", async (req, res) => {
     throw AppError.badRequest(parsed.error.issues[0].message);
   }
 
-  // TODO: get real user ID from auth middleware (req.user.id)
-  const uploadedByUserId = "00000000-0000-0000-0000-000000000000";
-
   const result = await videosService.initiateVideoUpload({
     ...parsed.data,
-    uploadedByUserId,
+    uploadedByUserId: req.authSession.user.id,
   });
 
   res.status(201).json(result);
+});
+
+/**
+ * GET /domain/videos/incomplete - list the current user's incomplete uploads with progress
+ *
+ * @returns 200 with array of { videoId, fileName, fileSize, bytesUploaded, totalParts, uploadedPartCount, createdAt }
+ * @returns 401 if no valid session exists
+ */
+router.get("/incomplete", async (req, res) => {
+  const result = await videosService.listIncompleteUploads(req.authSession.user.id);
+  res.json(result);
 });
 
 /**
@@ -110,6 +168,23 @@ router.post("/:id/complete-upload", async (req, res) => {
   const data = completeUploadSchema.parse(req.body);
   const video = await videosService.completeVideoUpload(req.params.id, data);
   res.json(video);
+});
+
+/**
+ * POST /domain/videos/:id/cancel-upload - abort an in-progress upload
+ *
+ * Aborts the S3 multipart upload (discarding uploaded parts) and deletes
+ * the video record.
+ *
+ * @param id - uuid of the video
+ *
+ * @returns 204 No Content on success
+ * @returns 404 if no video with that id exists
+ * @returns 409 if the video is not in UPLOADING status
+ */
+router.post("/:id/cancel-upload", async (req, res) => {
+  await videosService.cancelVideoUpload(req.params.id);
+  res.status(204).send();
 });
 
 /**

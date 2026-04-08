@@ -4,6 +4,7 @@ import {
   CreateMultipartUploadCommand,
   UploadPartCommand,
   CompleteMultipartUploadCommand,
+  AbortMultipartUploadCommand,
   ListPartsCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -145,6 +146,25 @@ export async function listUploadedParts(
   }
 
   return parts;
+}
+
+/**
+ * Aborts a multipart upload, telling S3 to discard all uploaded parts.
+ *
+ * @param key - The S3 object key
+ * @param uploadId - The multipart upload ID to abort
+ */
+export async function abortMultipartUpload(
+  key: string,
+  uploadId: string
+): Promise<void> {
+  const command = new AbortMultipartUploadCommand({
+    Bucket: process.env.S3_BUCKET_NAME,
+    Key: key,
+    UploadId: uploadId,
+  });
+
+  await s3.send(command);
 }
 
 /**

@@ -10,13 +10,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
-import { Form, useActionData, useNavigation } from "react-router";
-import { clientAction } from "@/hooks/use-login";
+import { Form, Link, useActionData, useNavigation } from "react-router";
 
-export { clientAction };
+type ActionData =
+    | { fieldErrors: Record<string, string> }
+    | { formError: string };
 
 export function Login() {
-    const actionData = useActionData<typeof clientAction>();
+    const actionData = useActionData<ActionData>();
     const navigation = useNavigation();
     const isSubmitting = navigation.state === "submitting";
 
@@ -71,15 +72,14 @@ export function Login() {
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="password">Password</Label>
 
-                                {/* Link this to the actual password reset route when implemented.
-                                    Example: <Link to="/forgot-password" ... >Forgot password?</Link>
-                                */}
-                                <button
-                                type="button"
-                                className="text-xs font-medium text-primary hover:underline cursor-pointer"
+                                <Button
+                                    variant="link"
+                                    size="xs"
+                                    nativeButton={false}
+                                    render={<Link to="/forgot-password" />}
                                 >
                                     Forgot password?
-                                </button>
+                                </Button>
                             </div>
 
                             <Input

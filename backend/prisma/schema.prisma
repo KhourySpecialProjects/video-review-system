@@ -255,7 +255,6 @@ model UserPermission {
 
 model Video {
   id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  patientId           String       @map("patient_id") @db.Uuid
   uploadedByUserId    String       @map("uploaded_by_user_id")
   s3Key               String       @map("s3_key")
   s3UploadId          String?      @map("s3_upload_id")

@@ -1,34 +1,177 @@
 import prisma from "../../lib/prisma";
 import type { Video } from "../../generated/prisma/client";
 import { AppError } from "../../middleware/errors";
-import type { CreateVideoInput, CompleteUploadInput, UpdateVideoInput } from "./videos.types";
+import type { CreateVideoInput, CompleteUploadInput, UpdateVideoInput, SearchVideosInput, VideoListItem } from "./videos.types";
 import {
   generatePresignedGetUrl,
   generatePresignedPartUrls,
   initiateMultipartUpload,
   completeMultipartUpload,
+  abortMultipartUpload,
   listUploadedParts,
   PART_SIZE,
 } from "../../lib/s3.js";
 
 /**
- * Retrieves a paginated list of videos, ordered by most recent first.
+ * Shared Prisma include clause used by list and detail queries
+ * to eagerly load caregiver metadata and uploader info in a single query.
+ * Prisma translates this into JOINs / batched subqueries, not N+1.
  *
+ * @param userId - The authenticated user's ID, used to scope caregiver metadata
+ * @returns Prisma include object
+ */
+function videoInclude(userId: string) {
+  return {
+    caregiverMetadata: {
+      where: { caregiverUserId: userId },
+      select: { privateTitle: true, privateNotes: true },
+    },
+    uploadedBy: { select: { name: true } },
+  } as const;
+}
+
+/**
+ * Maps a Prisma video (with included relations) to the frontend-friendly
+ * VideoListItem shape. Falls back to the s3Key filename when no caregiver
+ * metadata exists yet.
+ *
+ * @param video - Prisma video record with caregiverMetadata and uploadedBy included
+ * @returns A flattened VideoListItem
+ */
+function toVideoListItem(
+  video: Video & {
+    caregiverMetadata: { privateTitle: string; privateNotes: string | null }[];
+    uploadedBy: { name: string };
+  }
+): VideoListItem {
+  const meta = video.caregiverMetadata[0];
+  const fileName = video.s3Key.includes("/")
+    ? video.s3Key.split("/").pop()!
+    : video.s3Key;
+
+  return {
+    id: video.id,
+    title: meta?.privateTitle ?? fileName,
+    description: meta?.privateNotes ?? "",
+    durationSeconds: video.durationSeconds,
+    status: video.status,
+    fileSize: Number(video.fileSize),
+    createdAt: video.createdAt.toISOString(),
+    takenAt: video.takenAt?.toISOString() ?? null,
+    uploadedBy: video.uploadedBy.name,
+  };
+}
+
+/**
+ * Retrieves a paginated list of uploaded videos, ordered by most recent first.
+ * Joins caregiver metadata (title/notes) and uploader name via Prisma include
+ * (resolved as batched subqueries — 3 SQL statements total, not N+1).
+ *
+ * @param options.userId - The authenticated user's ID for scoping metadata
  * @param options.limit - max number of videos to return (default: 20)
  * @param options.offset - number of videos to skip (default: 0)
  *
  * @returns videos array and total count for pagination
  */
-export async function listVideos({ limit = 20, offset = 0 }) {
+export async function listVideos({
+  userId,
+  limit = 20,
+  offset = 0,
+}: {
+  userId: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const where = { status: "UPLOADED" as const };
+
   const [videos, total] = await Promise.all([
     prisma.video.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       skip: offset,
       take: limit,
+      include: videoInclude(userId),
     }),
-    prisma.video.count(),
+    prisma.video.count({ where }),
   ]);
-  return { videos, total, limit, offset };
+
+  return { videos: videos.map(toVideoListItem), total, limit, offset };
+}
+
+/**
+ * Searches and filters uploaded videos with optional text search and date ranges.
+ * Uses a single Prisma query with relation filters — Prisma translates the
+ * caregiverMetadata `some` clause into an EXISTS subquery, avoiding N+1.
+ * Total count uses the same WHERE clause in a parallel query (2 SQL statements).
+ *
+ * @param params - Search filters, pagination, and the authenticated user's ID
+ * @returns Matching videos and total count
+ */
+export async function searchVideos(
+  params: SearchVideosInput & { userId: string }
+) {
+  const { q, uploadedAfter, uploadedBefore, filmedAfter, filmedBefore, limit, offset, userId } = params;
+
+  const where: any = { status: "UPLOADED" as const };
+
+  if (uploadedAfter || uploadedBefore) {
+    where.createdAt = {};
+    if (uploadedAfter) where.createdAt.gte = new Date(uploadedAfter);
+    if (uploadedBefore) where.createdAt.lte = new Date(uploadedBefore);
+  }
+
+  if (filmedAfter || filmedBefore) {
+    where.takenAt = {};
+    if (filmedAfter) where.takenAt.gte = new Date(filmedAfter);
+    if (filmedBefore) where.takenAt.lte = new Date(filmedBefore);
+  }
+
+  if (q) {
+    where.caregiverMetadata = {
+      some: {
+        OR: [
+          { privateTitle: { contains: q, mode: "insensitive" } },
+          { privateNotes: { contains: q, mode: "insensitive" } },
+        ],
+      },
+    };
+  }
+
+  const [videos, total] = await Promise.all([
+    prisma.video.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: offset,
+      take: limit,
+      include: videoInclude(userId),
+    }),
+    prisma.video.count({ where }),
+  ]);
+
+  return { videos: videos.map(toVideoListItem), total, limit, offset };
+}
+
+/**
+ * Retrieves a single video by ID with caregiver metadata and uploader info.
+ * Single Prisma query with included relations (no N+1).
+ *
+ * @param videoId - The video UUID
+ * @param userId - The authenticated user's ID for scoping metadata
+ *
+ * @returns The video as a VideoListItem
+ * @throws {AppError} 404 if no video with that id exists
+ */
+export async function getVideoDetail(videoId: string, userId: string): Promise<VideoListItem> {
+  const video = await prisma.video.findUnique({
+    where: { id: videoId },
+    include: videoInclude(userId),
+  });
+
+  if (!video) {
+    throw AppError.notFound("Video not found");
+  }
+
+  return toVideoListItem(video);
 }
 
 /**
@@ -93,8 +236,10 @@ type CreateVideoParams = CreateVideoInput & {
  * @returns The created video, presigned part URLs, partSize, and expiration
  */
 export async function initiateVideoUpload({
-  patientId,
+
   uploadedByUserId,
+  videoTitle,
+  videoDescription,
   videoName,
   fileSize,
   durationSeconds,
@@ -116,7 +261,6 @@ export async function initiateVideoUpload({
   const video = await prisma.$transaction(async (tx) => {
     const created = await tx.video.create({
       data: {
-        patientId,
         uploadedByUserId,
         s3Key: videoName,
         status: "UPLOADING",
@@ -129,6 +273,14 @@ export async function initiateVideoUpload({
     });
 
     // Build the final s3Key using the generated uuid
+    await tx.caregiverVideoMetadata.create({
+      data: {
+        videoId: created.id,
+        caregiverUserId: uploadedByUserId,
+        privateTitle: videoTitle,
+        privateNotes: videoDescription,
+      },
+    });
     const s3Key = `${created.id}/${videoName}`;
     const s3UploadId = await initiateMultipartUpload(s3Key, contentType);
 
@@ -257,6 +409,73 @@ export async function completeVideoUpload(
       s3UploadId: null,
     },
   });
+}
+
+/**
+ * Returns all videos that a specific user still has in UPLOADING status,
+ * along with each one's upload progress from S3.
+ *
+ * @param userId - The authenticated user's id
+ *
+ * @returns Array of incomplete uploads with progress info
+ */
+export async function listIncompleteUploads(userId: string) {
+  const uploading = await prisma.video.findMany({
+    where: { uploadedByUserId: userId, status: "UPLOADING" },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return Promise.all(
+    uploading.map(async (video) => {
+      const uploadedParts = video.s3UploadId
+        ? await listUploadedParts(video.s3Key, video.s3UploadId)
+        : [];
+
+      const bytesUploaded = uploadedParts.reduce((sum, p) => sum + p.size, 0);
+      const fileName = video.s3Key.includes("/")
+        ? video.s3Key.split("/").pop()!
+        : video.s3Key;
+
+      return {
+        videoId: video.id,
+        fileName,
+        fileSize: Number(video.fileSize),
+        bytesUploaded,
+        totalParts: video.totalParts,
+        uploadedPartCount: uploadedParts.length,
+        createdAt: video.createdAt,
+      };
+    })
+  );
+}
+
+/**
+ * Cancels an in-progress upload by aborting the S3 multipart upload
+ * and deleting the video record.
+ *
+ * @param videoId - The video uuid
+ *
+ * @throws {AppError} 404 if no video with that id exists
+ * @throws {AppError} 409 if the video is not in UPLOADING status
+ */
+export async function cancelVideoUpload(videoId: string): Promise<void> {
+  const video = await prisma.video.findUnique({
+    where: { id: videoId },
+  });
+
+  if (!video) {
+    throw AppError.notFound("Video not found");
+  }
+
+  if (video.status !== "UPLOADING") {
+    throw AppError.conflict(`Video is not uploading — current status is ${video.status}`);
+  }
+
+  if (video.s3UploadId) {
+    await abortMultipartUpload(video.s3Key, video.s3UploadId);
+  }
+
+  await prisma.video.delete({ where: { id: videoId } });
 }
 
 /**

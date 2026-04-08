@@ -1,0 +1,20 @@
+$kind: http-request
+name: POST invite
+description: 'Create a new user invitation (admin-only). Requires admin-secret header. Returns { id, token } on success.'
+method: POST
+url: '{{baseUrl}}/auth/invite'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: admin-secret
+    value: '{{adminSecret}}'
+body:
+  type: json
+  content: |-
+    {
+      "email": "user@example.com",
+      // role: valid values are CAREGIVER, CLINICAL_REVIEWER, SITE_COORDINATOR, SYSADMIN
+      "role": "CAREGIVER",
+      "siteId": "00000000-0000-0000-0000-000000000000"
+    }
