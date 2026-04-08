@@ -7,6 +7,7 @@ import { fetchTutorial } from "./lib/mock-data";
 import TutorialPage from "./routes/TutorialPage";
 import SignupPage from "./routes/Signup";
 import { signupLoader, signupAction } from "./features/auth/signup.service";
+import { Login, clientAction as loginAction } from "./features/login/login";
 
 export const router = createBrowserRouter([
     {
@@ -43,5 +44,10 @@ export const router = createBrowserRouter([
         element: <SignupPage />,
         loader: signupLoader,
         action: signupAction,
-    }
+    },
+    {
+        path: "/login",
+        element: <Login />,
+        action: loginAction,
+    },
 ]);
