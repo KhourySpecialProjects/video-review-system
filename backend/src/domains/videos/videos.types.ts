@@ -31,7 +31,7 @@ export const createVideoSchema = z.object({
  * @field takenAt - updated timestamp of when the video was recorded, must be a valid ISO datetime string
  */
 export const updateVideoSchema = z.object({
-    status: z.enum(["UPLOADING", "PROCESSING", "READY", "FAILED"]).optional(),
+    status: z.enum(["UPLOADING", "UPLOADED", "FAILED"]).optional(),
     durationSeconds: z.number().int().positive().optional(),
     takenAt: z.iso.datetime().optional(),
   })

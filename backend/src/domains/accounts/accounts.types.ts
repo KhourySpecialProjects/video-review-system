@@ -7,13 +7,14 @@ import { z } from "zod";
  */
 export const createAccountWithRoleSchema = z.discriminatedUnion("role", [
   z.object({
-    email: z.string().email("Invalid email format"),
+    email: z.email("Invalid email format"),
     role: z.literal("SITE_COORDINATOR"),
-    siteId: z.string().uuid("Invalid site ID format"),
+    siteId: z.uuid("Invalid site ID format"),
   }),
   z.object({
-    email: z.string().email("Invalid email format"),
+    email: z.email("Invalid email format"),
     role: z.enum(["CAREGIVER", "CLINICAL_REVIEWER", "SYSADMIN"]),
+    siteId: z.uuid(),
   }),
 ]);
 

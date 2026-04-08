@@ -29,5 +29,5 @@ if (role === "SITE_COORDINATOR") {
     }
   }
 
-  return await createInvite({ email, role });
+  return await createInvite({ email, role, siteId });
 }

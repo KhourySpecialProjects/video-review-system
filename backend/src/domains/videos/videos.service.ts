@@ -45,7 +45,7 @@ export async function getVideoStreamUrl(
     return null;
   }
 
-  if (video.status !== "READY") {
+  if (video.status !== "UPLOADED") {
     throw AppError.conflict(`Video cannot be streamed — current status is ${video.status}`);
   }
 

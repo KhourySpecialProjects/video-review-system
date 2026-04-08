@@ -13,7 +13,7 @@ const router = Router();
  * @throws {AppError} 403 if the user is not a SYSADMIN
  */
 async function requireSysadmin(req: Request, res: Response, next: NextFunction) {
-  const session = await auth.api.getSession({ headers: req.headers });
+  const session = await auth.api.getSession({ headers: new Headers(req.headers as Record<string, string>) });
   if (!session) throw AppError.unauthorized();
 
   const roles = await prisma.userRole.findMany({

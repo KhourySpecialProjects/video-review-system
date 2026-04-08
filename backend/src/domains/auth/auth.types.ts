@@ -36,6 +36,7 @@ const normalizedEmailSchema = z
 export const createInviteSchema = z.object({
   email: normalizedEmailSchema,
   role: roleSchema,
+  siteId: z.uuid("siteId must be a valid UUID"),
 });
 
 /**
