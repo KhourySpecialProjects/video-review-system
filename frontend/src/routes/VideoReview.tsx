@@ -22,6 +22,8 @@ export default function VideoReview() {
     const videoRef = useRef<HTMLVideoElement>(null);
     const videoContainerRef = useRef<HTMLDivElement>(null);
 
+    const [videoDuration, setVideoDuration] = useState(0);
+
     const timeline = useClipTimeline(videoDuration, videoRef, (clip) => {
         console.log("Clip created:", clip);
     });
@@ -38,7 +40,6 @@ export default function VideoReview() {
     });
     const [drawingEnabled, setDrawingEnabled] = useState(true);
     const [videoCurrentTime, setVideoCurrentTime] = useState(0);
-    const [videoDuration, setVideoDuration] = useState(0);
 
     useEffect(() => {
         const video = videoRef.current;
@@ -46,12 +47,17 @@ export default function VideoReview() {
 
         const onTimeUpdate = () => setVideoCurrentTime(video.currentTime);
         const onLoadedMetadata = () => setVideoDuration(video.duration ?? 0);
+        const onSeek = () => setVideoCurrentTime(video.currentTime);
 
         video.addEventListener("timeupdate", onTimeUpdate);
         video.addEventListener("loadedmetadata", onLoadedMetadata);
+        video.addEventListener("seeking", onSeek);
+        video.addEventListener("seeked", onSeek);
         return () => {
             video.removeEventListener("timeupdate", onTimeUpdate);
             video.removeEventListener("loadedmetadata", onLoadedMetadata);
+            video.removeEventListener("seeking", onSeek);
+            video.removeEventListener("seeked", onSeek);
         };
     }, []);
 

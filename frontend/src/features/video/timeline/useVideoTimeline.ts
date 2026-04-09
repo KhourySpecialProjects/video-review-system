@@ -44,6 +44,7 @@ export const MARKER_LABELS: Record<TimelineMarkerType, string> = {
  * @returns Array of evenly-spaced timestamps (in seconds) to label.
  */
 export function buildTimeLabels(duration: number): number[] {
+    if (!Number.isFinite(duration) || duration <= 0) return [0];
     const labelCount = Math.min(Math.floor(duration / 60) + 1, 8);
     const labelInterval = duration / labelCount;
     return Array.from({ length: labelCount + 1 }, (_, i) =>
