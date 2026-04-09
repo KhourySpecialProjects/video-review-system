@@ -2,8 +2,10 @@ import { createBrowserRouter } from "react-router";
 import Root from "./routes/root";
 import Home, { clientLoader as homeLoader, clientAction as homeAction } from "./routes/home";
 import VideoView, { clientLoader as videoLoader, clientAction as videoAction } from "./routes/video-view";
+import VideoReview from "./routes/VideoReview";
 import { fetchTutorial } from "./lib/mock-data";
 import TutorialPage from "./routes/TutorialPage";
+import { Login, clientAction as loginAction } from "./features/login/login";
 
 export const router = createBrowserRouter([
     {
@@ -23,12 +25,21 @@ export const router = createBrowserRouter([
                 action: videoAction,
             },
             {
+                path: "review",
+                element: <VideoReview />,
+            },
+            {
               path: "tutorials",
               element: <TutorialPage />,
               loader: () => {
                   return { tutorialPromise: fetchTutorial() };
               },
-            }
+            },
         ],
+    },
+    {
+        path: "/login",
+        element: <Login />,
+        action: loginAction,
     },
 ]);
