@@ -1,6 +1,10 @@
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import {
+    Sidebar,
+    SidebarContent,
+    SidebarHeader,
+    SidebarRail,
+} from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 
 /**
@@ -21,8 +25,6 @@ export interface VideoMetadata {
  */
 interface VideoMetadataSidebarProps {
     metadata: VideoMetadata;
-    collapsed: boolean;
-    onToggle: () => void;
 }
 
 /**
@@ -56,78 +58,62 @@ function formatDate(date: Date): string {
         minute: "2-digit",
     });
 }
+
 /**
  * VideoMetadataSidebar displays general metadata about a video
  * and its associated patient in a collapsible left sidebar panel.
  *
  * Shows patient ID, video duration, and the date/time the video was recorded.
- * Can be collapsed to save space during review.
+ * Collapse state is managed by the enclosing SidebarProvider.
  */
-export function VideoMetadataSidebar({ metadata, collapsed, onToggle }: VideoMetadataSidebarProps) {
-
+export function VideoMetadataSidebar({ metadata }: VideoMetadataSidebarProps) {
     return (
-        <div className="relative flex h-full w-full flex-col overflow-hidden border-r border-border bg-bg-light">
-            {/* Collapse toggle button — floats on the right edge, always visible */}
-            <Button
-                variant="ghost"
-                size="icon"
-                onClick={onToggle}
-                className={`absolute top-4 z-10 size-8 rounded-full border border-border bg-bg-light shadow-sm ${
-                    collapsed ? "right-1" : "-right-4"
-                }`}
-                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-                {collapsed ? (
-                    <ChevronRight className="size-4" />
-                ) : (
-                    <ChevronLeft className="size-4" />
-                )}
-            </Button>
+        <Sidebar collapsible="offcanvas">
+            <SidebarHeader>
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                    Patient Metadata
+                </p>
+            </SidebarHeader>
 
-            {/* Sidebar content — hidden when collapsed */}
-            {!collapsed && (
-                <div className="flex flex-col gap-4 overflow-y-auto p-4">
-                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                        Patient Metadata
+            <SidebarContent className="flex flex-col gap-4 overflow-y-auto p-4">
+                <Separator />
+
+                {/* Patient ID */}
+                <div className="flex flex-col gap-1">
+                    <p className="text-xs font-medium text-muted-foreground">
+                        Patient ID
                     </p>
-
-                    <Separator />
-
-                    {/* Patient ID */}
-                    <div className="flex flex-col gap-1">
-                        <p className="text-xs font-medium text-muted-foreground">
-                            Patient ID
-                        </p>
-                        <p className="text-sm font-semibold text-text">
-                            {metadata.patientId}
-                        </p>
-                    </div>
-
-                    <Separator />
-
-                    {/* Video Duration */}
-                    <div className="flex flex-col gap-1">
-                        <p className="text-xs font-medium text-muted-foreground">
-                            Duration
-                        </p>
-                        <p className="text-sm font-semibold text-text">
-                            {formatDuration(metadata.duration)}
-                        </p>
-                    </div>
-
-                    <Separator />
-
-                    {/* Recorded At */}
-                    <div className="flex flex-col gap-1">
-                        <p className="text-xs font-medium text-muted-foreground">
-                            Recorded
-                        </p>
-                        <p className="text-sm font-semibold text-text">
-                            {formatDate(metadata.recordedAt)}
-                        </p>
-                    </div>
+                    <p className="text-sm font-semibold text-text">
+                        {metadata.patientId}
+                    </p>
                 </div>
-            )}
-        </div>
+
+                <Separator />
+
+                {/* Video Duration */}
+                <div className="flex flex-col gap-1">
+                    <p className="text-xs font-medium text-muted-foreground">
+                        Duration
+                    </p>
+                    <p className="text-sm font-semibold text-text">
+                        {formatDuration(metadata.duration)}
+                    </p>
+                </div>
+
+                <Separator />
+
+                {/* Recorded At */}
+                <div className="flex flex-col gap-1">
+                    <p className="text-xs font-medium text-muted-foreground">
+                        Recorded
+                    </p>
+                    <p className="text-sm font-semibold text-text">
+                        {formatDate(metadata.recordedAt)}
+                    </p>
+                </div>
+            </SidebarContent>
+
+            <SidebarRail />
+        </Sidebar>
     );
 }
