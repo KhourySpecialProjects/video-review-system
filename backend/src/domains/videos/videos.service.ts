@@ -1,9 +1,10 @@
 import prisma from "../../lib/prisma";
-import type { Video } from "../../generated/prisma/client";
+import type { Prisma, Video } from "../../generated/prisma/client";
 import { AppError } from "../../middleware/errors";
 import type { CreateVideoInput, UpdateVideoInput } from "./videos.types";
 import { generatePresignedGetUrl, generatePresignedUploadUrl } from "../../lib/s3.js";
 import { create } from "domain";
+import { AuthenticatedUser } from "../../middleware/auth";
 
 /**
  * retrieves a paginated list of videos, ordered by most recent first
@@ -13,15 +14,66 @@ import { create } from "domain";
  * 
  * @returns videos array and total count for pagination
  */
-export async function listVideos({limit = 20, offset = 0}) {
+export async function listVideos({
+    limit = 20, 
+    offset = 0,
+    user,
+  }: {
+    limit?: number;
+    offset?: number;
+    user: AuthenticatedUser; // pass the authenticated user for access control
+  }) {
+
+  // Build a where clause based on the user's role
+  let where: Prisma.VideoWhereInput = {};
+
+  switch (user.role) {
+    case "SYSADMIN":
+      // No filter — sees everything
+      break;
+
+    case "SITE_COORDINATOR":
+      // Videos in studies linked to their site
+      where = {
+        videoStudies: {
+          some: { siteId: user.siteId },
+        },
+      };
+      break;
+
+    case "CLINICAL_REVIEWER":
+      // Videos in studies they're enrolled in, within their site
+      where = {
+        videoStudies: {
+          some: {
+            siteId: user.siteId,
+            study: {
+              caregiverPatients: {
+                some: { userId: user.id },
+              },
+            },
+          },
+        },
+      };
+      break;
+
+    case "CAREGIVER":
+      // Only their own videos
+      where = {
+        uploadedByUserId: user.id,
+      };
+      break;
+  }
+
   // creates efficient query for videos and total with one call
   const [videos, total] = await Promise.all([
     prisma.video.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       skip: offset,
       take: limit,
     }),
-    prisma.video.count(),
+    prisma.video.count({ where }),
   ]);
   return { videos, total, limit, offset };
 };
