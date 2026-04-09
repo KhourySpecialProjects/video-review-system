@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from "react";
+import { usePanelRef } from "react-resizable-panels";
 import {
     ResizablePanelGroup,
     ResizablePanel,
@@ -39,6 +40,17 @@ export default function VideoReview() {
     const [drawingEnabled, setDrawingEnabled] = useState(true);
     const [videoCurrentTime, setVideoCurrentTime] = useState(0);
 
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const sidebarPanelRef = usePanelRef();
+
+    const handleSidebarToggle = () => {
+        if (sidebarCollapsed) {
+            sidebarPanelRef.current?.expand();
+        } else {
+            sidebarPanelRef.current?.collapse();
+        }
+    };
+
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
@@ -54,13 +66,25 @@ export default function VideoReview() {
             <ResizablePanelGroup orientation="horizontal" className="h-full shrink-0">
 
                 {/* Left metadata sidebar */}
-                <ResizablePanel defaultSize="15%" minSize="10%">
+                <ResizablePanel
+                    id="metadata-sidebar"
+                    panelRef={sidebarPanelRef}
+                    collapsible
+                    collapsedSize={3}
+                    defaultSize="15%"
+                    minSize="10%"
+                    onResize={() => {
+                        setSidebarCollapsed(sidebarPanelRef.current?.isCollapsed() ?? false);
+                    }}
+                >
                     <VideoMetadataSidebar
                         metadata={{
                             patientId: "PT-2024-1547",
                             duration: 272,
                             recordedAt: new Date("2026-03-08T10:30:00"),
                         }}
+                        collapsed={sidebarCollapsed}
+                        onToggle={handleSidebarToggle}
                     />
                 </ResizablePanel>
 

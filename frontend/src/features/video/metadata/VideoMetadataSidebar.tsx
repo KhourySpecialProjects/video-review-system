@@ -66,17 +66,15 @@ function formatDate(date: Date): string {
 export function VideoMetadataSidebar({ metadata, collapsed, onToggle }: VideoMetadataSidebarProps) {
 
     return (
-        <div
-            className={`relative flex h-full flex-col border-r border-border bg-bg-light transition-all duration-200 ${
-                collapsed ? "w-10" : "w-64"
-            }`}
-        >
-            {/* Collapse toggle button */}
+        <div className="relative flex h-full w-full flex-col overflow-hidden border-r border-border bg-bg-light">
+            {/* Collapse toggle button — floats on the right edge, always visible */}
             <Button
                 variant="ghost"
                 size="icon"
                 onClick={onToggle}
-                className="absolute -right-4 top-4 z-10 size-8 rounded-full border border-border bg-bg-light shadow-sm"
+                className={`absolute top-4 z-10 size-8 rounded-full border border-border bg-bg-light shadow-sm ${
+                    collapsed ? "right-1" : "-right-4"
+                }`}
                 aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
                 {collapsed ? (
