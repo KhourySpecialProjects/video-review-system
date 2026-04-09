@@ -42,20 +42,38 @@ Make sure the following are installed before getting started:
 
 ### 1. Install dependencies
 
-```bash
-cd frontend
-npm install
+The project uses **AWS Secrets Manager** to store environment secrets (database URLs, API keys, etc.) rather than committing them to the repository. To access these secrets, you first need to authenticate with AWS using SSO (Single Sign-On).
 
-cd ../backend
-npm install
+Run the following command and follow the prompts:
+
+```bash
+aws configure sso
 ```
 
-### 2. Create `.env` in the repo root
-Temp section, will get replaced with AWS Secrets Manager section
+When prompted, enter the following values:
 
-### 3. Start PostgreSQL
+| Prompt | Value |
+|--------|-------|
+| SSO session name | Any name you want (e.g. `dev`) |
+| SSO start URL | The URL from your AWS invitation email |
+| SSO region | `us-east-1` |
+| SSO registration scopes | Press Enter to accept the default |
+| _(browser opens)_ | Sign in with your AWS credentials |
+| Default client region | `us-east-1` |
+| Default output format | Press Enter to accept the default |
+| Profile name | **Must be set to `default`** |
 
-If you want to use Docker for the database:
+### 2. Create `.env` in the project root
+
+Once authenticated, run the script below. It fetches the project secrets from AWS Secrets Manager and writes them to a local `.env` file:
+
+```bash
+./scripts/pull-env.sh
+```
+
+> **Note:** You will need to re-run this script whenever your AWS SSO session expires (typically after 8 hours) or when secrets are rotated.
+
+### 3. Start all services
 
 ```bash
 docker compose up -d postgres
