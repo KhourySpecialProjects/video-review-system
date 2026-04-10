@@ -16,12 +16,6 @@ export interface SidebarCardProps {
     content: React.ReactNode
     /** Optional custom classes for the root card */
     className?: string
-    /** Optional custom classes for the CardTitle */
-    titleClassName?: string
-    /** Optional custom classes for the CardHeader */
-    headerClassName?: string
-    /** Optional custom classes for the CardContent */
-    contentClassName?: string
     /** Optional custom styles for the root card */
     style?: React.CSSProperties
 
@@ -31,6 +25,7 @@ export interface SidebarCardProps {
     onEdit?: () => void
     /** Callback when the delete button is confirmed. If omitted, the delete flow is hidden. */
     onDelete?: () => void
+
     /** Whether we are currently in an 'editing' state */
     isEditing?: boolean
     /** Callback to save edits. Renders a 'Save' button in editing state. */
@@ -50,9 +45,6 @@ export function SidebarCard({
     title,
     content,
     className = "",
-    titleClassName = "flex items-center gap-2 text-sm font-medium",
-    headerClassName = "",
-    contentClassName = "",
     style,
     onPlay,
     onEdit,
@@ -66,8 +58,8 @@ export function SidebarCard({
 
     return (
         <Card className={`w-full ${className}`} style={style}>
-            <CardHeader className={headerClassName}>
-                <CardTitle className={titleClassName}>
+            <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm font-medium">
                     {title}
                 </CardTitle>
                 <CardAction className="flex relative items-center gap-1 z-10 shrink-0">
@@ -156,7 +148,7 @@ export function SidebarCard({
                     )}
                 </CardAction>
             </CardHeader>
-            <CardContent className={contentClassName}>
+            <CardContent>
                 {content}
             </CardContent>
         </Card>

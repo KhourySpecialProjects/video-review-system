@@ -46,15 +46,16 @@ export function ClipCard({
         <SidebarCard
             className="overflow-hidden bg-card text-card-foreground border-l-4"
             style={{ borderLeftColor: color }}
-            titleClassName="leading-tight tracking-tight line-clamp-2 wrap-break-word mr-2"
-            title={<span title={title}>{title}</span>}
+            title={
+                <span className="leading-tight tracking-tight line-clamp-2 wrap-break-word mr-2" title={title}>
+                    {title}
+                </span>
+            }
             onPlay={onJumpStart}
             onEdit={onEdit}
             onDelete={onDelete}
-            headerClassName="pb-2"
-            contentClassName="flex flex-col gap-4"
             content={
-                <>
+                <div className="flex flex-col gap-4">
                     <div className="flex items-center justify-center py-2 transition-all duration-300">
                         <span className="text-sm font-medium" style={{ color }}>{duration}</span>
                     </div>
@@ -80,7 +81,7 @@ export function ClipCard({
                             </div>
                         )}
                     </div>
-                </>
+                </div>
             }
         />
     );
