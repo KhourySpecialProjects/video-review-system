@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardAction, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Pencil, X, ArrowRight, ArrowUpRight, Plus } from "lucide-react";
+import { Pencil, X, ArrowRight, Play, Plus } from "lucide-react";
 import { formatDuration } from "@/lib/format";
 
 /** Props for the ClipCard component. */
@@ -81,6 +81,15 @@ export function ClipCard({
                             <Button
                                 variant="ghost"
                                 size="icon-sm"
+                                onClick={onJumpStart}
+                                aria-label="Play clip"
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer"
+                            >
+                                <Play className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon-sm"
                                 onClick={onEdit}
                                 aria-label="Edit clip"
                                 className="h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer"
@@ -107,23 +116,10 @@ export function ClipCard({
                 </div>
                 
                 <div className="flex flex-col gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <span>{startTime}</span>
-                            <ArrowRight className="h-4 w-4" />
-                                <span>{endTime}</span>
-                        </div>
-
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={onJumpStart}
-                            aria-label="Jump to start"
-                            className="flex items-center gap-1 font-medium px-2 hover:opacity-80"
-                            style={{ color }}
-                        >
-                            Jump <ArrowUpRight className="h-4 w-4" />
-                        </Button>
+                    <div className="flex items-center gap-2">
+                        <span>{startTime}</span>
+                        <ArrowRight className="h-4 w-4" />
+                        <span>{endTime}</span>
                     </div>
 
                     <div className="flex items-center pt-2">
