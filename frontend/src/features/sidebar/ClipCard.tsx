@@ -53,32 +53,35 @@ export function ClipCard({
             onDelete={onDelete}
             headerClassName="pb-2"
             contentClassName="flex flex-col gap-4"
-        >
-            <div className="flex items-center justify-center py-2 transition-all duration-300">
-                <span className="text-sm font-medium" style={{ color }}>{duration}</span>
-            </div>
-            
-            <div className="flex flex-col gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                    <span>{startTime}</span>
-                    <ArrowRight className="h-4 w-4" />
-                    <span>{endTime}</span>
-                </div>
-
-                {onAddToSequence && (
-                    <div className="flex items-center pt-2">
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={onAddToSequence}
-                            className="w-full flex items-center justify-center gap-2 border-dashed text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-                        >
-                            <Plus className="h-3 w-3" />
-                            Add to sequence
-                        </Button>
+            content={
+                <>
+                    <div className="flex items-center justify-center py-2 transition-all duration-300">
+                        <span className="text-sm font-medium" style={{ color }}>{duration}</span>
                     </div>
-                )}
-            </div>
-        </SidebarCard>
+
+                    <div className="flex flex-col gap-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                            <span>{startTime}</span>
+                            <ArrowRight className="h-4 w-4" />
+                            <span>{endTime}</span>
+                        </div>
+
+                        {onAddToSequence && (
+                            <div className="flex items-center pt-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={onAddToSequence}
+                                    className="w-full flex items-center justify-center gap-2 border-dashed text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                                >
+                                    <Plus className="h-3 w-3" />
+                                    Add to sequence
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </>
+            }
+        />
     );
 }

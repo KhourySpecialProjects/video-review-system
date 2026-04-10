@@ -13,8 +13,7 @@ export interface SidebarCardProps {
     /** The title content (e.g. badge, text) rendered inside CardTitle */
     title: React.ReactNode
     /** General content of the card rendered inside CardContent */
-    children: React.ReactNode
-    
+    content: React.ReactNode
     /** Optional custom classes for the root card */
     className?: string
     /** Optional custom classes for the CardTitle */
@@ -32,7 +31,6 @@ export interface SidebarCardProps {
     onEdit?: () => void
     /** Callback when the delete button is confirmed. If omitted, the delete flow is hidden. */
     onDelete?: () => void
-
     /** Whether we are currently in an 'editing' state */
     isEditing?: boolean
     /** Callback to save edits. Renders a 'Save' button in editing state. */
@@ -50,7 +48,7 @@ export interface SidebarCardProps {
  */
 export function SidebarCard({
     title,
-    children,
+    content,
     className = "",
     titleClassName = "flex items-center gap-2 text-sm font-medium",
     headerClassName = "",
@@ -159,7 +157,7 @@ export function SidebarCard({
                 </CardAction>
             </CardHeader>
             <CardContent className={contentClassName}>
-                {children}
+                {content}
             </CardContent>
         </Card>
     )
