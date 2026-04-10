@@ -1,0 +1,13 @@
+$kind: http-request
+name: GET video stream
+description: |-
+  Get a presigned S3 URL to stream the video. Returns { url, expiresIn }.
+  409 if video status is not UPLOADED.
+method: GET
+url: '{{baseUrl}}/domain/videos/{{videoId}}/stream'
+order: 5000
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Cookie
+    value: '{{sessionCookie}}'

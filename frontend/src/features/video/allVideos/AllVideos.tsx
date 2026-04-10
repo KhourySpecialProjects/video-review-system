@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import type { Video } from "@/lib/types";
+import { Form, useLoaderData, useNavigation } from "react-router";
+import type { SearchLoaderData } from "@/lib/video.service";
 import { formatDuration, formatDate, formatTime } from "@/lib/format";
 import {
     Accordion,
@@ -23,157 +23,100 @@ import {
     Filter,
     X,
     CirclePlay,
+    Loader2,
 } from "lucide-react";
-import { Link } from "react-router";
+import { Link, useSubmit } from "react-router";
+import { useState } from "react";
 
-interface AllVideosProps {
-    videos: Video[];
-}
+let debounceTimer: ReturnType<typeof setTimeout>;
 
-export function AllVideos({ videos }: AllVideosProps) {
-    const [searchQuery, setSearchQuery] = useState("");
-    const [uploadDateFrom, setUploadDateFrom] = useState<Date | undefined>();
-    const [uploadDateTo, setUploadDateTo] = useState<Date | undefined>();
-    const [filmedDateFrom, setFilmedDateFrom] = useState<Date | undefined>();
-    const [filmedDateTo, setFilmedDateTo] = useState<Date | undefined>();
+/**
+ * @description All-videos panel with server-side search and date filtering.
+ * Uses a GET `<Form>` to serialize search inputs into URL params, which
+ * triggers the route loader to re-run and return filtered results via
+ * `useLoaderData()`.
+ */
+export function AllVideos() {
+    const { search, q } = useLoaderData() as SearchLoaderData;
+    const navigation = useNavigation();
+    const submit = useSubmit();
+    const isSearching = navigation.state === "loading";
+
+    const { videos, total } = search;
     const [showFilters, setShowFilters] = useState(false);
-
-    const filteredVideos = useMemo(() => {
-        let result = videos;
-
-        if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase();
-            result = result.filter(
-                (v) =>
-                    v.title.toLowerCase().includes(query) ||
-                    v.description.toLowerCase().includes(query)
-            );
-        }
-
-        if (uploadDateFrom) {
-            result = result.filter(
-                (v) => new Date(v.uploadedAt) >= uploadDateFrom
-            );
-        }
-        if (uploadDateTo) {
-            const endOfDay = new Date(uploadDateTo);
-            endOfDay.setHours(23, 59, 59, 999);
-            result = result.filter(
-                (v) => new Date(v.uploadedAt) <= endOfDay
-            );
-        }
-
-        if (filmedDateFrom) {
-            result = result.filter(
-                (v) => new Date(v.filmedAt) >= filmedDateFrom
-            );
-        }
-        if (filmedDateTo) {
-            const endOfDay = new Date(filmedDateTo);
-            endOfDay.setHours(23, 59, 59, 999);
-            result = result.filter(
-                (v) => new Date(v.filmedAt) <= endOfDay
-            );
-        }
-
-        return result;
-    }, [videos, searchQuery, uploadDateFrom, uploadDateTo, filmedDateFrom, filmedDateTo]);
-
-    const hasActiveFilters =
-        uploadDateFrom || uploadDateTo || filmedDateFrom || filmedDateTo;
-
-    const clearFilters = () => {
-        setUploadDateFrom(undefined);
-        setUploadDateTo(undefined);
-        setFilmedDateFrom(undefined);
-        setFilmedDateTo(undefined);
-    };
 
     return (
         <div className="flex flex-col gap-4">
-            {/* Search & Filter bar */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-text-muted" />
-                    <Input
-                        placeholder="Search by title or description..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10 bg-bg-dark border-border text-text placeholder:text-text-muted"
-                    />
-                </div>
-                <div className="flex gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowFilters(!showFilters)}
-                        className="gap-2 border-border text-text"
-                    >
-                        <Filter className="size-4" />
-                        Filters
-                        {hasActiveFilters && (
-                            <span className="flex size-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                                !
-                            </span>
-                        )}
-                    </Button>
-                    {hasActiveFilters && (
+            <Form method="get" className="flex flex-col gap-4">
+                {/* Search & Filter bar */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-text-muted" />
+                        <Input
+                            name="q"
+                            placeholder="Search by title or description..."
+                            defaultValue={q}
+                            onChange={(e) => {
+                                const form = e.currentTarget.form;
+                                clearTimeout(debounceTimer);
+                                debounceTimer = setTimeout(() => submit(form), 300);
+                            }}
+                            className="pl-10 bg-bg-dark border-border text-text placeholder:text-text-muted"
+                        />
+                    </div>
+                    <div className="flex gap-2">
                         <Button
-                            variant="ghost"
+                            type="submit"
                             size="sm"
-                            onClick={clearFilters}
-                            className="gap-1 text-text-muted"
+                            className="gap-2"
                         >
-                            <X className="size-4" />
-                            Clear
+                            <Search className="size-4" />
+                            Search
                         </Button>
-                    )}
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowFilters(!showFilters)}
+                            className="gap-2 border-border text-text"
+                        >
+                            <Filter className="size-4" />
+                            Filters
+                        </Button>
+                    </div>
                 </div>
-            </div>
 
-            {/* Filter panel */}
-            {showFilters && (
-                <div className="grid grid-cols-1 gap-4 rounded-xl border border-border bg-bg-light p-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                        <p className="text-sm font-medium text-text">Upload Date</p>
-                        <div className="flex flex-wrap gap-2">
-                            <DatePickerButton
-                                label="From"
-                                date={uploadDateFrom}
-                                onSelect={setUploadDateFrom}
-                            />
-                            <DatePickerButton
-                                label="To"
-                                date={uploadDateTo}
-                                onSelect={setUploadDateTo}
-                            />
+                {/* Filter panel */}
+                {showFilters && (
+                    <div className="grid grid-cols-1 gap-4 rounded-xl border border-border bg-bg-light p-4 sm:grid-cols-2">
+                        <div className="space-y-2">
+                            <p className="text-sm font-medium text-text">Upload Date</p>
+                            <div className="flex flex-wrap gap-2">
+                                <DateInput name="uploadedAfter" label="From" />
+                                <DateInput name="uploadedBefore" label="To" />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <p className="text-sm font-medium text-text">Filmed Date</p>
+                            <div className="flex flex-wrap gap-2">
+                                <DateInput name="filmedAfter" label="From" />
+                                <DateInput name="filmedBefore" label="To" />
+                            </div>
                         </div>
                     </div>
-                    <div className="space-y-2">
-                        <p className="text-sm font-medium text-text">Filmed Date</p>
-                        <div className="flex flex-wrap gap-2">
-                            <DatePickerButton
-                                label="From"
-                                date={filmedDateFrom}
-                                onSelect={setFilmedDateFrom}
-                            />
-                            <DatePickerButton
-                                label="To"
-                                date={filmedDateTo}
-                                onSelect={setFilmedDateTo}
-                            />
-                        </div>
-                    </div>
-                </div>
-            )}
+                )}
+            </Form>
 
             {/* Results count */}
-            <p className="text-sm text-text-muted">
-                {filteredVideos.length} video{filteredVideos.length !== 1 ? "s" : ""} found
-            </p>
+            <div className="flex items-center gap-2 text-sm text-text-muted">
+                {isSearching && <Loader2 className="size-4 animate-spin" />}
+                <span>
+                    {total} video{total !== 1 ? "s" : ""} found
+                </span>
+            </div>
 
             {/* Accordion list */}
-            {filteredVideos.length === 0 ? (
+            {videos.length === 0 ? (
                 <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-bg-light py-12 text-center">
                     <Search className="mb-3 size-10 text-text-muted" />
                     <p className="text-lg font-medium text-text">No videos found</p>
@@ -183,10 +126,10 @@ export function AllVideos({ videos }: AllVideosProps) {
                 </div>
             ) : (
                 <Accordion className="space-y-2">
-                    {filteredVideos.map((video) => (
+                    {videos.map((video) => (
                         <AccordionItem
                             key={video.id}
-                            className="rounded-xl border border-border bg-bg-light px-4 data-[open]:shadow-m"
+                            className="rounded-xl border border-border bg-bg-light px-4 data-open:shadow-m"
                         >
                             <AccordionTrigger className="py-4 hover:no-underline">
                                 <div className="flex flex-1 items-center gap-3 text-left">
@@ -198,11 +141,11 @@ export function AllVideos({ videos }: AllVideosProps) {
                                             {video.title}
                                         </p>
                                         <p className="truncate text-xs text-text-muted">
-                                            {formatDuration(video.duration)} • {formatDate(video.uploadedAt)}
+                                            {formatDuration(video.durationSeconds)} • {formatDate(video.createdAt)}
                                         </p>
                                     </div>
-                                    <span className="shrink-0 text-xs font-semibold text-success">
-                                        {video.status === "received" ? "Received" : "Pending"}
+                                    <span className={`shrink-0 text-xs font-semibold ${video.status === "UPLOADED" ? "text-success" : video.status === "FAILED" ? "text-destructive" : "text-warning"}`}>
+                                        {video.status === "UPLOADED" ? "Uploaded" : video.status === "FAILED" ? "Failed" : "Uploading"}
                                     </span>
                                 </div>
                             </AccordionTrigger>
@@ -214,19 +157,23 @@ export function AllVideos({ videos }: AllVideosProps) {
                                     <div className="flex flex-wrap items-center gap-4 text-xs text-text-muted">
                                         <span className="flex items-center gap-1.5">
                                             <CalendarDays className="size-3.5" />
-                                            Uploaded: {formatDate(video.uploadedAt)}
+                                            Uploaded: {formatDate(video.createdAt)}
                                         </span>
-                                        <span className="flex items-center gap-1.5">
-                                            <CalendarDays className="size-3.5" />
-                                            Filmed: {formatDate(video.filmedAt)}
-                                        </span>
-                                        <span className="flex items-center gap-1.5">
-                                            <Clock3 className="size-3.5" />
-                                            {formatTime(video.filmedAt)}
-                                        </span>
+                                        {video.takenAt && (
+                                            <>
+                                                <span className="flex items-center gap-1.5">
+                                                    <CalendarDays className="size-3.5" />
+                                                    Filmed: {formatDate(video.takenAt)}
+                                                </span>
+                                                <span className="flex items-center gap-1.5">
+                                                    <Clock3 className="size-3.5" />
+                                                    {formatTime(video.takenAt)}
+                                                </span>
+                                            </>
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-2 text-xs text-text-muted">
-                                        Filmed by: <span className="font-medium text-text">{video.filmedBy}</span>
+                                        Uploaded by: <span className="font-medium text-text">{video.uploadedBy}</span>
                                     </div>
                                     <Link
                                         to={`/videos/${video.id}`}
@@ -245,43 +192,68 @@ export function AllVideos({ videos }: AllVideosProps) {
     );
 }
 
-/* ─── Date Picker Helper ──────────────────────────────────────────────────── */
+/* ─── Date Input Helper ──────────────────────────────────────────────────── */
 
-interface DatePickerButtonProps {
+type DateInputProps = {
+    name: string;
     label: string;
-    date: Date | undefined;
-    onSelect: (date: Date | undefined) => void;
-}
+};
 
-function DatePickerButton({ label, date, onSelect }: DatePickerButtonProps) {
+/**
+ * @description A date picker button that stores its value in a hidden input
+ * so it gets serialized by the parent `<Form>`.
+ *
+ * @param name - The form input name (e.g. "uploadedAfter")
+ * @param label - Placeholder text when no date is selected
+ */
+function DateInput({ name, label }: DateInputProps) {
+    const [date, setDate] = useState<Date | undefined>();
+
     return (
-        <Popover>
-            <PopoverTrigger
-                className="inline-flex items-center gap-2 rounded-md border border-border px-2.5 h-8 text-sm font-medium text-text hover:bg-muted transition-all"
-            >
-                <CalendarDays className="size-3.5" />
-                {date
-                    ? date.toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                    })
-                    : label}
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-bg-light border-border" align="start">
-                <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={onSelect}
-                    initialFocus
-                />
-            </PopoverContent>
-        </Popover>
+        <>
+            <input type="hidden" name={date ? name : ""} value={date?.toISOString() ?? ""} />
+            <Popover>
+                <PopoverTrigger
+                    className="inline-flex items-center gap-2 rounded-md border border-border px-2.5 h-8 text-sm font-medium text-text hover:bg-muted transition-all"
+                >
+                    <CalendarDays className="size-3.5" />
+                    {date
+                        ? date.toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                        })
+                        : label}
+                    {date && (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setDate(undefined);
+                            }}
+                            className="ml-1 text-text-muted hover:text-text"
+                        >
+                            <X className="size-3" />
+                        </button>
+                    )}
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-bg-light border-border" align="start">
+                    <Calendar
+                        mode="single"
+                        selected={date}
+                        onSelect={setDate}
+                    />
+                </PopoverContent>
+            </Popover>
+        </>
     );
 }
 
 /* ─── Skeleton ────────────────────────────────────────────────────────────── */
 
+/**
+ * @description Loading skeleton placeholder for the AllVideos panel.
+ */
 export function AllVideosSkeleton() {
     return (
         <div className="flex flex-col gap-4">

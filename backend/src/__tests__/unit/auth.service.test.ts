@@ -25,9 +25,6 @@ const { prismaMock, authMock } = vi.hoisted(() => {
     account: {
       create: vi.fn(),
     },
-    userRole: {
-      create: vi.fn(),
-    },
     $transaction: vi.fn(),
   } satisfies AuthPrismaMock;
 
@@ -199,14 +196,14 @@ describe("auth.service", () => {
       where: { email: "invitee@example.com" },
     });
     expect(prismaMock.account.create).not.toHaveBeenCalled();
-    expect(prismaMock.userRole.create).not.toHaveBeenCalled();
   });
 
   it("activates an invitation successfully", async () => {
     // Input: activateInvite(...) receives a valid invite token, new email, and
     // password.
-    // Expected: the invitation is claimed, the user/account/role records are
-    // created, and the success payload is returned.
+    // Expected: the invitation is claimed, the user/account records are
+    // created with role and siteId from the invitation, and the success
+    // payload is returned.
     const randomUuidSpy = vi
       .spyOn(crypto, "randomUUID")
       .mockReturnValueOnce("user-uuid")
@@ -220,10 +217,6 @@ describe("auth.service", () => {
     authMock.context.password.hash.mockResolvedValue("hashed-password");
     prismaMock.user.create.mockResolvedValue(makeUser({ id: "user-uuid" }));
     prismaMock.account.create.mockResolvedValue({ id: "account-uuid" });
-    prismaMock.userRole.create.mockResolvedValue({
-      userId: "user-uuid",
-      role: "CLINICAL_REVIEWER",
-    });
 
     const result = await activateInvite(
       makeActivateInviteInput({ email: "Invitee@Example.com" }),
@@ -239,10 +232,9 @@ describe("auth.service", () => {
         id: "user-uuid",
         name: "Test User",
         email: "invitee@example.com",
+        role: "CLINICAL_REVIEWER",
+        siteId: "11111111-1111-1111-8111-111111111111",
       }),
-    });
-    expect(prismaMock.userRole.create).toHaveBeenCalledWith({
-      data: { userId: "user-uuid", role: "CLINICAL_REVIEWER" },
     });
   });
 
@@ -262,7 +254,6 @@ describe("auth.service", () => {
     expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
     expect(prismaMock.user.create).not.toHaveBeenCalled();
     expect(prismaMock.account.create).not.toHaveBeenCalled();
-    expect(prismaMock.userRole.create).not.toHaveBeenCalled();
   });
 
   it("hashes the password before creating the credential account", async () => {
@@ -275,10 +266,6 @@ describe("auth.service", () => {
     authMock.context.password.hash.mockResolvedValue("hashed-password");
     prismaMock.user.create.mockResolvedValue(makeUser({ id: "user-uuid" }));
     prismaMock.account.create.mockResolvedValue({ id: "account-uuid" });
-    prismaMock.userRole.create.mockResolvedValue({
-      userId: "user-uuid",
-      role: "CAREGIVER",
-    });
     vi.spyOn(crypto, "randomUUID")
       .mockReturnValueOnce("user-uuid")
       .mockReturnValueOnce("account-uuid");

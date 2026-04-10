@@ -1,7 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
-import { auth } from "../lib/auth.js";
+import { auth, type Session } from "../lib/auth.js";
 import prisma from "../lib/prisma.js";
 import { AppError } from "./errors.js";
+import { fromNodeHeaders } from "better-auth/node";
 import type { user_role } from "../generated/prisma/client.js";
 
 // ────────────────────────────────────────────────────────────
@@ -27,6 +28,7 @@ declare global {
   namespace Express {
     interface Request {
       user?: AuthenticatedUser;
+      authSession: Session;
     }
   }
 }
@@ -36,46 +38,38 @@ declare global {
 // ────────────────────────────────────────────────────────────
 
 /**
- * Express middleware that validates the better-auth session cookie
- * and attaches the authenticated user to `req.user`.
+ * Express middleware that validates the session from the request headers
+ * and attaches it to `req.authSession`. Throws 401 if no valid session exists.
  *
- * @param req - Express request object (must carry the session cookie)
- * @param _res - Express response object (unused)
- * @param next - Express next function
+ * The session includes custom user fields (e.g. role) configured via
+ * Better Auth's `user.additionalFields`.
  *
- * @returns void — calls next() on success
- *
- * @throws {AppError} 401 if no valid session cookie is present or session has expired
- * @throws {AppError} 401 if the user account is not found or has been deactivated
+ * @description Usage: `router.use(requireSession)` or on individual routes
  */
-export async function authenticate(
-  req: Request,
-  _res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function requireSession(req: Request, _res: Response, next: NextFunction) {
   const session = await auth.api.getSession({
-    headers: new Headers(req.headers as Record<string, string>),
+    headers: fromNodeHeaders(req.headers),
   });
 
-  if (!session) {
-    throw AppError.unauthorized("Invalid or expired session");
+  if (!session) throw AppError.unauthorized();
+
+  req.authSession = session;
+  next();
+}
+
+/**
+ * Express middleware that validates requests from internal services
+ * using a shared secret in the `x-internal-secret` header.
+ * Throws 401 if the header is missing or does not match.
+ *
+ * @description Usage: pass as route-level middleware for internal-only endpoints
+ */
+export async function requireInternalAuth(req: Request, _res: Response, next: NextFunction) {
+  const internalSecret = req.headers["x-internal-secret"];
+
+  if (!internalSecret || internalSecret !== process.env.INTERNAL_SECRET_HEADER) {
+    throw AppError.unauthorized();
   }
-
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { id: true, email: true, role: true, siteId: true, isDeactivated: true },
-  });
-
-  if (!user || user.isDeactivated) {
-    throw AppError.unauthorized("Account not found or deactivated");
-  }
-
-  req.user = {
-    id: user.id,
-    email: user.email,
-    role: user.role,
-    siteId: user.siteId,
-  };
 
   next();
 }
@@ -141,6 +135,7 @@ export interface AuthorizeOptions {
   resource: Resource;
   getResourceOwnerId?: (req: Request) => Promise<string | null>;
   getStudyId?: (req: Request) => Promise<string | null>;
+  getResourceSiteId?: (req: Request) => Promise<string | null>;
 }
 
 /**
