@@ -1,0 +1,25 @@
+$kind: http-request
+name: POST upload
+description: |-
+  Initiate a multipart upload. Returns { video, parts (presigned URLs), partSize, totalParts, expiresIn }.
+  contentType must be "video/mp4".
+method: POST
+url: '{{baseUrl}}/domain/videos/upload'
+order: 7000
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Cookie
+    value: '{{sessionCookie}}'
+body:
+  type: json
+  content: |-
+    {
+      "videoTitle": "My Video",
+      "videoDescription": "Optional description",
+      "videoName": "my-video.mp4",
+      "fileSize": 10485760,
+      "durationSeconds": 120,
+      "takenAt": "2026-04-09T12:00:00.000Z",
+      "contentType": "video/mp4"
+    }

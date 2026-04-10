@@ -1,8 +1,8 @@
 import { Router } from "express";
-import * as annotationsService from "./annotations.service";
-import { AppError } from "../../middleware/errors";
-import { Prisma } from "../../generated/prisma/client";
-import { createAnnotationSchema, updateAnnotationSchema } from "./annotations.types";
+import * as annotationsService from "./annotations.service.js";
+import { AppError } from "../../middleware/errors.js";
+import { Prisma } from "../../generated/prisma/client.js";
+import { createAnnotationSchema, updateAnnotationSchema } from "./annotations.types.js";
 
 const router = Router();
 

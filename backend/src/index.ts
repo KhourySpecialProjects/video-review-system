@@ -19,9 +19,9 @@ import { fileURLToPath } from "url";
 import { auth } from "./lib/auth.js";
 import { notFoundHandler, errorHandler } from "./middleware/errors.js";
 
-import videosRouter from "./domains/videos/videos.router";
-import authRouter from "./domains/auth/auth.router";
-import annotationsRouter from "./domains/annotations/annotations.router";
+import videosRouter from "./domains/videos/videos.router.js";
+import authRouter from "./domains/auth/auth.router.js";
+import annotationsRouter from "./domains/annotations/annotations.router.js";
 // import clipsRouter from "./domains/clips/clips.router";
 // import accountsRouter from "./domains/accounts/accounts.router";
 // import auditRouter from "./domains/audit/audit.router";

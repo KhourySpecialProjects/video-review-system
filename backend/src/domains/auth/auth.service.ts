@@ -72,7 +72,7 @@ export async function activateInvite(input: ActivateInviteInput) {
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
   const normalizedEmail = email.toLowerCase().trim();
 
-  return await prisma.$transaction(async (tx: typeof prisma) => {
+  return await prisma.$transaction(async (tx) => {
     // atomic claim
     // updateMany returns count so we can check if token was valid
     const claimed = await tx.invitation.updateMany({

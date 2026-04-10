@@ -2,7 +2,7 @@ $kind: http-request
 name: POST invite
 description: 'Create a new user invitation (admin-only). Requires admin-secret header. Returns { id, token } on success.'
 method: POST
-url: '{{baseUrl}}/auth/invite'
+url: '{{baseUrl}}/domain/auth/invite'
 order: 1000
 headers:
   - key: Content-Type

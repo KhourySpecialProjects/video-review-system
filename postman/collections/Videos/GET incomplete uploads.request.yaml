@@ -1,0 +1,11 @@
+$kind: http-request
+name: GET incomplete uploads
+description: List incomplete (in-progress) uploads. Returns an array of upload status objects.
+method: GET
+url: '{{baseUrl}}/domain/videos/incomplete'
+order: 3000
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Cookie
+    value: '{{sessionCookie}}'

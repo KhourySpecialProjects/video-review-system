@@ -39,7 +39,7 @@ export const auth = betterAuth({
   },
 
   // allow requests from the frontend origin for CORS
-  trustedOrigins: [process.env.ALLOWED_ORIGIN || "https://10.110.13.120:5173, http://localhost:5173"],
+  trustedOrigins: process.env.ALLOWED_ORIGIN?.split(",") || ["https://localhost:5173"],
 });
 
 /** Inferred session type including custom user fields (role). */

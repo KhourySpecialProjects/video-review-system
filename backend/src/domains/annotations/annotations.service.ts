@@ -1,7 +1,7 @@
 import { Prisma } from "../../generated/prisma/index.js";
 import prisma from "../../lib/prisma.js";
 import { AppError } from "../../middleware/errors.js";
-import type { CreateAnnotationParams, UpdateAnnotationInput } from "./annotations.types";
+import type { CreateAnnotationParams, UpdateAnnotationInput } from "./annotations.types.js";
 
 /**
  * retrieves a paginated list of annotations for a video, ordered by timestamp

@@ -18,7 +18,6 @@ export const createVideoSchema = z.object({
   videoName: z.string().min(1, "videoName is required"),
   fileSize: z.number().int().positive("fileSize must be a positive integer"),
   durationSeconds: z.number().int().positive(),
-  createdAt: z.iso.datetime(),
   takenAt: z.iso.datetime(),
   contentType: z.enum(["video/mp4"], {
     message: "contentType must be video/mp4",
@@ -54,6 +53,7 @@ export const updateVideoSchema = z.object({
     status: z.enum(["UPLOADING", "UPLOADED", "FAILED"]).optional(),
     durationSeconds: z.number().int().positive().optional(),
     takenAt: z.iso.datetime().optional(),
+    s3Key: z.string().optional(),
   })
   // Keep fields optional individually, but require at least one change.
   // If you change nothing, it should be invalid.
@@ -98,6 +98,7 @@ export type VideoListItem = {
   id: string;
   title: string;
   description: string;
+  imageUrl: string;
   durationSeconds: number;
   status: "UPLOADING" | "UPLOADED" | "FAILED";
   fileSize: number;
@@ -105,6 +106,15 @@ export type VideoListItem = {
   takenAt: string | null;
   uploadedBy: string;
 };
+
+/**
+ * Validation schema for updating a video's S3 key (internal use only).
+ *
+ * @field s3Key - the new S3 object key
+ */
+export const updateS3KeySchema = z.object({
+  s3Key: z.string().min(1, "s3Key is required"),
+});
 
 // Inferred types from the validation schemas for use in the service layer
 export type CreateVideoInput = z.infer<typeof createVideoSchema>;

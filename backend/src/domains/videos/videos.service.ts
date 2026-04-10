@@ -1,7 +1,7 @@
-import prisma from "../../lib/prisma";
-import type { Video } from "../../generated/prisma/client";
-import { AppError } from "../../middleware/errors";
-import type { CreateVideoInput, CompleteUploadInput, UpdateVideoInput, SearchVideosInput, VideoListItem } from "./videos.types";
+import prisma from "../../lib/prisma.js";
+import type { Video } from "../../generated/prisma/client.js";
+import { AppError } from "../../middleware/errors.js";
+import type { CreateVideoInput, CompleteUploadInput, UpdateVideoInput, SearchVideosInput, VideoListItem } from "./videos.types.js";
 import {
   generatePresignedGetUrl,
   generatePresignedPartUrls,
@@ -38,20 +38,25 @@ function videoInclude(userId: string) {
  * @param video - Prisma video record with caregiverMetadata and uploadedBy included
  * @returns A flattened VideoListItem
  */
-function toVideoListItem(
+async function toVideoListItem(
   video: Video & {
     caregiverMetadata: { privateTitle: string; privateNotes: string | null }[];
     uploadedBy: { name: string };
   }
-): VideoListItem {
+): Promise<VideoListItem> {
   const meta = video.caregiverMetadata[0];
   const fileName = video.s3Key.includes("/")
     ? video.s3Key.split("/").pop()!
     : video.s3Key;
+  const baseName = video.s3Key.substring(0, fileName.lastIndexOf("."))
+  // The 0's are added by media convert
+  const thumbKey = `processed/${baseName}_thumb.0000000.jpg`;
+  const imageUrl = await generatePresignedGetUrl(thumbKey, 3600);
 
   return {
     id: video.id,
     title: meta?.privateTitle ?? fileName,
+    imageUrl,
     description: meta?.privateNotes ?? "",
     durationSeconds: video.durationSeconds,
     status: video.status,
@@ -95,7 +100,7 @@ export async function listVideos({
     prisma.video.count({ where }),
   ]);
 
-  return { videos: videos.map(toVideoListItem), total, limit, offset };
+  return { videos: await Promise.all(videos.map(toVideoListItem)), total, limit, offset };
 }
 
 /**
@@ -148,7 +153,7 @@ export async function searchVideos(
     prisma.video.count({ where }),
   ]);
 
-  return { videos: videos.map(toVideoListItem), total, limit, offset };
+  return { videos: await Promise.all(videos.map(toVideoListItem)), total, limit, offset };
 }
 
 /**
@@ -171,7 +176,7 @@ export async function getVideoDetail(videoId: string, userId: string): Promise<V
     throw AppError.notFound("Video not found");
   }
 
-  return toVideoListItem(video);
+  return await toVideoListItem(video);
 }
 
 /**
@@ -200,7 +205,9 @@ export async function getVideoStreamUrl(
   }
 
   const expiresIn = 3600;
+  const thumbKey = `${video.s3Key}.mp4`;
   const url = await generatePresignedGetUrl(video.s3Key, expiresIn);
+  
 
   return { video, url, expiresIn };
 }
@@ -243,7 +250,6 @@ export async function initiateVideoUpload({
   videoName,
   fileSize,
   durationSeconds,
-  createdAt,
   takenAt,
   contentType,
 }: CreateVideoParams): Promise<{
@@ -267,7 +273,6 @@ export async function initiateVideoUpload({
         fileSize,
         totalParts,
         durationSeconds: durationSeconds ?? null,
-        createdAt: createdAt ? new Date(createdAt) : new Date(),
         takenAt: takenAt ? new Date(takenAt) : null,
       },
     });
@@ -281,7 +286,7 @@ export async function initiateVideoUpload({
         privateNotes: videoDescription,
       },
     });
-    const s3Key = `${created.id}/${videoName}`;
+    const s3Key = `uploads/${created.id}/${videoName}`;
     const s3UploadId = await initiateMultipartUpload(s3Key, contentType);
 
     return await tx.video.update({
