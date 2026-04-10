@@ -220,7 +220,7 @@ async function isStudyInSite(studyId: string, siteId: string): Promise<boolean> 
  * }), handler);
  */
 export function authorize(options: AuthorizeOptions) {
-  const { action, resource, getResourceOwnerId, getStudyId } = options;
+  const { action, resource, getResourceOwnerId, getStudyId, getResourceSiteId } = options;
 
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     const user = req.user;
@@ -247,8 +247,13 @@ export function authorize(options: AuthorizeOptions) {
 
     // ── SITE_COORDINATOR: full governance within their site & studies ──
     if (user.role === "SITE_COORDINATOR") {
-      // Coordinators can do anything within their site
-      // If a study is specified, we already verified it's in their site above
+      if (getResourceSiteId) {
+        const resourceSiteId = await getResourceSiteId(req);
+        if (resourceSiteId && resourceSiteId !== user.siteId) {
+          throw AppError.forbidden("You can only manage resources within your own site");
+        }
+      }
+ 
       next();
       return;
     }

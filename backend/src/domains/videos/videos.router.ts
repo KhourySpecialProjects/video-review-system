@@ -63,7 +63,8 @@ router.get(
     const result = await videosService.listVideos({ 
       limit, 
       offset, 
-      user: req.user! });
+      user: req.user! 
+    });
     res.json(result);
   }
 );

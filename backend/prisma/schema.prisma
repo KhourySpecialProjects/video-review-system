@@ -163,7 +163,6 @@ model Invitation {
   usedAt    DateTime? @map("used_at")
   createdBy String    @map("created_by")
   createdAt DateTime  @default(now()) @map("created_at")
-  siteId    String    @map("site_id") @db.Uuid
 
   createdByUser User @relation(fields: [createdBy], references: [id])
 
