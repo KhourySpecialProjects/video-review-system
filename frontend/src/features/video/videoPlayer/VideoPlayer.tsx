@@ -1,51 +1,96 @@
+import { useRef, useState, useEffect } from "react";
 import { CirclePlay, Pause, Maximize, Volume2, VolumeX } from "lucide-react";
 import { formatDuration } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Slider } from "@/components/ui/slider";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import type { useVideoPlayer } from "@/hooks/useVideoPlayer";
-
-const SPEEDS = [0.5, 1.0, 1.5, 2.0];
 
 interface VideoPlayerProps {
-    src?: string;
+    /**
+     * Video source URL.
+     * Currently a direct URL — will be an S3 presigned URL in production.
+     */
+    src: string;
+    /** Duration in seconds (from metadata) */
     duration: number;
+    /** Optional poster/thumbnail image */
     poster?: string;
-    title?: string;
-    player: ReturnType<typeof useVideoPlayer>;
 }
 
-export function VideoPlayer({ src, duration, poster, title, player }: VideoPlayerProps) {
-    const {
-        videoRef,
-        isPlaying,
-        currentTime,
-        isMuted,
-        showControls,
-        setShowControls,
-        togglePlay,
-        toggleMute,
-        toggleFullscreen,
-        speed,
-        setSpeed,
-        volume,
-        setVolume,
-    } = player;
+export function VideoPlayer({ src, duration, poster }: VideoPlayerProps) {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [isMuted, setIsMuted] = useState(false);
+    const [showControls, setShowControls] = useState(true);
+
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        const onTimeUpdate = () => setCurrentTime(video.currentTime);
+        const onPlay = () => setIsPlaying(true);
+        const onPause = () => setIsPlaying(false);
+        const onEnded = () => {
+            setIsPlaying(false);
+            setCurrentTime(0);
+        };
+
+        video.addEventListener("timeupdate", onTimeUpdate);
+        video.addEventListener("play", onPlay);
+        video.addEventListener("pause", onPause);
+        video.addEventListener("ended", onEnded);
+
+        return () => {
+            video.removeEventListener("timeupdate", onTimeUpdate);
+            video.removeEventListener("play", onPlay);
+            video.removeEventListener("pause", onPause);
+            video.removeEventListener("ended", onEnded);
+        };
+    }, []);
+
+    const togglePlay = () => {
+        const video = videoRef.current;
+        if (!video) return;
+        if (video.paused) {
+            video.play();
+        } else {
+            video.pause();
+        }
+    };
+
+    const toggleMute = () => {
+        const video = videoRef.current;
+        if (!video) return;
+        video.muted = !video.muted;
+        setIsMuted(!isMuted);
+    };
+
+    const toggleFullscreen = () => {
+        const video = videoRef.current;
+        if (!video) return;
+        if (document.fullscreenElement) {
+            document.exitFullscreen();
+        } else {
+            video.requestFullscreen();
+        }
+    };
+
+    const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const video = videoRef.current;
+        if (!video) return;
+        const time = Number(e.target.value);
+        video.currentTime = time;
+        setCurrentTime(time);
+    };
+
+    const progressPercent =
+        duration > 0 ? (currentTime / duration) * 100 : 0;
 
     return (
-        <div className="w-full">
-            {title && <h2 className="mb-2 text-lg font-semibold">{title}</h2>}
-            <div
-                className="group relative w-full overflow-hidden rounded-xl bg-black"
-                onMouseEnter={() => setShowControls(true)}
-                onMouseLeave={() => !isPlaying && setShowControls(true)}
-            >
+        <div
+            className="group relative w-full overflow-hidden rounded-xl bg-black"
+            onMouseEnter={() => setShowControls(true)}
+            onMouseLeave={() => !isPlaying && setShowControls(true)}
+        >
             <video
                 ref={videoRef}
                 src={src}
@@ -56,11 +101,11 @@ export function VideoPlayer({ src, duration, poster, title, player }: VideoPlaye
                 crossOrigin="anonymous"
             />
 
-            {/* Center play button overlay */}
+            {/* Center play button overlay (shown when paused) */}
             {!isPlaying && (
                 <button
                     onClick={togglePlay}
-                    className="absolute inset-0 flex cursor-pointer items-center justify-center bg-black/30 transition-opacity"
+                    className="absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity"
                     aria-label="Play video"
                 >
                     <CirclePlay className="size-20 text-primary opacity-90 transition-transform hover:scale-110" />
@@ -69,32 +114,32 @@ export function VideoPlayer({ src, duration, poster, title, player }: VideoPlaye
 
             {/* Bottom controls bar */}
             <div
-                className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-4 pb-3 pt-8 transition-opacity ${
-                    showControls || !isPlaying ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                }`}
+                className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-4 pb-3 pt-8 transition-opacity ${showControls || !isPlaying ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                    }`}
             >
-                {/* Progress slider */}
-                <Slider
-                    min={0}
-                    max={duration}
-                    step={0.1}
-                    value={currentTime}
-                    onValueChange={(value) => {
-                        if (player.videoRef.current) {
-                            player.videoRef.current.currentTime = Array.isArray(value) ? value[0] : value;
-                        }
-                    }}
-                    thumbAriaLabel="Seek video"
-                    getThumbTooltipLabel={(v) => formatDuration(Math.floor(v))}
-                    className="mb-2"
-                />
+                {/* Progress bar */}
+                <div className="relative mb-2 h-1 w-full overflow-hidden rounded-full bg-white/20">
+                    <div
+                        className="absolute inset-y-0 left-0 rounded-full bg-primary transition-[width]"
+                        style={{ width: `${progressPercent}%` }}
+                    />
+                    <input
+                        type="range"
+                        min="0"
+                        max={duration}
+                        step="0.1"
+                        value={currentTime}
+                        onChange={handleSeek}
+                        className="absolute inset-0 w-full cursor-pointer opacity-0"
+                        aria-label="Seek video"
+                    />
+                </div>
 
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        {/* Play/Pause */}
                         <button
                             onClick={togglePlay}
-                            className="cursor-pointer text-white transition-colors hover:text-primary"
+                            className="text-white transition-colors hover:text-primary"
                             aria-label={isPlaying ? "Pause" : "Play"}
                         >
                             {isPlaying ? (
@@ -103,68 +148,30 @@ export function VideoPlayer({ src, duration, poster, title, player }: VideoPlaye
                                 <CirclePlay className="size-5" />
                             )}
                         </button>
-
-                        {/* Volume */}
-                        <div className="flex items-center gap-1.5">
-                            <button
-                                onClick={toggleMute}
-                                className="cursor-pointer text-white transition-colors hover:text-primary"
-                                aria-label={isMuted ? "Unmute" : "Mute"}
-                            >
-                                {isMuted ? (
-                                    <VolumeX className="size-5" />
-                                ) : (
-                                    <Volume2 className="size-5" />
-                                )}
-                            </button>
-                            <Slider
-                                min={0}
-                                max={1}
-                                step={0.01}
-                                value={volume}
-                                onValueChange={(value) => {
-                                    const v = Array.isArray(value) ? value[0] : value;
-                                    setVolume(v);
-                                }}
-                                thumbAriaLabel="Volume"
-                                getThumbTooltipLabel={(v) => `${Math.round(v * 100)}%`}
-                                className="w-20"
-                            />
-                        </div>
-
-                        {/* Time */}
+                        <button
+                            onClick={toggleMute}
+                            className="text-white transition-colors hover:text-primary"
+                            aria-label={isMuted ? "Unmute" : "Mute"}
+                        >
+                            {isMuted ? (
+                                <VolumeX className="size-5" />
+                            ) : (
+                                <Volume2 className="size-5" />
+                            )}
+                        </button>
                         <span className="text-xs font-medium text-white">
                             {formatDuration(Math.floor(currentTime))} / {formatDuration(duration)}
                         </span>
                     </div>
-
-                    <div className="flex items-center gap-2">
-                        {/* Speed selector */}
-                        <Select value={String(speed)} onValueChange={(v) => setSpeed(Number(v))}>
-                            <SelectTrigger className="h-7 w-20 cursor-pointer border-white/20 bg-white/10 text-xs text-white hover:bg-white/20">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {SPEEDS.map((s) => (
-                                    <SelectItem key={s} value={String(s)}>
-                                        {s}x
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-
-                        {/* Fullscreen */}
-                        <button
-                            onClick={toggleFullscreen}
-                            className="cursor-pointer text-white transition-colors hover:text-primary"
-                            aria-label="Toggle fullscreen"
-                        >
-                            <Maximize className="size-5" />
-                        </button>
-                    </div>
+                    <button
+                        onClick={toggleFullscreen}
+                        className="text-white transition-colors hover:text-primary"
+                        aria-label="Toggle fullscreen"
+                    >
+                        <Maximize className="size-5" />
+                    </button>
                 </div>
             </div>
-</div>
         </div>
     );
 }
