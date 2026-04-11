@@ -3,7 +3,7 @@ import * as videosService from "./videos.service.js";
 import { AppError } from "../../middleware/errors.js";
 import { requireInternalAuth, requireSession, authorize } from "../../middleware/auth.js";
 import { createVideoSchema, completeUploadSchema, updateVideoSchema, searchVideosSchema, updateS3KeySchema } from "./videos.types.js";
-import prisma from "../../lib/prisma";
+import prisma from "../../lib/prisma.js";
 
 // ── Auth: swap devAuthenticate for authenticate when going to production ──
 //import { devAuthenticate } from "../../middleware/dev_auth.js";

@@ -39,7 +39,6 @@ export async function createInvite(input: CreateInviteInput) {
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
       // TODO: dev-only: using placeholder until we have authenticated admin routes
       createdBy: "system",
-      siteId,
     },
   });
 
@@ -123,8 +122,6 @@ export async function activateInvite(input: ActivateInviteInput) {
         siteId: invitation.siteId,
         createdAt: new Date(),
         updatedAt: new Date(),
-        role: invitation.role,
-        siteId: invitation.siteId,
       },
     });
 

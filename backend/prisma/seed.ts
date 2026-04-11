@@ -17,21 +17,44 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  async function main() {
   console.log("🌱 Seeding database...\n");
+
+  // Clean up existing data (order matters due to foreign keys)
+  await prisma.sequenceItem.deleteMany();
+  await prisma.stitchedSequence.deleteMany();
+  await prisma.videoClip.deleteMany();
+  await prisma.annotation.deleteMany();
+  await prisma.auditLog.deleteMany();
+  await prisma.caregiverVideoMetadata.deleteMany();
+  await prisma.videoStudy.deleteMany();
+  await prisma.userPermission.deleteMany();
+  await prisma.caregiverPatient.deleteMany();
+  await prisma.invitation.deleteMany();
+  await prisma.account.deleteMany();
+  await prisma.session.deleteMany();
+  await prisma.video.deleteMany();
+  await prisma.siteStudy.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.study.deleteMany();
+  await prisma.site.deleteMany();
+  await prisma.verification.deleteMany();
+
+  console.log("🧹 Cleaned existing data\n");
 
   // ──────────────────────────────────────────────
   // 1. Sites
   // ──────────────────────────────────────────────
   const site1 = await prisma.site.create({
     data: {
-      id: "11111111-1111-1111-1111-111111111111",
+      id: "a1111111-1111-4111-a111-111111111111",
       name: "Boston General",
     },
   });
 
   const site2 = await prisma.site.create({
     data: {
-      id: "11111111-1111-1111-1111-222222222222",
+      id: "a1111111-1111-4111-a111-222222222222",
       name: "Chicago Memorial",
     },
   });
@@ -43,7 +66,7 @@ async function main() {
   // ──────────────────────────────────────────────
   const study1 = await prisma.study.create({
     data: {
-      id: "22222222-2222-2222-2222-222222222222",
+      id: "a2222222-2222-4222-a222-222222222222",
       name: "Sleep Study Alpha",
       status: "NOT_STARTED",
     },
@@ -51,7 +74,7 @@ async function main() {
 
   const study2 = await prisma.study.create({
     data: {
-      id: "22222222-2222-2222-2222-333333333333",
+      id: "a2222222-2222-4222-a222-333333333333",
       name: "Motor Skills Beta",
       status: "IN_PROGRESS",
     },
@@ -71,6 +94,19 @@ async function main() {
       role: "CAREGIVER",
       siteId: site1.id,
       caregiverId: "CG-001",
+      isDeactivated: false,
+    },
+  });
+
+  const jeremy = await prisma.user.create({
+    data: {
+      id: "user-caregiver-02",
+      name: "Jeremy Brown",
+      email: "jeremy@example.com",
+      emailVerified: true,
+      role: "CAREGIVER",
+      siteId: site2.id,
+      caregiverId: "CG-002",
       isDeactivated: false,
     },
   });
@@ -143,6 +179,18 @@ async function main() {
 
   await prisma.session.create({
     data: {
+      id: "session-jeremy-01",
+      token: "tok_jeremy_test_session_001",
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      updatedAt: new Date(),
+      userId: jeremy.id,
+      ipAddress: "127.0.0.1",
+      userAgent: "PostmanRuntime/7.37",
+    },
+  });
+
+  await prisma.session.create({
+    data: {
       id: "session-bob-01",
       token: "tok_bob_test_session_001",
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
@@ -164,6 +212,17 @@ async function main() {
       accountId: alice.id,
       providerId: "credential",
       userId: alice.id,
+      password: "$2b$10$fakehashforseeding00000000000000000000000000",
+      updatedAt: new Date(),
+    },
+  });
+
+  await prisma.account.create({
+    data: {
+      id: "account-jeremy-01",
+      accountId: jeremy.id,
+      providerId: "credential",
+      userId: jeremy.id,
       password: "$2b$10$fakehashforseeding00000000000000000000000000",
       updatedAt: new Date(),
     },
@@ -223,29 +282,16 @@ async function main() {
   console.log("✅ UserPermissions created");
 
   // ──────────────────────────────────────────────
-  // 9. UserRoles
-  // ──────────────────────────────────────────────
-  await prisma.userRole.createMany({
-    data: [
-      { userId: alice.id, role: "CAREGIVER" },
-      { userId: bob.id, role: "CLINICAL_REVIEWER" },
-      { userId: carol.id, role: "SITE_COORDINATOR" },
-      { userId: dan.id, role: "SYSADMIN" },
-    ],
-  });
-
-  console.log("✅ UserRoles created");
-
-  // ──────────────────────────────────────────────
   // 10. Videos
   // ──────────────────────────────────────────────
   const video1 = await prisma.video.create({
     data: {
-      id: "33333333-3333-3333-3333-333333333333",
-      patientId: "44444444-4444-4444-4444-444444444444",
+      id: "a3333333-3333-4333-a333-333333333333",
       uploadedByUserId: alice.id,
       s3Key: "uploads/study1/patient44/video1.mp4",
       status: "UPLOADED",
+      fileSize: BigInt(104857600), // 100 MB
+      totalParts: 1,
       durationSeconds: 120,
       takenAt: new Date("2026-03-15T10:30:00Z"),
     },
@@ -253,11 +299,25 @@ async function main() {
 
   const video2 = await prisma.video.create({
     data: {
-      id: "33333333-3333-3333-3333-444444444444",
-      patientId: "44444444-4444-4444-4444-444444444444",
+      id: "a3333333-3333-4333-a333-444444444444",
       uploadedByUserId: alice.id,
       s3Key: "uploads/study1/patient44/video2.mp4",
       status: "UPLOADED",
+      fileSize: BigInt(73400320), // ~70 MB
+      totalParts: 1,
+      durationSeconds: 85,
+      takenAt: new Date("2026-03-20T14:00:00Z"),
+    },
+  });
+
+  const video3 = await prisma.video.create({
+    data: {
+      id: "a3333333-3333-4333-a333-555555555555",
+      uploadedByUserId: jeremy.id,
+      s3Key: "uploads/study1/patient45/video3.mp4",
+      status: "UPLOADED",
+      fileSize: BigInt(73400320), // ~70 MB
+      totalParts: 1,
       durationSeconds: 85,
       takenAt: new Date("2026-03-20T14:00:00Z"),
     },
@@ -307,7 +367,7 @@ async function main() {
   // ──────────────────────────────────────────────
   const annotation1 = await prisma.annotation.create({
     data: {
-      id: "55555555-5555-5555-5555-555555555555",
+      id: "a5555555-5555-4555-a555-555555555555",
       videoId: video1.id,
       authorUserId: bob.id,
       studyId: study1.id,
@@ -321,7 +381,7 @@ async function main() {
 
   await prisma.annotation.create({
     data: {
-      id: "55555555-5555-5555-5555-666666666666",
+      id: "a5555555-5555-4555-a555-666666666666",
       videoId: video1.id,
       authorUserId: bob.id,
       studyId: study1.id,
@@ -335,7 +395,7 @@ async function main() {
 
   await prisma.annotation.create({
     data: {
-      id: "55555555-5555-5555-5555-777777777777",
+      id: "a5555555-5555-4555-a555-777777777777",
       videoId: video1.id,
       authorUserId: bob.id,
       studyId: study1.id,
@@ -354,7 +414,7 @@ async function main() {
   // ──────────────────────────────────────────────
   const clip1 = await prisma.videoClip.create({
     data: {
-      id: "66666666-6666-6666-6666-666666666666",
+      id: "a6666666-6666-4666-a666-666666666666",
       sourceVideoId: video1.id,
       createdByUserId: bob.id,
       studyId: study1.id,
@@ -367,7 +427,7 @@ async function main() {
 
   const clip2 = await prisma.videoClip.create({
     data: {
-      id: "66666666-6666-6666-6666-777777777777",
+      id: "a6666666-6666-4666-a666-777777777777",
       sourceVideoId: video1.id,
       createdByUserId: bob.id,
       studyId: study1.id,
@@ -385,7 +445,7 @@ async function main() {
   // ──────────────────────────────────────────────
   const sequence1 = await prisma.stitchedSequence.create({
     data: {
-      id: "88888888-8888-8888-8888-888888888888",
+      id: "a8888888-8888-4888-a888-888888888888",
       studyId: study1.id,
       siteId: site1.id,
       videoId: video1.id,
@@ -421,6 +481,16 @@ async function main() {
         siteId: site1.id,
         oldValues: {},
         newValues: { s3Key: "uploads/study1/patient44/video1.mp4", status: "UPLOADED" },
+        ipAddress: "192.168.1.10",
+      },
+      {
+        actorUserId: jeremy.id,
+        actionType: "CREATE",
+        entityType: "VIDEO",
+        entityId: video3.id,
+        siteId: site1.id,
+        oldValues: {},
+        newValues: { s3Key: "uploads/study1/patient45/video3.mp4", status: "UPLOADED" },
         ipAddress: "192.168.1.10",
       },
       {
@@ -487,3 +557,4 @@ main()
     prisma.$disconnect();
     process.exit(1);
   });
+}
