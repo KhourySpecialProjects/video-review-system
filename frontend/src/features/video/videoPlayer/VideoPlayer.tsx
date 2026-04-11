@@ -74,20 +74,28 @@ export function VideoPlayer({ src, duration, poster, title, player }: VideoPlaye
                 }`}
             >
                 {/* Progress slider */}
-                <Slider
-                    min={0}
-                    max={duration}
-                    step={0.1}
-                    value={currentTime}
-                    onValueChange={(value) => {
-                        if (player.videoRef.current) {
-                            player.videoRef.current.currentTime = Array.isArray(value) ? value[0] : value;
-                        }
-                    }}
-                    thumbAriaLabel="Seek video"
-                    getThumbTooltipLabel={(v) => formatDuration(Math.floor(v))}
-                    className="mb-2"
-                />
+                <div className="group/scrubber relative mb-2">
+                    <div
+                        className="pointer-events-none absolute bottom-full z-10 -translate-x-1/2 -translate-y-1 opacity-0 transition-opacity group-hover/scrubber:opacity-100"
+                        style={{ left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+                    >
+                        <div className="rounded bg-foreground px-1.5 py-0.5 text-xs text-background whitespace-nowrap">
+                            {formatDuration(Math.floor(currentTime))}
+                        </div>
+                    </div>
+                    <Slider
+                        min={0}
+                        max={duration}
+                        step={0.1}
+                        value={currentTime}
+                        onValueChange={(value) => {
+                            if (player.videoRef.current) {
+                                player.videoRef.current.currentTime = Array.isArray(value) ? value[0] : value;
+                            }
+                        }}
+                        aria-label="Seek video"
+                    />
+                </div>
 
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -126,8 +134,7 @@ export function VideoPlayer({ src, duration, poster, title, player }: VideoPlaye
                                     const v = Array.isArray(value) ? value[0] : value;
                                     setVolume(v);
                                 }}
-                                thumbAriaLabel="Volume"
-                                getThumbTooltipLabel={(v) => `${Math.round(v * 100)}%`}
+                                aria-label="Volume"
                                 className="w-20"
                             />
                         </div>
