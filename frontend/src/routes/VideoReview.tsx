@@ -107,6 +107,7 @@ export default function VideoReview() {
                                 <div className="flex h-12 shrink-0 items-center justify-center rounded-md bg-muted text-sm text-muted-foreground">
                                     Timeline
                                 </div>
+
                                 <ClipTimeline duration={120} timeline={timeline} />
                             </div>
                         </ResizablePanel>
