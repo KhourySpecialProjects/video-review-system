@@ -54,7 +54,7 @@ export default function VideoReview() {
     }, []);
 
     return (
-        <SidebarProvider>
+        <SidebarProvider className="h-screen overflow-hidden">
             <VideoMetadataSidebar
                 metadata={{
                     patientId: "PT-2024-1547",
@@ -63,14 +63,14 @@ export default function VideoReview() {
                 }}
             />
 
-            <SidebarInset>
+            <SidebarInset className="flex flex-col overflow-hidden">
                 {/* Sidebar toggle */}
                 <div className="flex items-center gap-2 border-b border-border p-2">
                     <SidebarTrigger />
                 </div>
 
                 {/* Resizable editor — takes the full viewport area */}
-                <ResizablePanelGroup orientation="horizontal" className="h-full shrink-0">
+                <ResizablePanelGroup orientation="horizontal" className="flex-1 overflow-hidden">
 
                     {/* Main content: video on top, timeline on bottom */}
                     <ResizablePanel defaultSize="75%" minSize="50%">

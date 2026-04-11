@@ -50,7 +50,7 @@ function formatDuration(seconds: number): string {
  * @returns A formatted date/time string.
  */
 function formatDate(date: Date): string {
-    return date.toLocaleDateString(undefined, {
+    return date.toLocaleString(undefined, {
         year: "numeric",
         month: "long",
         day: "numeric",
