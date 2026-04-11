@@ -60,7 +60,7 @@ export function VideoPlayer({ src, duration, poster, title, player }: VideoPlaye
             {!isPlaying && (
                 <button
                     onClick={togglePlay}
-                    className="absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity"
+                    className="absolute inset-0 flex cursor-pointer items-center justify-center bg-black/30 transition-opacity"
                     aria-label="Play video"
                 >
                     <CirclePlay className="size-20 text-primary opacity-90 transition-transform hover:scale-110" />
@@ -94,7 +94,7 @@ export function VideoPlayer({ src, duration, poster, title, player }: VideoPlaye
                         {/* Play/Pause */}
                         <button
                             onClick={togglePlay}
-                            className="text-white transition-colors hover:text-primary"
+                            className="cursor-pointer text-white transition-colors hover:text-primary"
                             aria-label={isPlaying ? "Pause" : "Play"}
                         >
                             {isPlaying ? (
@@ -108,7 +108,7 @@ export function VideoPlayer({ src, duration, poster, title, player }: VideoPlaye
                         <div className="flex items-center gap-1.5">
                             <button
                                 onClick={toggleMute}
-                                className="text-white transition-colors hover:text-primary"
+                                className="cursor-pointer text-white transition-colors hover:text-primary"
                                 aria-label={isMuted ? "Unmute" : "Mute"}
                             >
                                 {isMuted ? (
@@ -141,7 +141,7 @@ export function VideoPlayer({ src, duration, poster, title, player }: VideoPlaye
                     <div className="flex items-center gap-2">
                         {/* Speed selector */}
                         <Select value={String(speed)} onValueChange={(v) => setSpeed(Number(v))}>
-                            <SelectTrigger className="h-7 w-20 border-white/20 bg-white/10 text-xs text-white hover:bg-white/20">
+                            <SelectTrigger className="h-7 w-20 cursor-pointer border-white/20 bg-white/10 text-xs text-white hover:bg-white/20">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -156,7 +156,7 @@ export function VideoPlayer({ src, duration, poster, title, player }: VideoPlaye
                         {/* Fullscreen */}
                         <button
                             onClick={toggleFullscreen}
-                            className="text-white transition-colors hover:text-primary"
+                            className="cursor-pointer text-white transition-colors hover:text-primary"
                             aria-label="Toggle fullscreen"
                         >
                             <Maximize className="size-5" />

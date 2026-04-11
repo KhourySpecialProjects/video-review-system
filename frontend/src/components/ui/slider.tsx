@@ -4,7 +4,6 @@ import * as React from "react"
 import { Slider as SliderPrimitive } from "@base-ui/react/slider"
 
 import { cn } from "@/lib/utils"
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 const THUMB_CLASS = "border-primary ring-ring/50 size-4 rounded-full border bg-white shadow-sm transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden block shrink-0 select-none disabled:pointer-events-none disabled:opacity-50"
 
@@ -42,7 +41,7 @@ function Slider({
       thumbAlignment="edge"
       {...props}
     >
-      <SliderPrimitive.Control className="data-vertical:min-h-40 relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-vertical:h-full data-vertical:w-auto data-vertical:flex-col">
+      <SliderPrimitive.Control className={cn("data-vertical:min-h-40 relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-vertical:h-full data-vertical:w-auto data-vertical:flex-col", getThumbTooltipLabel && "group")}>
         <SliderPrimitive.Track
           data-slot="slider-track"
           className="bg-muted rounded-full data-horizontal:h-1.5 data-horizontal:w-full data-vertical:h-full data-vertical:w-1.5 relative grow overflow-hidden select-none"
@@ -52,29 +51,36 @@ function Slider({
             className="bg-primary select-none data-horizontal:h-full data-vertical:w-full"
           />
         </SliderPrimitive.Track>
-        {Array.from({ length: _values.length }, (_, index) =>
-          getThumbTooltipLabel ? (
-            <Tooltip key={index}>
-              <TooltipTrigger
-                render={
-                  <SliderPrimitive.Thumb
-                    data-slot="slider-thumb"
-                    getAriaLabel={thumbAriaLabel ? () => thumbAriaLabel : undefined}
-                    className={THUMB_CLASS}
-                  />
-                }
+        {Array.from({ length: _values.length }, (_, index) => {
+          if (!getThumbTooltipLabel) {
+            return (
+              <SliderPrimitive.Thumb
+                data-slot="slider-thumb"
+                key={index}
+                getAriaLabel={thumbAriaLabel ? () => thumbAriaLabel : undefined}
+                className={THUMB_CLASS}
               />
-              <TooltipContent>{getThumbTooltipLabel(_values[index])}</TooltipContent>
-            </Tooltip>
-          ) : (
-            <SliderPrimitive.Thumb
-              data-slot="slider-thumb"
-              key={index}
-              getAriaLabel={thumbAriaLabel ? () => thumbAriaLabel : undefined}
-              className={THUMB_CLASS}
-            />
+            )
+          }
+          const pct = ((_values[index] - min) / (max - min)) * 100
+          return (
+            <React.Fragment key={index}>
+              <SliderPrimitive.Thumb
+                data-slot="slider-thumb"
+                getAriaLabel={thumbAriaLabel ? () => thumbAriaLabel : undefined}
+                className={THUMB_CLASS}
+              />
+              <div
+                className="pointer-events-none absolute bottom-full z-10 -translate-x-1/2 -translate-y-2 opacity-0 transition-opacity group-hover:opacity-100"
+                style={{ left: `${pct}%` }}
+              >
+                <div className="rounded bg-foreground px-1.5 py-0.5 text-xs text-background whitespace-nowrap">
+                  {getThumbTooltipLabel(_values[index])}
+                </div>
+              </div>
+            </React.Fragment>
           )
-        )}
+        })}
       </SliderPrimitive.Control>
     </SliderPrimitive.Root>
   )
