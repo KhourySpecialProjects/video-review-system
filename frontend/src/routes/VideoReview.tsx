@@ -46,16 +46,18 @@ export default function VideoReview() {
         if (!video) return;
 
         const onTimeUpdate = () => setVideoCurrentTime(video.currentTime);
-        const onLoadedMetadata = () => setVideoDuration(video.duration ?? 0);
+        const syncDuration = () => setVideoDuration(Number.isFinite(video.duration) ? video.duration : 0);
         const onSeek = () => setVideoCurrentTime(video.currentTime);
 
         video.addEventListener("timeupdate", onTimeUpdate);
-        video.addEventListener("loadedmetadata", onLoadedMetadata);
+        video.addEventListener("loadedmetadata", syncDuration);
+        video.addEventListener("durationchange", syncDuration);
         video.addEventListener("seeking", onSeek);
         video.addEventListener("seeked", onSeek);
         return () => {
             video.removeEventListener("timeupdate", onTimeUpdate);
-            video.removeEventListener("loadedmetadata", onLoadedMetadata);
+            video.removeEventListener("loadedmetadata", syncDuration);
+            video.removeEventListener("durationchange", syncDuration);
             video.removeEventListener("seeking", onSeek);
             video.removeEventListener("seeked", onSeek);
         };
