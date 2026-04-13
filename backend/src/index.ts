@@ -1,3 +1,15 @@
+// Prisma returns BigInt for large integer columns (e.g. fileSize).
+// JSON.stringify doesn't know how to serialize BigInt by default.
+// Converting to Number is safe for values up to Number.MAX_SAFE_INTEGER (~9 PB).
+declare global {
+  interface BigInt {
+    toJSON(): number;
+  }
+}
+BigInt.prototype.toJSON = function () {
+  return Number(this);
+};
+
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -7,13 +19,12 @@ import { fileURLToPath } from "url";
 import { auth } from "./lib/auth.js";
 import { notFoundHandler, errorHandler } from "./middleware/errors.js";
 
-// imports for future iterations
 import videosRouter from "./domains/videos/videos.router.js";
 import authRouter from "./domains/auth/auth.router.js";
-// import annotationsRouter from "./domains/annotations/annotations.router.js";
-// import clipsRouter from "./domains/clips/clips.router.js";
-// import accountsRouter from "./domains/accounts/accounts.router.js";
-// import auditRouter from "./domains/audit/audit.router.js";
+import annotationsRouter from "./domains/annotations/annotations.router.js";
+// import clipsRouter from "./domains/clips/clips.router";
+// import accountsRouter from "./domains/accounts/accounts.router";
+// import auditRouter from "./domains/audit/audit.router";
 
 dotenv.config();
 
@@ -39,10 +50,10 @@ export function createApp() {
     res.json({ status: "ok" });
   });
 
-  // domain routes for future iterations
+  // domain routes
   app.use("/domain/videos", videosRouter);
   app.use("/domain/auth", authRouter);
-  // app.use("/domain/annotations", annotationsRouter);
+  app.use("/domain/annotations", annotationsRouter);
   // app.use("/domain/clips", clipsRouter);
   // app.use("/domain/accounts", accountsRouter);
   // app.use("/domain/audit", auditRouter);

@@ -13,14 +13,13 @@ export function VideoCard({ video }: VideoCardProps) {
     return (
         <Link to={`/videos/${video.id}`} className="block">
             <Card className="group overflow-hidden border-border bg-bg-light transition-shadow hover:shadow-l p-0 gap-2">
-                {/* Thumbnail — flush to top, inherits card's border-radius */}
+                {/* Thumbnail */}
                 <div className="relative flex items-center justify-center aspect-video w-full bg-black">
                     <img
-                        src={video.thumbnailUrl}
+                        src="/placeholder-thumbnail.jpg"
                         alt={video.title}
                         className="size-full object-cover"
                         loading="lazy"
-                        crossOrigin="anonymous"
                     />
 
                     <div className="absolute">
@@ -29,7 +28,7 @@ export function VideoCard({ video }: VideoCardProps) {
                     {/* Duration badge */}
                     <div className="absolute bottom-2 right-2 rounded-md bg-bg-dark/80 px-1.5 py-0.5">
                         <span className="text-xs font-medium text-text">
-                            {formatDuration(video.duration)}
+                            {formatDuration(video.durationSeconds)}
                         </span>
                     </div>
                 </div>
@@ -45,14 +44,23 @@ export function VideoCard({ video }: VideoCardProps) {
 
                     {/* Date & Time row */}
                     <div className="flex items-center gap-3 text-[11px] text-text-muted md:gap-4 md:text-xs">
-                        <span className="flex items-center gap-1">
-                            <CalendarDays className="size-3 md:size-3.5" />
-                            {formatDate(video.filmedAt)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                            <Clock3 className="size-3 md:size-3.5" />
-                            {formatTime(video.filmedAt)}
-                        </span>
+                        {video.takenAt ? (
+                            <>
+                                <span className="flex items-center gap-1">
+                                    <CalendarDays className="size-3 md:size-3.5" />
+                                    {formatDate(video.takenAt)}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                    <Clock3 className="size-3 md:size-3.5" />
+                                    {formatTime(video.takenAt)}
+                                </span>
+                            </>
+                        ) : (
+                            <span className="flex items-center gap-1">
+                                <CalendarDays className="size-3 md:size-3.5" />
+                                {formatDate(video.createdAt)}
+                            </span>
+                        )}
                     </div>
                 </div>
             </Card>

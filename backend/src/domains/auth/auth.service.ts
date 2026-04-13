@@ -22,7 +22,7 @@ import {
  */
 export async function createInvite(input: CreateInviteInput) {
   // Zod parse validates and returns typed data (throws on invalid input)
-  const { email, role } = createInviteSchema.parse(input);
+  const { email, role, siteId } = createInviteSchema.parse(input);
 
   const normalizedEmail = email.toLowerCase().trim();
 
@@ -34,6 +34,7 @@ export async function createInvite(input: CreateInviteInput) {
     data: {
       email: normalizedEmail,
       role,
+      siteId,
       tokenHash,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
       // TODO: dev-only: using placeholder until we have authenticated admin routes
@@ -71,7 +72,7 @@ export async function activateInvite(input: ActivateInviteInput) {
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
   const normalizedEmail = email.toLowerCase().trim();
 
-  return await prisma.$transaction(async (tx: typeof prisma) => {
+  return await prisma.$transaction(async (tx) => {
     // atomic claim
     // updateMany returns count so we can check if token was valid
     const claimed = await tx.invitation.updateMany({
@@ -117,6 +118,8 @@ export async function activateInvite(input: ActivateInviteInput) {
         name,
         email: normalizedEmail,
         emailVerified: false,
+        role: invitation.role,
+        siteId: invitation.siteId,
         createdAt: new Date(),
         updatedAt: new Date(),
       },
@@ -132,10 +135,6 @@ export async function activateInvite(input: ActivateInviteInput) {
         createdAt: new Date(),
         updatedAt: new Date(),
       },
-    });
-
-    await tx.userRole.create({
-      data: { userId, role: invitation.role },
     });
 
     return { success: true, message: "Account created. Please sign in." };
