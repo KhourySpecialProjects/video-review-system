@@ -19,6 +19,7 @@ import { TagManager } from "@/features/annotate/video-summary/tags/TagManager";
 import { useTagManager } from "@/features/annotate/video-summary/tags/useTagManager";
 import { useTags } from "@/features/annotate/video-summary/tags/useTags";
 import { useAnnotationState } from "@/features/video/annotations/useAnnotationState";
+import { VideoTimeline, annotationsToMarkers } from "@/features/video/timeline/VideoTimeline";
 import { AnnotationCanvas } from "@/features/video/annotations/drawing/canvas/AnnotationCanvas";
 import { AnnotationToolbar } from "@/features/video/annotations/drawing/toolbar/AnnotationToolbar";
 import { VideoMetadataSidebar } from "@/features/video/metadata/VideoMetadataSidebar";
@@ -28,7 +29,9 @@ export default function VideoReview() {
     const videoRef = useRef<HTMLVideoElement>(null);
     const videoContainerRef = useRef<HTMLDivElement>(null);
 
-    const timeline = useClipTimeline(120, videoRef, (clip) => {
+    const [videoDuration, setVideoDuration] = useState(0);
+
+    const timeline = useClipTimeline(videoDuration, videoRef, (clip) => {
         console.log("Clip created:", clip);
     });
 
@@ -50,8 +53,21 @@ export default function VideoReview() {
         if (!video) return;
 
         const onTimeUpdate = () => setVideoCurrentTime(video.currentTime);
+        const syncDuration = () => setVideoDuration(Number.isFinite(video.duration) ? video.duration : 0);
+        const onSeek = () => setVideoCurrentTime(video.currentTime);
+
         video.addEventListener("timeupdate", onTimeUpdate);
-        return () => video.removeEventListener("timeupdate", onTimeUpdate);
+        video.addEventListener("loadedmetadata", syncDuration);
+        video.addEventListener("durationchange", syncDuration);
+        video.addEventListener("seeking", onSeek);
+        video.addEventListener("seeked", onSeek);
+        return () => {
+            video.removeEventListener("timeupdate", onTimeUpdate);
+            video.removeEventListener("loadedmetadata", syncDuration);
+            video.removeEventListener("durationchange", syncDuration);
+            video.removeEventListener("seeking", onSeek);
+            video.removeEventListener("seeked", onSeek);
+        };
     }, []);
 
     return (
@@ -125,7 +141,18 @@ export default function VideoReview() {
                             {/* Bottom: timeline + clip timeline */}
                             <ResizablePanel defaultSize="30%" minSize="10%">
                                 <div className="flex h-full flex-col gap-3 overflow-y-auto p-4">
-                                    <ClipTimeline duration={120} timeline={timeline} />
+                                    {/* Video timeline with annotation markers */}
+                                    <VideoTimeline
+                                        duration={videoDuration}
+                                        currentTime={videoCurrentTime}
+                                        markers={annotationsToMarkers(annotationState.annotations)}
+                                        onSeek={(time) => {
+                                            if (videoRef.current) {
+                                                videoRef.current.currentTime = time;
+                                            }
+                                        }}
+                                    />
+                                    <ClipTimeline duration={videoDuration} timeline={timeline} />
                                 </div>
                             </ResizablePanel>
                         </ResizablePanelGroup>
