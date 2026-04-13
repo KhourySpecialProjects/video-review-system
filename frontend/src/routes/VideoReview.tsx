@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/sidebar";
 import { ClipTimeline } from "@/features/video/clips/ClipTimeline";
 import { useClipTimeline } from "@/features/video/clips/useClipTimeline";
-import { ClipCard } from "@/features/sidebar/ClipCard";
+import { TimestampAnnotation } from "@/features/sidebar/TimestampAnnotation";
 import { GeneralNotes } from "@/features/annotate/video-summary/comment/GeneralNotes";
 import { useGeneralNotes } from "@/features/annotate/video-summary/comment/useGeneralNotes";
 import { TagManager } from "@/features/annotate/video-summary/tags/TagManager";
@@ -161,28 +161,22 @@ export default function VideoReview() {
                     <ResizableHandle withHandle />
 
                     {/* Right sidebar — full height */}
-                    <ResizablePanel defaultSize="25%" minSize="15%">
-                        <div className="flex h-full flex-col justify-start gap-4 rounded-md border bg-background p-4 overflow-y-auto">
-                            <h2 className="font-semibold text-foreground">Clips</h2>
-                            <ClipCard
-                               id="stub-1"
-                               title="Title"
-                               startMs={38000}
-                               endMs={79000}
-                               color="#ef4444"
-                               onJumpStart={() => console.log("Jump to start clicked")}
-                               onEdit={() => console.log("Edit clicked")}
-                               onDelete={() => console.log("Delete clicked")}
+                    <ResizablePanel defaultSize="20%" minSize="15%">
+                        <div className="flex h-full flex-col gap-4 p-4 overflow-y-auto border-l bg-background">
+                            <h2 className="font-semibold text-lg mb-2">Annotations</h2>
+                            <TimestampAnnotation
+                                timestamp="01:23"
+                                comment="Seizure begins at this time."
+                                onNavigate={(ts) => console.log("Navigate to:", ts)}
+                                onEdit={(newComment) => console.log("Edit saved:", newComment)}
+                                onDelete={() => console.log("Delete clicked")}
                             />
-                            <ClipCard
-                               id="stub-2"
-                               title="Title"
-                               startMs={92000}
-                               endMs={115000}
-                               color="#a855f7"
-                               onJumpStart={() => console.log("Jump to start clicked")}
-                               onEdit={() => console.log("Edit clicked")}
-                               onDelete={() => console.log("Delete clicked")}
+                            <TimestampAnnotation
+                                timestamp="04:56"
+                                comment="Patient is experiencing confusion."
+                                onNavigate={(ts) => console.log("Navigate to:", ts)}
+                                onEdit={(newComment) => console.log("Edit saved:", newComment)}
+                                onDelete={() => console.log("Delete clicked")}
                             />
                         </div>
                     </ResizablePanel>
