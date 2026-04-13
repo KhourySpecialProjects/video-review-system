@@ -9,7 +9,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import type { useVideoPlayer } from "@/hooks/useVideoPlayer";
+import { useVideoPlayer } from "@/hooks/useVideoPlayer";
 
 const SPEEDS = [0.5, 1.0, 1.5, 2.0];
 
@@ -18,10 +18,9 @@ interface VideoPlayerProps {
     duration: number;
     poster?: string;
     title?: string;
-    player: ReturnType<typeof useVideoPlayer>;
 }
 
-export function VideoPlayer({ src, duration, poster, title, player }: VideoPlayerProps) {
+export function VideoPlayer({ src, duration, poster, title }: VideoPlayerProps) {
     const {
         videoRef,
         isPlaying,
@@ -36,7 +35,7 @@ export function VideoPlayer({ src, duration, poster, title, player }: VideoPlaye
         setSpeed,
         volume,
         setVolume,
-    } = player;
+    } = useVideoPlayer();
 
     return (
         <div className="w-full">
@@ -89,8 +88,8 @@ export function VideoPlayer({ src, duration, poster, title, player }: VideoPlaye
                         step={0.1}
                         value={currentTime}
                         onValueChange={(value) => {
-                            if (player.videoRef.current) {
-                                player.videoRef.current.currentTime = Array.isArray(value) ? value[0] : value;
+                            if (videoRef.current) {
+                                videoRef.current.currentTime = Array.isArray(value) ? value[0] : value;
                             }
                         }}
                         aria-label="Seek video"
