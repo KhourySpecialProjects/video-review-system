@@ -1,6 +1,17 @@
 import express, { type Router } from "express";
 import { errorHandler, notFoundHandler } from "../../middleware/errors.js";
 
+// Mirror the BigInt serialization from src/index.ts so router tests
+// can serialize Prisma BigInt fields (e.g. fileSize) without crashing.
+declare global {
+  interface BigInt {
+    toJSON(): number;
+  }
+}
+BigInt.prototype.toJSON = function () {
+  return Number(this);
+};
+
 /**
  * Creates a minimal Express app for router-level HTTP tests.
  *

@@ -33,6 +33,31 @@ export function formatTime(isoString: string): string {
 }
 
 /**
+ * Formats a byte count to a human-readable string (e.g. "12.5 MB").
+ *
+ * @param bytes - The number of bytes
+ * @returns Formatted file size string
+ */
+export function formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+/**
+ * Calculates upload progress as a percentage (0–100).
+ *
+ * @param bytesUploaded - Bytes uploaded so far
+ * @param totalBytes - Total file size in bytes
+ * @returns Integer percentage
+ */
+export function calcUploadPercent(bytesUploaded: number, totalBytes: number): number {
+    if (totalBytes <= 0) return 0;
+    return Math.round((bytesUploaded / totalBytes) * 100);
+}
+
+/**
  * Return a human-readable "X days ago" string.
  */
 export function timeAgo(isoString: string): string {

@@ -1,0 +1,9 @@
+$kind: http-request
+name: DELETE video
+description: Permanently delete a video by ID. Returns 204 No Content. 404 if not found.
+method: DELETE
+url: '{{baseUrl}}/domain/videos/{{videoId}}'
+order: 11000
+headers:
+  - key: Cookie
+    value: '{{sessionCookie}}'

@@ -17,19 +17,23 @@ npm install
 
 ### Environment variables
 
-Copy `.env.example` to `.env` in the `video-review-system/` directory and fill in the values. Generate secrets with:
+Follow the [root README setup instructions](../README.md#quick-start-docker) to configure AWS credentials and run `./scripts/pull-env.sh` to generate the `.env` file. The script pulls all required secrets from AWS Secrets Manager.
+
+If you need to generate a random secret value locally (e.g. for `BETTER_AUTH_SECRET`), use:
 
 ```bash
 openssl rand -base64 32
 ```
 
-### Start PostgreSQL
-
-From `video-review-system/`:
+### Start PostgreSQL locally
 
 ```bash
 docker compose up -d postgres
 ```
+
+### Connect to the shared development Postgres server
+
+The development database runs on AWS RDS. To connect, you must first be on the Northeastern GlobalProtect VPN. The `DATABASE_URL` in your `.env` file (populated by the setup script) points to this shared instance.
 
 ### Run migrations and generate Prisma client
 

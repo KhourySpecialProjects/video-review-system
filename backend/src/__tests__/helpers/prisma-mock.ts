@@ -42,9 +42,6 @@ export interface AuthTransactionPrismaMock {
   account: {
     create: AsyncMock;
   };
-  userRole: {
-    create: AsyncMock;
-  };
 }
 
 /**
@@ -76,6 +73,5 @@ export function resetAuthPrismaMock(mock: AuthPrismaMock) {
   resetMocks(mock.invitation);
   resetMocks(mock.user);
   resetMocks(mock.account);
-  resetMocks(mock.userRole);
   mock.$transaction.mockReset();
 }
