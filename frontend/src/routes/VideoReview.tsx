@@ -23,7 +23,6 @@ import { AnnotationCanvas } from "@/features/video/annotations/drawing/canvas/An
 import { AnnotationToolbar } from "@/features/video/annotations/drawing/toolbar/AnnotationToolbar";
 import { VideoMetadataSidebar } from "@/features/video/metadata/VideoMetadataSidebar";
 import type { AnnotationTool, DrawingSettings } from "@/features/video/annotations/types";
-import { ClipCard } from "@/features/sidebar/ClipCard";
 
 export default function VideoReview() {
     const videoRef = useRef<HTMLVideoElement>(null);
