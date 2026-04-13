@@ -1,0 +1,11 @@
+$kind: http-request
+name: GET video detail
+description: Get metadata for a single video by ID. Returns a VideoListItem object. 404 if not found.
+method: GET
+url: '{{baseUrl}}/domain/videos/{{videoId}}/detail'
+order: 4000
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Cookie
+    value: '{{sessionCookie}}'

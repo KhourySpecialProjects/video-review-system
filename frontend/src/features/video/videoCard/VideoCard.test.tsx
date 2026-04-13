@@ -8,13 +8,12 @@ const mockVideo: Video = {
     id: "vid-001",
     title: "Test Video",
     description: "A test video description for testing purposes",
-    duration: 72,
-    thumbnailUrl: "",
-    videoUrl: "https://example.com/video.mp4",
-    uploadedAt: "2026-02-10T08:00:00Z",
-    filmedAt: "2026-02-10T03:15:00Z",
-    filmedBy: "Caregiver A",
-    status: "received",
+    durationSeconds: 72,
+    fileSize: 1024 * 1024,
+    createdAt: "2026-02-10T08:00:00Z",
+    takenAt: "2026-02-10T03:15:00Z",
+    uploadedBy: "Caregiver A",
+    status: "UPLOADED",
 };
 
 describe("VideoCard", () => {

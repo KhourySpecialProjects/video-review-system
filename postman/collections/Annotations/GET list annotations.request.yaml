@@ -1,0 +1,13 @@
+$kind: http-request
+name: GET list annotations
+description: |-
+  List annotations for a video. videoId query param is required.
+  Returns { annotations, total, limit, offset }.
+method: GET
+url: '{{baseUrl}}/domain/annotations?videoId={{videoId}}&limit=20&offset=0'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Cookie
+    value: '{{sessionCookie}}'

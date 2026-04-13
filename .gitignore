@@ -7,6 +7,7 @@ node_modules/
 # Environment variables — contains your DATABASE_URL,
 # JWT_SECRET, AWS credentials, etc. Never commit secrets.
 .env
+.env.*
 .env.local
 .env.production
 

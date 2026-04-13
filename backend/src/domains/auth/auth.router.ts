@@ -2,6 +2,7 @@ import { Router } from "express";
 import { createInvite, activateInvite } from "./auth.service.js";
 import { createInviteSchema, activateInviteSchema } from "./auth.types.js";
 import { AppError } from "../../middleware/errors.js";
+import { requireSession } from "../../middleware/auth.js";
 
 /**
  * Auth router for invitation-based user registration.
@@ -21,14 +22,13 @@ const router = Router();
  *
  * @todo Replace admin-secret with authenticated admin route once real admins exist
  */
-router.post("/invite", async (req, res) => {
-  const configuredAdminSecret = process.env.ADMIN_SECRET;
-  const adminSecret = req.headers["admin-secret"];
+router.post("/invite", requireSession, async (req, res) => {
 
-  // Fail if the admin secret is missing
-  if (!configuredAdminSecret || adminSecret !== configuredAdminSecret) {
-    throw AppError.unauthorized();
+  if (req.authSession.user.role !== "ADMIN") {
+    throw AppError.forbidden();
   }
+
+
 
   // Parse and validate request body at the HTTP boundary
   // Throws ZodError on failure — caught by errorHandler

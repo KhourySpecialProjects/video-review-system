@@ -1,0 +1,11 @@
+$kind: http-request
+name: GET list videos
+description: List paginated videos. Returns { videos, total, limit, offset }.
+method: GET
+url: '{{baseUrl}}/domain/videos?limit=20&offset=0'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Cookie
+    value: '{{sessionCookie}}'

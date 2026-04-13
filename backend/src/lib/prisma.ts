@@ -9,9 +9,19 @@ import { PrismaClient } from "../generated/prisma/client.js";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
+let connectionString: string;
+
+if (process.env.NODE_ENV == "production") {
+  connectionString = process.env["DIRECT_DATABASE_URL"]!;
+} else if (process.env.LOCAL == "true") {
+  connectionString = process.env["LOCAL_DATABASE_URL"]!;
+} else {
+  connectionString = process.env["RDS_SESSION_MANAGER_DATABASE_URL"]!;
+}
+
 // create postgres connection pool
 const pool = new pg.Pool({
-  connectionString: process.env.DIRECT_DATABASE_URL,
+  connectionString: connectionString,
 });
 
 // create prisma client with pg adapter (required in Prisma 7)

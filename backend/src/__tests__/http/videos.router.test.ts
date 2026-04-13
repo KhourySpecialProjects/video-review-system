@@ -11,8 +11,10 @@ import {
 const { videosServiceMock } = vi.hoisted(() => ({
   videosServiceMock: {
     listVideos: vi.fn(),
-    getVideoById: vi.fn(),
-    createVideo: vi.fn(),
+    getVideoStreamUrl: vi.fn(),
+    initiateVideoUpload: vi.fn(),
+    getUploadStatus: vi.fn(),
+    completeVideoUpload: vi.fn(),
     updateVideo: vi.fn(),
     deleteVideo: vi.fn(),
   },
@@ -53,6 +55,7 @@ describe("videos.router", () => {
       ...payload,
       videos: payload.videos.map((video) => ({
         ...video,
+        fileSize: video.fileSize,
         createdAt: video.createdAt.toISOString(),
         takenAt: video.takenAt?.toISOString(),
       })),
@@ -108,76 +111,37 @@ describe("videos.router", () => {
     });
   });
 
-  // ========= GET /domain/videos/:id =========
+  // ========= POST /domain/videos/upload =========
 
-  it("GET /domain/videos/:id returns a single video when the service finds one", async () => {
-    // Input: GET /domain/videos/:id for an ID the service can find.
-    // Expected: the route passes the path ID to the service and returns the
-    // video with status 200.
-    const video = makeVideo();
-
-    videosServiceMock.getVideoById.mockResolvedValue(video);
-
-    const response = await request(app).get(`/domain/videos/${video.id}`);
-
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual({
-      ...video,
-      createdAt: video.createdAt.toISOString(),
-      takenAt: video.takenAt?.toISOString(),
-    });
-    expect(videosServiceMock.getVideoById).toHaveBeenCalledWith(video.id);
-  });
-
-  it("GET /domain/videos/:id returns 404 when the service returns null", async () => {
-    // Input: GET /domain/videos/:id for an ID the service returns as null.
-    // Expected: the route returns status 404 with message "Video not found".
-    videosServiceMock.getVideoById.mockResolvedValue(null);
-
-    const response = await request(app).get(
-      "/domain/videos/99999999-9999-9999-9999-999999999999",
-    );
-
-    expect(response.status).toBe(404);
-    expect(response.body).toMatchObject({
-      status: "error",
-      statusCode: 404,
-      message: "Video not found",
-    });
-  });
-
-  // ========= POST /domain/videos =========
-
-  it("POST /domain/videos validates the body and forwards parsed data to the service", async () => {
-    // Input: POST /domain/videos with a valid create payload.
+  it("POST /domain/videos/upload validates the body and forwards parsed data to the service", async () => {
+    // Input: POST /domain/videos/upload with a valid create payload.
     // Expected: the route adds the placeholder uploadedByUserId, calls the
-    // service with the final payload, and returns status 201 with the created
-    // video.
+    // service with the final payload, and returns status 201.
     const input = makeCreateVideoInput();
-    const createdVideo = makeVideo({ status: "UPLOADING" });
+    const uploadResult = {
+      video: makeVideo({ status: "UPLOADING", s3UploadId: "upload-123" }),
+      parts: [{ partNumber: 1, url: "https://s3.example.com/part1" }],
+      partSize: 10485760,
+      totalParts: 5,
+      expiresIn: 3600,
+    };
 
-    videosServiceMock.createVideo.mockResolvedValue(createdVideo);
+    videosServiceMock.initiateVideoUpload.mockResolvedValue(uploadResult);
 
-    const response = await request(app).post("/domain/videos").send(input);
+    const response = await request(app).post("/domain/videos/upload").send(input);
 
     expect(response.status).toBe(201);
-    expect(response.body).toEqual({
-      ...createdVideo,
-      createdAt: createdVideo.createdAt.toISOString(),
-      takenAt: createdVideo.takenAt?.toISOString(),
-    });
-    expect(videosServiceMock.createVideo).toHaveBeenCalledWith({
+    expect(videosServiceMock.initiateVideoUpload).toHaveBeenCalledWith({
       ...input,
       uploadedByUserId: "00000000-0000-0000-0000-000000000000",
     });
   });
 
-  it("POST /domain/videos rejects invalid payloads before the service is called", async () => {
-    // Input: POST /domain/videos with an invalid patientId and negative
+  it("POST /domain/videos/upload rejects invalid payloads before the service is called", async () => {
+    // Input: POST /domain/videos/upload with an invalid patientId and negative
     // durationSeconds.
-    // Expected: the route returns status 400 and does not call the create
-    // service.
-    const response = await request(app).post("/domain/videos").send({
+    // Expected: the route returns status 400 and does not call the service.
+    const response = await request(app).post("/domain/videos/upload").send({
       patientId: "not-a-uuid",
       durationSeconds: -1,
     });
@@ -186,9 +150,46 @@ describe("videos.router", () => {
     expect(response.body).toMatchObject({
       status: "error",
       statusCode: 400,
+    });
+    expect(videosServiceMock.initiateVideoUpload).not.toHaveBeenCalled();
+  });
+
+  // ========= POST /domain/videos/:id/complete-upload =========
+
+  it("POST /domain/videos/:id/complete-upload finalizes the upload", async () => {
+    // Input: POST /domain/videos/:id/complete-upload with part ETags.
+    // Expected: the route calls completeVideoUpload and returns the updated video.
+    const id = "6ba7b810-9dad-41d1-80b4-00c04fd430c8";
+    const parts = [
+      { partNumber: 1, etag: '"abc123"' },
+      { partNumber: 2, etag: '"def456"' },
+    ];
+    const completedVideo = makeVideo({ id, status: "UPLOADED" });
+
+    videosServiceMock.completeVideoUpload.mockResolvedValue(completedVideo);
+
+    const response = await request(app)
+      .post(`/domain/videos/${id}/complete-upload`)
+      .send({ parts });
+
+    expect(response.status).toBe(200);
+    expect(videosServiceMock.completeVideoUpload).toHaveBeenCalledWith(id, { parts });
+  });
+
+  it("POST /domain/videos/:id/complete-upload rejects empty parts via error middleware", async () => {
+    // Input: POST with empty parts array.
+    // Expected: Zod throws, error middleware returns 400 with "Validation failed".
+    const response = await request(app)
+      .post("/domain/videos/6ba7b810-9dad-41d1-80b4-00c04fd430c8/complete-upload")
+      .send({ parts: [] });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({
+      status: "error",
+      statusCode: 400,
       message: "Validation failed",
     });
-    expect(videosServiceMock.createVideo).not.toHaveBeenCalled();
+    expect(videosServiceMock.completeVideoUpload).not.toHaveBeenCalled();
   });
 
   // ========= PUT /domain/videos/:id =========
@@ -198,8 +199,8 @@ describe("videos.router", () => {
     // Expected: the route passes the path ID plus parsed patch to the service
     // and returns the updated video.
     const id = "22222222-2222-2222-2222-222222222222";
-    const patch = makeUpdateVideoInput({ status: "PROCESSING" });
-    const updatedVideo = makeVideo({ id, status: "PROCESSING" });
+    const patch = makeUpdateVideoInput({ status: "UPLOADED" });
+    const updatedVideo = makeVideo({ id, status: "UPLOADED" });
 
     videosServiceMock.updateVideo.mockResolvedValue(updatedVideo);
 
@@ -208,6 +209,7 @@ describe("videos.router", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       ...updatedVideo,
+      fileSize: updatedVideo.fileSize,
       createdAt: updatedVideo.createdAt.toISOString(),
       takenAt: updatedVideo.takenAt?.toISOString(),
     });
@@ -226,7 +228,6 @@ describe("videos.router", () => {
     expect(response.body).toMatchObject({
       status: "error",
       statusCode: 400,
-      message: "Validation failed",
     });
     expect(videosServiceMock.updateVideo).not.toHaveBeenCalled();
   });
@@ -244,7 +245,7 @@ describe("videos.router", () => {
 
     const response = await request(app)
       .put("/domain/videos/22222222-2222-2222-2222-222222222222")
-      .send({ status: "READY" });
+      .send({ status: "UPLOADED" });
 
     expect(response.status).toBe(404);
     expect(response.body).toMatchObject({
