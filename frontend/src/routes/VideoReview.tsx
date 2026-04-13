@@ -12,6 +12,9 @@ import {
 } from "@/components/ui/sidebar";
 import { ClipTimeline } from "@/features/video/clips/ClipTimeline";
 import { useClipTimeline } from "@/features/video/clips/useClipTimeline";
+<<<<<<< vmp-108-clip-card
+import { ClipCard } from "@/features/sidebar/ClipCard";
+=======
 import { GeneralNotes } from "@/features/annotate/video-summary/comment/GeneralNotes";
 import { useGeneralNotes } from "@/features/annotate/video-summary/comment/useGeneralNotes";
 import { TagManager } from "@/features/annotate/video-summary/tags/TagManager";
@@ -22,6 +25,7 @@ import { AnnotationCanvas } from "@/features/video/annotations/drawing/canvas/An
 import { AnnotationToolbar } from "@/features/video/annotations/drawing/toolbar/AnnotationToolbar";
 import { VideoMetadataSidebar } from "@/features/video/metadata/VideoMetadataSidebar";
 import type { AnnotationTool, DrawingSettings } from "@/features/video/annotations/types";
+>>>>>>> main
 
 export default function VideoReview() {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -132,6 +136,32 @@ export default function VideoReview() {
 
                     <ResizableHandle withHandle />
 
+<<<<<<< vmp-108-clip-card
+                {/* Right sidebar — full height */}
+                <ResizablePanel defaultSize="20%" minSize="15%">
+                    <div className="flex h-full flex-col justify-start gap-4 rounded-md border bg-background p-4 overflow-y-auto">
+                        <h2 className="font-semibold text-foreground">Clips</h2>
+                        <ClipCard
+                           id="stub-1"
+                           title="Title"
+                           startMs={38000}
+                           endMs={79000}
+                           color="#ef4444"
+                           onJumpStart={() => console.log("Jump to start clicked")}
+                           onEdit={() => console.log("Edit clicked")}
+                           onDelete={() => console.log("Delete clicked")}
+                        />
+                        <ClipCard
+                           id="stub-2"
+                           title="Title"
+                           startMs={92000}
+                           endMs={115000}
+                           color="#a855f7"
+                           onJumpStart={() => console.log("Jump to start clicked")}
+                           onEdit={() => console.log("Edit clicked")}
+                           onDelete={() => console.log("Delete clicked")}
+                        />
+=======
                     {/* Right sidebar — full height */}
                     <ResizablePanel defaultSize="25%" minSize="15%">
                         <div className="flex h-full items-center justify-center rounded-md bg-muted text-muted-foreground">
@@ -164,6 +194,7 @@ export default function VideoReview() {
                                 />
                             </div>
                         </div>
+>>>>>>> main
                     </div>
                 </div>
             </SidebarInset>
