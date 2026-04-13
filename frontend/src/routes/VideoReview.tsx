@@ -12,26 +12,26 @@ import {
 } from "@/components/ui/sidebar";
 import { ClipTimeline } from "@/features/video/clips/ClipTimeline";
 import { useClipTimeline } from "@/features/video/clips/useClipTimeline";
-<<<<<<< vmp-108-clip-card
 import { ClipCard } from "@/features/sidebar/ClipCard";
-=======
 import { GeneralNotes } from "@/features/annotate/video-summary/comment/GeneralNotes";
 import { useGeneralNotes } from "@/features/annotate/video-summary/comment/useGeneralNotes";
 import { TagManager } from "@/features/annotate/video-summary/tags/TagManager";
 import { useTagManager } from "@/features/annotate/video-summary/tags/useTagManager";
 import { useTags } from "@/features/annotate/video-summary/tags/useTags";
 import { useAnnotationState } from "@/features/video/annotations/useAnnotationState";
+import { VideoTimeline, annotationsToMarkers } from "@/features/video/timeline/VideoTimeline";
 import { AnnotationCanvas } from "@/features/video/annotations/drawing/canvas/AnnotationCanvas";
 import { AnnotationToolbar } from "@/features/video/annotations/drawing/toolbar/AnnotationToolbar";
 import { VideoMetadataSidebar } from "@/features/video/metadata/VideoMetadataSidebar";
 import type { AnnotationTool, DrawingSettings } from "@/features/video/annotations/types";
->>>>>>> main
 
 export default function VideoReview() {
     const videoRef = useRef<HTMLVideoElement>(null);
     const videoContainerRef = useRef<HTMLDivElement>(null);
 
-    const timeline = useClipTimeline(120, videoRef, (clip) => {
+    const [videoDuration, setVideoDuration] = useState(0);
+
+    const timeline = useClipTimeline(videoDuration, videoRef, (clip) => {
         console.log("Clip created:", clip);
     });
 
@@ -53,8 +53,21 @@ export default function VideoReview() {
         if (!video) return;
 
         const onTimeUpdate = () => setVideoCurrentTime(video.currentTime);
+        const syncDuration = () => setVideoDuration(Number.isFinite(video.duration) ? video.duration : 0);
+        const onSeek = () => setVideoCurrentTime(video.currentTime);
+
         video.addEventListener("timeupdate", onTimeUpdate);
-        return () => video.removeEventListener("timeupdate", onTimeUpdate);
+        video.addEventListener("loadedmetadata", syncDuration);
+        video.addEventListener("durationchange", syncDuration);
+        video.addEventListener("seeking", onSeek);
+        video.addEventListener("seeked", onSeek);
+        return () => {
+            video.removeEventListener("timeupdate", onTimeUpdate);
+            video.removeEventListener("loadedmetadata", syncDuration);
+            video.removeEventListener("durationchange", syncDuration);
+            video.removeEventListener("seeking", onSeek);
+            video.removeEventListener("seeked", onSeek);
+        };
     }, []);
 
     return (
@@ -128,7 +141,18 @@ export default function VideoReview() {
                             {/* Bottom: timeline + clip timeline */}
                             <ResizablePanel defaultSize="30%" minSize="10%">
                                 <div className="flex h-full flex-col gap-3 overflow-y-auto p-4">
-                                    <ClipTimeline duration={120} timeline={timeline} />
+                                    {/* Video timeline with annotation markers */}
+                                    <VideoTimeline
+                                        duration={videoDuration}
+                                        currentTime={videoCurrentTime}
+                                        markers={annotationsToMarkers(annotationState.annotations)}
+                                        onSeek={(time) => {
+                                            if (videoRef.current) {
+                                                videoRef.current.currentTime = time;
+                                            }
+                                        }}
+                                    />
+                                    <ClipTimeline duration={videoDuration} timeline={timeline} />
                                 </div>
                             </ResizablePanel>
                         </ResizablePanelGroup>
@@ -136,36 +160,30 @@ export default function VideoReview() {
 
                     <ResizableHandle withHandle />
 
-<<<<<<< vmp-108-clip-card
-                {/* Right sidebar — full height */}
-                <ResizablePanel defaultSize="20%" minSize="15%">
-                    <div className="flex h-full flex-col justify-start gap-4 rounded-md border bg-background p-4 overflow-y-auto">
-                        <h2 className="font-semibold text-foreground">Clips</h2>
-                        <ClipCard
-                           id="stub-1"
-                           title="Title"
-                           startMs={38000}
-                           endMs={79000}
-                           color="#ef4444"
-                           onJumpStart={() => console.log("Jump to start clicked")}
-                           onEdit={() => console.log("Edit clicked")}
-                           onDelete={() => console.log("Delete clicked")}
-                        />
-                        <ClipCard
-                           id="stub-2"
-                           title="Title"
-                           startMs={92000}
-                           endMs={115000}
-                           color="#a855f7"
-                           onJumpStart={() => console.log("Jump to start clicked")}
-                           onEdit={() => console.log("Edit clicked")}
-                           onDelete={() => console.log("Delete clicked")}
-                        />
-=======
                     {/* Right sidebar — full height */}
                     <ResizablePanel defaultSize="25%" minSize="15%">
-                        <div className="flex h-full items-center justify-center rounded-md bg-muted text-muted-foreground">
-                            Sidebar
+                        <div className="flex h-full flex-col justify-start gap-4 rounded-md border bg-background p-4 overflow-y-auto">
+                            <h2 className="font-semibold text-foreground">Clips</h2>
+                            <ClipCard
+                               id="stub-1"
+                               title="Title"
+                               startMs={38000}
+                               endMs={79000}
+                               color="#ef4444"
+                               onJumpStart={() => console.log("Jump to start clicked")}
+                               onEdit={() => console.log("Edit clicked")}
+                               onDelete={() => console.log("Delete clicked")}
+                            />
+                            <ClipCard
+                               id="stub-2"
+                               title="Title"
+                               startMs={92000}
+                               endMs={115000}
+                               color="#a855f7"
+                               onJumpStart={() => console.log("Jump to start clicked")}
+                               onEdit={() => console.log("Edit clicked")}
+                               onDelete={() => console.log("Delete clicked")}
+                            />
                         </div>
                     </ResizablePanel>
                 </ResizablePanelGroup>
@@ -194,7 +212,6 @@ export default function VideoReview() {
                                 />
                             </div>
                         </div>
->>>>>>> main
                     </div>
                 </div>
             </SidebarInset>
