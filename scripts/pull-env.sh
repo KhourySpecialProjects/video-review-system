@@ -14,8 +14,8 @@
 # If the command fails with "Error loading SSO Token", your session has expired.
 # Run `aws sso login --profile default` to re-authenticate.
 
-SECRET_NAME="dev/backend"
-REGION="us-east-1"
+SECRET_NAME="${SECRET_NAME}"
+REGION="${REGION}"
 
 echo "Pulling secrets from AWS Secrets Manager..."
 
