@@ -14,12 +14,23 @@
 # If the command fails with "Error loading SSO Token", your session has expired.
 # Run `aws sso login --profile default` to re-authenticate.
 
-ECR_REPO="111372207419.dkr.ecr.us-east-1.amazonaws.com/angelman-dev-backend"
-CLUSTER="angelman-dev-cluster"
-SERVICE="angelman-dev-backend-task-service-a1owsalh"
-REGION="us-east-1"
-
 set -e
+
+if [ -f ./.env ]; then
+  set -a
+  source ./.env
+  set +a
+else
+  echo "❌ Error: .env file not found. Run ./scripts/pull-env.sh first."
+  exit 1
+fi
+
+if [ -z "$ECR_REPO" ] || [ -z "$CLUSTER" ] || [ -z "$SERVICE" ]; then
+  echo "❌ Error: ECR_REPO, CLUSTER, and SERVICE are missing from your .env file."
+  exit 1
+fi
+
+REGION="${REGION:-us-east-1}"
 
 ACCOUNT_ID=$(echo "$ECR_REPO" | cut -d. -f1)
 
