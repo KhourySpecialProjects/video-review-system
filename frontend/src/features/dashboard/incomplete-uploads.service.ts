@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { incompleteUploadSchema, type IncompleteUpload } from "@shared/types/video";
+import { incompleteUploadSchema, type IncompleteUpload } from "@shared-types/video";
 
 const responseSchema = z.array(incompleteUploadSchema);
 

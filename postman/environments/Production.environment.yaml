@@ -1,0 +1,29 @@
+name: Production
+values:
+  - key: baseUrl
+    value: 'http://angelman-dev-alb-898988315.us-east-1.elb.amazonaws.com'
+    enabled: true
+  - key: sessionCookie
+    value: ''
+    enabled: true
+  - key: adminSecret
+    value: ''
+    enabled: true
+  - key: videoId
+    value: ''
+    enabled: true
+  - key: annotationId
+    value: ''
+    enabled: true
+  - key: userId
+    value: ''
+    enabled: true
+  - key: studyId
+    value: ''
+    enabled: true
+  - key: siteId
+    value: ''
+    enabled: true
+  - key: inviteToken
+    value: ''
+    enabled: true

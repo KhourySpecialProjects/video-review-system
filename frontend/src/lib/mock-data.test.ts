@@ -16,12 +16,10 @@ describe("MOCK_VIDEOS", () => {
             expect(video.id).toBeTruthy();
             expect(video.title).toBeTruthy();
             expect(video.description).toBeTruthy();
-            expect(video.duration).toBeGreaterThan(0);
-            expect(video.videoUrl).toBeTruthy();
-            expect(video.uploadedAt).toBeTruthy();
-            expect(video.filmedAt).toBeTruthy();
-            expect(video.filmedBy).toBeTruthy();
-            expect(["received", "pending", "processing"]).toContain(video.status);
+            expect(video.durationSeconds).toBeGreaterThan(0);
+            expect(video.createdAt).toBeTruthy();
+            expect(video.uploadedBy).toBeTruthy();
+            expect(["UPLOADING", "UPLOADED", "FAILED"]).toContain(video.status);
         }
     });
 });

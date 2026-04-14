@@ -57,24 +57,24 @@ function renderWithRouter(data: SearchLoaderData) {
 
 describe("AllVideos", () => {
     it("renders all video titles in accordion", async () => {
-        renderWithRouter({ search: { videos: mockVideos, total: 3, limit: 50, offset: 0 } });
+        renderWithRouter({ search: { videos: mockVideos, total: 3, limit: 50, offset: 0 }, q: "" });
         expect(await screen.findByText("Eating Breakfast")).toBeInTheDocument();
         expect(screen.getByText("Morning Walk")).toBeInTheDocument();
         expect(screen.getByText("Afternoon Nap")).toBeInTheDocument();
     });
 
     it("shows correct video count", async () => {
-        renderWithRouter({ search: { videos: mockVideos, total: 3, limit: 50, offset: 0 } });
+        renderWithRouter({ search: { videos: mockVideos, total: 3, limit: 50, offset: 0 }, q: "" });
         expect(await screen.findByText("3 videos found")).toBeInTheDocument();
     });
 
     it("shows empty state when no videos", async () => {
-        renderWithRouter({ search: { videos: [], total: 0, limit: 50, offset: 0 } });
+        renderWithRouter({ search: { videos: [], total: 0, limit: 50, offset: 0 }, q: "" });
         expect(await screen.findByText("No videos found")).toBeInTheDocument();
     });
 
     it("renders the search input and filters button", async () => {
-        renderWithRouter({ search: { videos: mockVideos, total: 3, limit: 50, offset: 0 } });
+        renderWithRouter({ search: { videos: mockVideos, total: 3, limit: 50, offset: 0 }, q: "" });
         expect(await screen.findByPlaceholderText("Search by title or description...")).toBeInTheDocument();
         expect(screen.getByText("Filters")).toBeInTheDocument();
     });
