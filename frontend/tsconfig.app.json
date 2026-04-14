@@ -19,9 +19,9 @@
       "@/*": [
         "./src/*"
       ],
-      "@shared/*": [
-        "../shared/*"
-      ]
+      "@shared-types/*": [
+        "./types/*"
+      ],
     },
     "rootDirs": [
       ".",
@@ -45,5 +45,5 @@
   "include": [
     "src",
     "../shared"
-  ]
+, "types"  ]
 }

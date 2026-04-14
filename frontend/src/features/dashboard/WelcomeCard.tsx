@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import type { Video } from "@/lib/types";
-import type { IncompleteUpload } from "@shared/types/video";
+import type { IncompleteUpload } from "@shared-types/video";
 import { BadgeCheck } from "lucide-react";
 import { formatDate, timeAgo, formatFileSize, calcUploadPercent } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

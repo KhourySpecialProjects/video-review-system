@@ -24,7 +24,7 @@ const router = Router();
  */
 router.post("/invite", requireSession, async (req, res) => {
 
-  if (req.authSession.user.role !== "ADMIN") {
+  if (req.authSession.user.role !== "SYSADMIN") {
     throw AppError.forbidden();
   }
 

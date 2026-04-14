@@ -8,6 +8,18 @@ import { defineConfig } from "prisma/config";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
+let connectionString: string;
+
+if (process.env.NODE_ENV == "production") {
+  connectionString = process.env["DIRECT_DATABASE_URL"]!;
+} else if (process.env.LOCAL == "true") {
+  connectionString = process.env["LOCAL_DATABASE_URL"]!;
+} else {
+  connectionString = process.env["RDS_SESSION_MANAGER_DATABASE_URL"]!;
+}
+
+console.log("Using database connection string:", connectionString.replace(/:[^:]+@/, ":***@"));
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
@@ -15,6 +27,6 @@ export default defineConfig({
     seed: 'npx tsx prisma/seed.ts',
   },
   datasource: {
-    url: process.env.NODE_ENV ? process.env["DIRECT_DATABASE_URL"] : process.env["LOCAL_DATABASE_URL"]
+    url: connectionString
   },
 });
