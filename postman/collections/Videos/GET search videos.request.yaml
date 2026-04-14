@@ -1,0 +1,13 @@
+$kind: http-request
+name: GET search videos
+description: |-
+  Search and filter videos. All query params are optional.
+  Returns { videos, total, limit, offset }.
+method: GET
+url: '{{baseUrl}}/domain/videos/search?q=&uploadedAfter=&uploadedBefore=&filmedAfter=&filmedBefore=&limit=50&offset=0'
+order: 2000
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Cookie
+    value: '{{sessionCookie}}'

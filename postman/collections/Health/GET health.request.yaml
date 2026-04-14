@@ -1,0 +1,6 @@
+$kind: http-request
+name: GET health
+description: Health check endpoint. Returns { status: "ok" } if the server is running.
+method: GET
+url: '{{baseUrl}}/health'
+order: 1000

@@ -1,0 +1,30 @@
+$kind: http-request
+name: POST create annotation
+description: |-
+  Create a new annotation on a video.
+  Valid type values: text_comment, drawing_box, drawing_circle, freehand_drawing, tag.
+  Returns the created annotation with 201 status.
+method: POST
+url: '{{baseUrl}}/domain/annotations'
+order: 3000
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Cookie
+    value: '{{sessionCookie}}'
+body:
+  type: json
+  content: |-
+    {
+      "videoId": "{{videoId}}",
+      "authorUserId": "{{userId}}",
+      "studyId": "{{studyId}}",
+      "siteId": "{{siteId}}",
+      // type: text_comment | drawing_box | drawing_circle | freehand_drawing | tag
+      "type": "text_comment",
+      "timestampSeconds": 30,
+      "durationSeconds": 5,
+      "payload": {
+        "text": "Example annotation comment"
+      }
+    }

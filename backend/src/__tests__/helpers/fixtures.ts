@@ -19,6 +19,7 @@ export function makeCreateInviteInput(
   return {
     email: "invitee@example.com",
     role: "CAREGIVER",
+    siteId: "11111111-1111-1111-8111-111111111111",
     ...overrides,
   };
 }
@@ -52,8 +53,12 @@ export function makeCreateVideoInput(
 ): CreateVideoInput {
   return {
     patientId: "550e8400-e29b-41d4-a716-446655440000",
+    videoName: "test-video.mp4",
+    fileSize: 52428800,
     durationSeconds: 42,
+    createdAt: "2026-01-01T12:00:00.000Z",
     takenAt: "2026-01-01T12:00:00.000Z",
+    contentType: "video/mp4",
     ...overrides,
   };
 }
@@ -68,7 +73,7 @@ export function makeUpdateVideoInput(
   overrides: Partial<UpdateVideoInput> = {},
 ): UpdateVideoInput {
   return {
-    status: "READY",
+    status: "UPLOADED",
     durationSeconds: 42,
     takenAt: "2026-01-01T12:00:00.000Z",
     ...overrides,
@@ -86,11 +91,14 @@ export function makeVideo(overrides: Record<string, unknown> = {}) {
     id: "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
     patientId: "550e8400-e29b-41d4-a716-446655440000",
     uploadedByUserId: "user-123",
-    status: "READY",
+    s3Key: "6ba7b810-9dad-41d1-80b4-00c04fd430c8/test-video.mp4",
+    s3UploadId: null,
+    status: "UPLOADED",
+    fileSize: 52428800,
+    totalParts: 5,
     durationSeconds: 42,
     createdAt: new Date("2026-01-01T12:00:00.000Z"),
     takenAt: new Date("2026-01-01T12:05:00.000Z"),
-    videoReviewComments: null,
     ...overrides,
   };
 }
@@ -106,6 +114,7 @@ export function makeInvitation(overrides: Record<string, unknown> = {}) {
     id: "33333333-3333-3333-3333-333333333333",
     email: "invitee@example.com",
     role: "CAREGIVER",
+    siteId: "11111111-1111-1111-8111-111111111111",
     tokenHash: "hashed-token",
     expiresAt: new Date("2026-01-02T12:00:00.000Z"),
     usedAt: null,

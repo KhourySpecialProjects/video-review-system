@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { createMemoryRouter, RouterProvider } from "react-router";
 import {
     VideoDetailsSidebar,
     VideoDetailsSidebarSkeleton,
@@ -10,64 +11,61 @@ const mockVideo: Video = {
     id: "vid-001",
     title: "Test Video",
     description: "A test video description",
-    duration: 72,
-    thumbnailUrl: "",
-    videoUrl: "https://example.com/video.mp4",
-    uploadedAt: "2026-02-10T08:00:00Z",
-    filmedAt: "2026-02-10T03:15:00Z",
-    filmedBy: "Caregiver A",
-    status: "received",
+    durationSeconds: 72,
+    fileSize: 1024 * 1024,
+    createdAt: "2026-02-10T08:00:00Z",
+    takenAt: "2026-02-10T03:15:00Z",
+    uploadedBy: "Caregiver A",
+    status: "UPLOADED",
 };
 
+/**
+ * @description Renders VideoDetailsSidebar inside a data router so
+ * hooks like useActionData work correctly in tests.
+ *
+ * @param props - Props forwarded to VideoDetailsSidebar
+ */
+function renderInRouter(props: { video: Video; isSaving?: boolean }) {
+    const router = createMemoryRouter(
+        [{ path: "/", element: <VideoDetailsSidebar {...props} /> }],
+        { initialEntries: ["/"] },
+    );
+    return render(<RouterProvider router={router} />);
+}
+
 describe("VideoDetailsSidebar", () => {
-    it("renders video title", () => {
-        render(<VideoDetailsSidebar video={mockVideo} />);
-        expect(screen.getByText("Test Video")).toBeInTheDocument();
+    it("renders video title", async () => {
+        renderInRouter({ video: mockVideo });
+        expect(await screen.findByText("Test Video")).toBeInTheDocument();
     });
 
-    it("renders video description", () => {
-        render(<VideoDetailsSidebar video={mockVideo} />);
-        expect(screen.getByText("A test video description")).toBeInTheDocument();
+    it("renders video description", async () => {
+        renderInRouter({ video: mockVideo });
+        expect(await screen.findByText("A test video description")).toBeInTheDocument();
     });
 
-    it("renders caregiver name", () => {
-        render(<VideoDetailsSidebar video={mockVideo} />);
-        expect(screen.getByText("Caregiver A")).toBeInTheDocument();
+    it("renders uploader name", async () => {
+        renderInRouter({ video: mockVideo });
+        expect(await screen.findByText("Caregiver A")).toBeInTheDocument();
     });
 
-    it("shows received status", () => {
-        render(<VideoDetailsSidebar video={mockVideo} />);
-        expect(screen.getByText("Received")).toBeInTheDocument();
+    it("shows uploaded status", async () => {
+        renderInRouter({ video: mockVideo });
+        expect(await screen.findByText("Uploaded")).toBeInTheDocument();
     });
 
-    it("enters edit mode when pencil button is clicked", () => {
-        render(<VideoDetailsSidebar video={mockVideo} />);
-        const editButton = screen.getByLabelText("Edit title and description");
+    it("enters edit mode when pencil button is clicked", async () => {
+        renderInRouter({ video: mockVideo });
+        const editButton = await screen.findByLabelText("Edit title and description");
         fireEvent.click(editButton);
         expect(screen.getByLabelText("Video title")).toBeInTheDocument();
         expect(screen.getByLabelText("Video description")).toBeInTheDocument();
     });
 
-    it("calls onSave with updated data", () => {
-        const onSave = vi.fn();
-        render(<VideoDetailsSidebar video={mockVideo} />);
+    it("cancels editing and restores original values", async () => {
+        renderInRouter({ video: mockVideo });
 
-        fireEvent.click(screen.getByLabelText("Edit title and description"));
-
-        const titleInput = screen.getByLabelText("Video title");
-        fireEvent.change(titleInput, { target: { value: "Updated Title" } });
-
-        fireEvent.click(screen.getByText("Save"));
-        expect(onSave).toHaveBeenCalledWith({
-            title: "Updated Title",
-            description: "A test video description",
-        });
-    });
-
-    it("cancels editing and restores original values", () => {
-        render(<VideoDetailsSidebar video={mockVideo} />);
-
-        fireEvent.click(screen.getByLabelText("Edit title and description"));
+        fireEvent.click(await screen.findByLabelText("Edit title and description"));
 
         const titleInput = screen.getByLabelText("Video title");
         fireEvent.change(titleInput, { target: { value: "Changed Title" } });

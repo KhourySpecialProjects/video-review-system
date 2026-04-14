@@ -141,27 +141,31 @@ export function VideoDetailsSidebar({
                         <CalendarDays className="size-4 shrink-0" />
                         <span>Uploaded: </span>
                         <span className="font-medium text-text">
-                            {formatDate(video.uploadedAt)}
+                            {formatDate(video.createdAt)}
                         </span>
                     </div>
-                    <div className="flex items-center gap-2 text-text-muted">
-                        <CalendarDays className="size-4 shrink-0" />
-                        <span>Filmed: </span>
-                        <span className="font-medium text-text">
-                            {formatDate(video.filmedAt)}
-                        </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-text-muted">
-                        <Clock3 className="size-4 shrink-0" />
-                        <span>Time: </span>
-                        <span className="font-medium text-text">
-                            {formatTime(video.filmedAt)}
-                        </span>
-                    </div>
+                    {video.takenAt && (
+                        <>
+                            <div className="flex items-center gap-2 text-text-muted">
+                                <CalendarDays className="size-4 shrink-0" />
+                                <span>Filmed: </span>
+                                <span className="font-medium text-text">
+                                    {formatDate(video.takenAt)}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-text-muted">
+                                <Clock3 className="size-4 shrink-0" />
+                                <span>Time: </span>
+                                <span className="font-medium text-text">
+                                    {formatTime(video.takenAt)}
+                                </span>
+                            </div>
+                        </>
+                    )}
                     <div className="flex items-center gap-2 text-text-muted">
                         <User className="size-4 shrink-0" />
-                        <span>Filmed by: </span>
-                        <span className="font-medium text-text">{video.filmedBy}</span>
+                        <span>Uploaded by: </span>
+                        <span className="font-medium text-text">{video.uploadedBy}</span>
                     </div>
                 </div>
             </div>
@@ -169,17 +173,21 @@ export function VideoDetailsSidebar({
             {/* Status */}
             <div className="flex items-center gap-2 rounded-lg bg-bg-dark px-3 py-2">
                 <div
-                    className={`size-2 rounded-full ${video.status === "received" ? "bg-success" : "bg-warning"
-                        }`}
+                    className={`size-2 rounded-full ${
+                        video.status === "UPLOADED" ? "bg-success" :
+                        video.status === "FAILED" ? "bg-destructive" : "bg-warning"
+                    }`}
                 />
                 <span className="text-sm font-medium text-text">
                     Status:{" "}
                     <span
                         className={
-                            video.status === "received" ? "text-success" : "text-warning"
+                            video.status === "UPLOADED" ? "text-success" :
+                            video.status === "FAILED" ? "text-destructive" : "text-warning"
                         }
                     >
-                        {video.status === "received" ? "Received" : "Pending"}
+                        {video.status === "UPLOADED" ? "Uploaded" :
+                         video.status === "FAILED" ? "Failed" : "Uploading"}
                     </span>
                 </span>
             </div>

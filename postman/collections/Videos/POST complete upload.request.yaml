@@ -1,0 +1,22 @@
+$kind: http-request
+name: POST complete upload
+description: |-
+  Finalize a multipart upload. Provide the part numbers and ETags returned by S3 after uploading each part.
+  Returns the updated video record.
+method: POST
+url: '{{baseUrl}}/domain/videos/{{videoId}}/complete-upload'
+order: 8000
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Cookie
+    value: '{{sessionCookie}}'
+body:
+  type: json
+  content: |-
+    {
+      "parts": [
+        { "partNumber": 1, "etag": "etag-from-s3-part-1" },
+        { "partNumber": 2, "etag": "etag-from-s3-part-2" }
+      ]
+    }
