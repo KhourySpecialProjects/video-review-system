@@ -1,55 +1,27 @@
-import { useState, Suspense } from "react";
-import { Await, useMatches, useLoaderData, type ActionFunctionArgs } from "react-router";
-import { z } from "zod";
-import type { Video } from "@/lib/types";
+import { Suspense } from "react";
+import { Await, Outlet, useMatches, useLoaderData, useNavigate, useLocation } from "react-router";
 import { WelcomeCard, WelcomeCardSkeleton } from "@/features/dashboard/WelcomeCard";
 import { TabBar, type TabValue } from "@/features/dashboard/TabBar";
 import { VideoCard, VideoCardSkeleton } from "@/features/video/videoCard/VideoCard";
-import { AllVideos } from "@/features/video/allVideos/AllVideos";
 import { VideoUpload } from "@/features/video/videoUpload/VideoUpload";
-import { fetchVideos } from "@/lib/mock-data";
-
-const uploadVideoSchema = z.object({
-    title: z.string().min(1, "Title is required."),
-    description: z.string().optional().default(""),
-    // In a real app we might also expect a file or video URL here
-});
-
-// ── Route Module Exports ──────────────────────────────────────────────────
-
-export async function clientLoader() {
-    return { videosPromise: fetchVideos() };
-}
-
-export async function clientAction({ request }: ActionFunctionArgs) {
-    const formData = await request.formData();
-    const data = Object.fromEntries(formData);
-
-    const result = uploadVideoSchema.safeParse(data);
-    if (!result.success) {
-        const errors: Record<string, string> = {};
-        result.error.issues.forEach((issue) => {
-            if (issue.path[0]) {
-                errors[issue.path[0].toString()] = issue.message;
-            }
-        });
-        return { fieldErrors: errors };
-    }
-
-    // In a real app, you would upload the video and save it to the DB here.
-    // console.log("Uploading video:", result.data);
-
-    // Give it a fake delay to show loading state
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    return { success: true };
-}
+import type { HomeLoaderData } from "@/lib/video.service";
+import type { VideoListResponse } from "@/lib/video.service";
 
 // ── Component ─────────────────────────────────────────────────────────────
 
 export default function Home() {
-    const { videosPromise } = useLoaderData() as { videosPromise: Promise<Video[]> };
-    const [activeTab, setActiveTab] = useState<TabValue>("recent");
+    const { videosPromise } = useLoaderData() as HomeLoaderData;
+    const navigate = useNavigate();
+    const location = useLocation();
+    const activeTab: TabValue = location.pathname === "/search" ? "all" : "recent";
+
+    /**
+     * @description Navigates to `/search` for the all-videos tab (triggers
+     * the search loader) or back to `/` for the recent tab.
+     */
+    function handleTabChange(tab: TabValue) {
+        navigate(tab === "all" ? "/search" : "/");
+    }
 
     const matches = useMatches();
     const rootMatch = matches.find(m => (m.data as any)?.user);
@@ -59,34 +31,31 @@ export default function Home() {
         <div className="mx-auto flex w-full max-w-lg flex-col gap-6 lg:max-w-5xl">
             <Suspense fallback={<HomeSkeleton />}>
                 <Await resolve={videosPromise}>
-                    {(videos: Video[]) => {
-                        const recentVideos = videos.slice(0, 6);
-                        return (
-                            <>
-                                <WelcomeCard videos={videos} userName={userName} />
+                    {({ videos, total }: VideoListResponse) => (
+                        <>
+                            <WelcomeCard videos={videos} userName={userName} />
 
-                                <TabBar
-                                    activeTab={activeTab}
-                                    onTabChange={setActiveTab}
-                                    totalVideos={videos.length}
-                                />
+                            <TabBar
+                                activeTab={activeTab}
+                                onTabChange={handleTabChange}
+                                totalVideos={total}
+                            />
 
-                                {activeTab === "recent" ? (
-                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                        {recentVideos.map((video) => (
-                                            <VideoCard key={video.id} video={video} />
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <AllVideos videos={videos} />
-                                )}
-
-                                <div className="flex justify-center pb-4">
-                                    <VideoUpload />
+                            {activeTab === "recent" ? (
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                    {videos.map((video) => (
+                                        <VideoCard key={video.id} video={video} />
+                                    ))}
                                 </div>
-                            </>
-                        );
-                    }}
+                            ) : (
+                                <Outlet />
+                            )}
+
+                            <div className="flex justify-center pb-4">
+                                <VideoUpload />
+                            </div>
+                        </>
+                    )}
                 </Await>
             </Suspense>
         </div>

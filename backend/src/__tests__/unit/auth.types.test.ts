@@ -30,6 +30,7 @@ describe("auth.types", () => {
     const payload = {
       email: "invitee@example.com",
       role: "CAREGIVER",
+      siteId: "11111111-1111-1111-8111-111111111111",
     };
 
     expect(createInviteSchema.parse(payload)).toEqual(payload);
@@ -43,10 +44,12 @@ describe("auth.types", () => {
       createInviteSchema.parse({
         email: " Invitee@Example.com ",
         role: "CAREGIVER",
+        siteId: "11111111-1111-1111-8111-111111111111",
       }),
     ).toEqual({
       email: "invitee@example.com",
       role: "CAREGIVER",
+      siteId: "11111111-1111-1111-8111-111111111111",
     });
   });
 
@@ -56,6 +59,7 @@ describe("auth.types", () => {
     const result = createInviteSchema.safeParse({
       email: "bad-email",
       role: "CAREGIVER",
+      siteId: "11111111-1111-1111-8111-111111111111",
     });
 
     expect(result.success).toBe(false);

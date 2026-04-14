@@ -1,0 +1,23 @@
+$kind: http-request
+name: PUT update annotation
+description: |-
+  Update an existing annotation's timestamp, duration, or payload.
+  Returns the updated annotation. 404 if not found.
+method: PUT
+url: '{{baseUrl}}/domain/annotations/{{annotationId}}'
+order: 4000
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Cookie
+    value: '{{sessionCookie}}'
+body:
+  type: json
+  content: |-
+    {
+      "timestampSeconds": 45,
+      "durationSeconds": 10,
+      "payload": {
+        "text": "Updated annotation comment"
+      }
+    }

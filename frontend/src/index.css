@@ -209,3 +209,8 @@ body.light {
     @apply bg-background text-foreground;
   }
 }
+
+/* Smooth collapse/expand animation for the metadata sidebar panel */
+#metadata-sidebar {
+  transition: flex 300ms ease;
+}

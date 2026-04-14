@@ -1,0 +1,20 @@
+$kind: http-request
+name: POST activate
+method: POST
+url: '{{baseUrl}}/domain/auth/activate'
+description: |-
+  Activate an invitation and create a user account. Use the token returned from POST /invite. Returns { success: true, message } on success.
+
+  Note: password must be at least 8 characters.
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "token": "{{inviteToken}}",
+      "name": "John Doe",
+      "email": "user@example.com",
+      "password": "securepassword"
+    }
