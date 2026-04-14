@@ -1,10 +1,13 @@
 #!/bin/bash
 # Usage: ./scripts/pull-env.sh
 #
-# Fetches project secrets from AWS Secrets Manager and writes them to a .env file
-# in the project root. AWS Secrets Manager is a service that stores sensitive
-# configuration values (database URLs, API keys, etc.) securely in the cloud,
-# so they never need to be committed to the repository.
+# Fetches project secrets from AWS Secrets Manager and writes them to:
+#   - .env in the project root for backend/local services
+#   - frontend/.env.local for frontend build-time config
+#
+# AWS Secrets Manager stores sensitive configuration values (database URLs,
+# API keys, etc.) securely in the cloud, so they never need to be committed
+# to the repository.
 #
 # Prerequisites:
 #   - AWS CLI installed (https://aws.amazon.com/cli/)
@@ -25,11 +28,20 @@ aws secretsmanager get-secret-value \
   --profile "default" \
   --query SecretString \
   --output text | \
-  python3 -c "
+  python3 -c '
 import json, sys
+
 data = json.load(sys.stdin)
-for k, v in data.items():
-    print(f'{k}={v}')
-" > .env
+
+with open(".env", "w") as backend_env:
+    for key, value in data.items():
+        backend_env.write(f"{key}={value}\n")
+
+with open("frontend/.env.local", "w") as frontend_env:
+    for key, value in data.items():
+        if key.startswith("VITE_"):
+            frontend_env.write(f"{key}={value}\n")
+' 
 
 echo "✅ .env file created successfully"
+echo "✅ frontend/.env.local file created successfully"
