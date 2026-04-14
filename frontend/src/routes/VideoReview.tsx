@@ -13,6 +13,7 @@ import {
 import { ClipTimeline } from "@/features/video/clips/ClipTimeline";
 import { useClipTimeline } from "@/features/video/clips/useClipTimeline";
 import { TimestampAnnotation } from "@/features/sidebar/TimestampAnnotation";
+import { ClipCard } from "@/features/sidebar/ClipCard";
 import { GeneralNotes } from "@/features/annotate/video-summary/comment/GeneralNotes";
 import { useGeneralNotes } from "@/features/annotate/video-summary/comment/useGeneralNotes";
 import { TagManager } from "@/features/annotate/video-summary/tags/TagManager";
@@ -163,6 +164,28 @@ export default function VideoReview() {
                     {/* Right sidebar — full height */}
                     <ResizablePanel defaultSize="20%" minSize="15%">
                         <div className="flex h-full flex-col gap-4 p-4 overflow-y-auto border-l bg-background">
+                            <h2 className="font-semibold text-lg mb-2">Clips</h2>
+                            {timeline.clips.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">
+                                    No clips yet — use the timeline below to create one
+                                </p>
+                            ) : (
+                                timeline.clips.map((clip, index) => (
+                                    <ClipCard
+                                        key={index}
+                                        title={`Clip ${index + 1}`}
+                                        startMs={clip.startTime * 1000}
+                                        endMs={clip.endTime * 1000}
+                                        onJumpStart={() => {
+                                            if (videoRef.current) {
+                                                videoRef.current.currentTime = clip.startTime;
+                                            }
+                                        }}
+                                        onEdit={() => {}}
+                                        onDelete={() => timeline.removeClip(index)}
+                                    />
+                                ))
+                            )}
                             <h2 className="font-semibold text-lg mb-2">Annotations</h2>
                             <TimestampAnnotation
                                 timestamp="01:23"
