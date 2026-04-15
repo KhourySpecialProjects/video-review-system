@@ -5,6 +5,8 @@ import {
     Building2,
     ScrollText,
     Shield,
+    Video,
+    Clock,
 } from "lucide-react";
 import {
     SidebarProvider,
@@ -18,12 +20,50 @@ import {
     SidebarInset,
     SidebarTrigger,
 } from "@/components/ui/sidebar";
+import {
+    Card,
+    CardHeader,
+    CardContent,
+    CardTitle,
+} from "@/components/ui/card";
 
 const navItems = [
     { label: "Dashboard", icon: LayoutDashboard, path: "/admin" },
     { label: "Users", icon: Users, path: "/admin/users" },
     { label: "Sites", icon: Building2, path: "/admin/sites" },
     { label: "Audit Logs", icon: ScrollText, path: "/admin/audit-logs" },
+] as const;
+
+// TODO: wire to backend API
+const dashboardStats = [
+    {
+        title: "Total Users",
+        value: 24,
+        icon: Users,
+        trend: "+12% from last month",
+        trendPositive: true,
+    },
+    {
+        title: "Active Sites",
+        value: 3,
+        icon: Building2,
+        trend: "+1 new this month",
+        trendPositive: true,
+    },
+    {
+        title: "Videos Uploaded",
+        value: 147,
+        icon: Video,
+        trend: "+8% from last month",
+        trendPositive: true,
+    },
+    {
+        title: "Pending Reviews",
+        value: 12,
+        icon: Clock,
+        trend: "-20% from last month",
+        trendPositive: false,
+    },
 ] as const;
 
 export default function SystemAdminDashboard() {
@@ -82,6 +122,27 @@ export default function SystemAdminDashboard() {
                             {sectionDescriptions[activeLabel]}
                         </p>
                     </div>
+
+                    {location.pathname === "/admin" && (
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            {dashboardStats.map(({ title, value, icon: Icon, trend, trendPositive }) => (
+                                <Card key={title} className="bg-background shadow-sm">
+                                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                                            {title}
+                                        </CardTitle>
+                                        <Icon className="size-4 text-muted-foreground" />
+                                    </CardHeader>
+                                    <CardContent>
+                                        <p className="text-2xl font-bold">{value}</p>
+                                        <p className={`mt-1 text-xs ${trendPositive ? "text-green-600" : "text-red-500"}`}>
+                                            {trend}
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </SidebarInset>
         </SidebarProvider>
