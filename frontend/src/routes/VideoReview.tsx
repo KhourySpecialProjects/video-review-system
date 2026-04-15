@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/sidebar";
 import { ClipTimeline } from "@/features/video/clips/ClipTimeline";
 import { useClipTimeline } from "@/features/video/clips/useClipTimeline";
-import { TimestampAnnotation } from "@/features/sidebar/TimestampAnnotation";
+import { DrawingCard } from "@/features/sidebar/DrawingCard";
 import { GeneralNotes } from "@/features/annotate/video-summary/comment/GeneralNotes";
 import { useGeneralNotes } from "@/features/annotate/video-summary/comment/useGeneralNotes";
 import { TagManager } from "@/features/annotate/video-summary/tags/TagManager";
@@ -164,19 +164,25 @@ export default function VideoReview() {
                     <ResizablePanel defaultSize="20%" minSize="15%">
                         <div className="flex h-full flex-col gap-4 p-4 overflow-y-auto border-l bg-background">
                             <h2 className="font-semibold text-lg mb-2">Annotations</h2>
-                            <TimestampAnnotation
-                                timestamp="01:23"
-                                comment="Seizure begins at this time."
-                                onNavigate={(ts) => console.log("Navigate to:", ts)}
-                                onEdit={(newComment) => console.log("Edit saved:", newComment)}
-                                onDelete={() => console.log("Delete clicked")}
+                            <DrawingCard
+                                id="dummy-drawing-2"
+                                type="circle"
+                                color="#ef4444"
+                                timestamp={8}
+                                duration={2}
+                                onJumpStart={(ts) => console.log("Jump to drawing at:", ts)}
+                                onEditDuration={(id, dur) => console.log("Drawing duration edited:", id, dur)}
+                                onDelete={(id) => console.log("Delete drawing:", id)}
                             />
-                            <TimestampAnnotation
-                                timestamp="04:56"
-                                comment="Patient is experiencing confusion."
-                                onNavigate={(ts) => console.log("Navigate to:", ts)}
-                                onEdit={(newComment) => console.log("Edit saved:", newComment)}
-                                onDelete={() => console.log("Delete clicked")}
+                            <DrawingCard
+                                id="dummy-drawing-3"
+                                type="rectangle"
+                                color="#10b981"
+                                timestamp={144}
+                                duration={10}
+                                onJumpStart={(ts) => console.log("Jump to drawing at:", ts)}
+                                onEditDuration={(id, dur) => console.log("Drawing duration edited:", id, dur)}
+                                onDelete={(id) => console.log("Delete drawing:", id)}
                             />
                         </div>
                     </ResizablePanel>
