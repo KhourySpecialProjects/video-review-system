@@ -1,4 +1,4 @@
-import { useLocation, Link } from "react-router";
+import { useState } from "react";
 import {
     LayoutDashboard,
     Users,
@@ -28,12 +28,14 @@ import {
 } from "@/components/ui/card";
 import { AdminTable } from "@/features/admin/AdminTable";
 
-const navItems = [
-    { label: "Dashboard", icon: LayoutDashboard, path: "/admin" },
-    { label: "Users", icon: Users, path: "/admin/users" },
-    { label: "Sites", icon: Building2, path: "/admin/sites" },
-    { label: "Audit Logs", icon: ScrollText, path: "/admin/audit-logs" },
-] as const;
+type Section = "dashboard" | "users" | "sites" | "audit-logs";
+
+const navItems: { label: string; icon: React.ElementType; section: Section }[] = [
+    { label: "Dashboard", icon: LayoutDashboard, section: "dashboard" },
+    { label: "Users", icon: Users, section: "users" },
+    { label: "Sites", icon: Building2, section: "sites" },
+    { label: "Audit Logs", icon: ScrollText, section: "audit-logs" },
+];
 
 // TODO: wire to backend API
 const dashboardStats = [
@@ -67,18 +69,22 @@ const dashboardStats = [
     },
 ] as const;
 
+const sectionLabels: Record<Section, string> = {
+    dashboard: "Dashboard",
+    users: "Users",
+    sites: "Sites",
+    "audit-logs": "Audit Logs",
+};
+
+const sectionDescriptions: Record<Section, string> = {
+    dashboard: "Overview of system activity and key metrics.",
+    users: "Manage user accounts, roles, and permissions.",
+    sites: "Configure and monitor registered sites.",
+    "audit-logs": "Review a full history of administrative actions.",
+};
+
 export default function SystemAdminDashboard() {
-    const location = useLocation();
-
-    const activeItem = navItems.find((item) => item.path === location.pathname);
-    const activeLabel = activeItem?.label ?? "Dashboard";
-
-    const sectionDescriptions: Record<string, string> = {
-        Dashboard: "Overview of system activity and key metrics.",
-        Users: "Manage user accounts, roles, and permissions.",
-        Sites: "Configure and monitor registered sites.",
-        "Audit Logs": "Review a full history of administrative actions.",
-    };
+    const [activeSection, setActiveSection] = useState<Section>("dashboard");
 
     return (
         <SidebarProvider className="h-screen overflow-hidden">
@@ -90,16 +96,15 @@ export default function SystemAdminDashboard() {
 
                 <SidebarContent className="px-2 py-2">
                     <SidebarMenu>
-                        {navItems.map(({ label, icon: Icon, path }) => (
-                            <SidebarMenuItem key={label}>
+                        {navItems.map(({ label, icon: Icon, section }) => (
+                            <SidebarMenuItem key={section}>
                                 <SidebarMenuButton
-                                    asChild
-                                    isActive={location.pathname === path}
+                                    isActive={activeSection === section}
+                                    onClick={() => setActiveSection(section)}
+                                    className="flex items-center gap-2"
                                 >
-                                    <Link to={path} className="flex items-center gap-2">
-                                        <Icon className="size-4 shrink-0" />
-                                        <span>{label}</span>
-                                    </Link>
+                                    <Icon className="size-4 shrink-0" />
+                                    <span>{label}</span>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
                         ))}
@@ -118,13 +123,15 @@ export default function SystemAdminDashboard() {
 
                 <div className="flex-1 overflow-y-auto p-8">
                     <div className="mb-6">
-                        <h1 className="text-2xl font-semibold tracking-tight">{activeLabel}</h1>
+                        <h1 className="text-2xl font-semibold tracking-tight">
+                            {sectionLabels[activeSection]}
+                        </h1>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            {sectionDescriptions[activeLabel]}
+                            {sectionDescriptions[activeSection]}
                         </p>
                     </div>
 
-                    {location.pathname === "/admin" && (
+                    {activeSection === "dashboard" && (
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                             {dashboardStats.map(({ title, value, icon: Icon, trend, trendPositive }) => (
                                 <Card key={title} className="bg-background shadow-sm">
@@ -145,17 +152,11 @@ export default function SystemAdminDashboard() {
                         </div>
                     )}
 
-                    {location.pathname === "/admin/users" && (
-                        <AdminTable defaultTab="users" />
-                    )}
+                    {activeSection === "users" && <AdminTable defaultTab="users" />}
 
-                    {location.pathname === "/admin/sites" && (
-                        <AdminTable defaultTab="sites" />
-                    )}
+                    {activeSection === "sites" && <AdminTable defaultTab="sites" />}
 
-                    {location.pathname === "/admin/audit-logs" && (
-                        <AdminTable defaultTab="audit-logs" />
-                    )}
+                    {activeSection === "audit-logs" && <AdminTable defaultTab="audit-logs" />}
                 </div>
             </SidebarInset>
         </SidebarProvider>
