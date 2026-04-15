@@ -172,18 +172,22 @@ router.post("/:userId/permissions", async (req, res) => {
     throw AppError.forbidden();
   }
 
+  const rawBody =
+    typeof req.body === "object" && req.body !== null ? req.body : {};
+
   // Coordinator-created permissions default to the managed user's site when the
   // request does not explicitly choose a site scope.
   const normalizedSiteId =
-    actor.role === "SITE_COORDINATOR" && (req.body.siteId === undefined || req.body.siteId === null)
+    actor.role === "SITE_COORDINATOR" &&
+    (rawBody.siteId === undefined || rawBody.siteId === null)
       ? targetUser.siteId
-      : req.body.siteId ?? null;
+      : rawBody.siteId ?? null;
 
   const parsed = createUserPermissionSchema.safeParse({
-    permissionLevel: req.body.permissionLevel,
+    permissionLevel: rawBody.permissionLevel,
     siteId: normalizedSiteId,
-    studyId: req.body.studyId ?? null,
-    videoId: req.body.videoId ?? null,
+    studyId: rawBody.studyId ?? null,
+    videoId: rawBody.videoId ?? null,
   });
 
   if (!parsed.success) {
@@ -231,17 +235,17 @@ router.delete("/:userId/permissions/:permissionId", async (req, res) => {
     req.params.userId,
     req.params.permissionId,
   );
-  const scopeAccess = await resolvePermissionScopeAccess(userPermission);
 
-  if (
-    actor.role === "SITE_COORDINATOR" &&
-    (
+  if (actor.role === "SITE_COORDINATOR") {
+    const scopeAccess = await resolvePermissionScopeAccess(userPermission);
+
+    if (
       scopeAccess.isGlobal ||
       scopeAccess.siteIds.some((siteId) => !manageableSiteIds.includes(siteId))
-    )
-  ) {
-    // Coordinators may only remove permissions within the sites they administer.
-    throw AppError.forbidden("Site coordinator cannot remove permissions outside their managed sites");
+    ) {
+      // Coordinators may only remove permissions within the sites they administer.
+      throw AppError.forbidden("Site coordinator cannot remove permissions outside their managed sites");
+    }
   }
 
   await deleteUserPermission(req.params.userId, req.params.permissionId);

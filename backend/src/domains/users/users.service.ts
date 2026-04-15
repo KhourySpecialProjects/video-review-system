@@ -71,7 +71,7 @@ export async function listUsers(
     where.role = query.role;
   }
 
-  if (siteRestrictions && siteRestrictions.length > 0) {
+  if (siteRestrictions !== undefined) {
     where.siteId = { in: siteRestrictions };
   } else if (query.siteId) {
     where.siteId = query.siteId;

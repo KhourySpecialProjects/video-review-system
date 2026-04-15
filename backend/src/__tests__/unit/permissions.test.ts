@@ -67,6 +67,27 @@ describe("permissions", () => {
     expect(rows.every(validatePermissionShape)).toBe(true);
   });
 
+  it("rejects malformed permission rows", () => {
+    // Input: malformed rows with invalid scalar types or permission level values.
+    // Expected: validation returns false so permission resolution can ignore them.
+    const invalidPermissionLevel = {
+      siteId: null,
+      studyId: null,
+      videoId: null,
+      permissionLevel: "OWNER",
+    } as PermissionRow;
+
+    const invalidScopeType = {
+      siteId: 123,
+      studyId: null,
+      videoId: null,
+      permissionLevel: "READ",
+    } as unknown as PermissionRow;
+
+    expect(validatePermissionShape(invalidPermissionLevel)).toBe(false);
+    expect(validatePermissionShape(invalidScopeType)).toBe(false);
+  });
+
   // ========= comparePermissionLevels =========
 
   it("orders permission levels by strength", () => {

@@ -41,6 +41,7 @@ vi.mock("../../lib/prisma.js", () => ({
 
 import {
   getManageableSiteIds,
+  listUsers,
   resolvePermissionScopeAccess,
 } from "../../domains/users/users.service.js";
 
@@ -105,6 +106,27 @@ describe("users.service", () => {
       );
 
       expect(result).toEqual(["22222222-2222-2222-8222-222222222222"]);
+      expect(prismaMock.userPermission.findMany).toHaveBeenCalledWith({
+        where: {
+          userId: "actor-1",
+          permissionLevel: "ADMIN",
+          OR: [
+            {
+              siteId: null,
+              studyId: null,
+              videoId: null,
+            },
+            {
+              siteId: { not: null },
+              studyId: null,
+              videoId: null,
+            },
+          ],
+        },
+        select: {
+          siteId: true,
+        },
+      });
     });
 
     it("rethrows unexpected errors while loading explicit site admin rows", async () => {
@@ -121,6 +143,41 @@ describe("users.service", () => {
           "22222222-2222-2222-8222-222222222222",
         ),
       ).rejects.toThrow("Database unavailable");
+    });
+  });
+
+  describe("listUsers", () => {
+    it("treats an explicit empty site restriction list as no accessible sites", async () => {
+      prismaMock.user.findMany.mockResolvedValue([]);
+      prismaMock.user.count.mockResolvedValue(0);
+
+      const result = await listUsers(
+        {
+          includeDeactivated: false,
+          limit: 20,
+          offset: 0,
+        },
+        [],
+      );
+
+      expect(result).toEqual({
+        users: [],
+        total: 0,
+        limit: 20,
+        offset: 0,
+      });
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            siteId: { in: [] },
+          }),
+        }),
+      );
+      expect(prismaMock.user.count).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          siteId: { in: [] },
+        }),
+      });
     });
   });
 

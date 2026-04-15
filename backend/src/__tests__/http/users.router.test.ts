@@ -532,6 +532,27 @@ describe("users.router", () => {
     expect(usersServiceMock.createUserPermission).not.toHaveBeenCalled();
   });
 
+  it("POST /domain/users/:userId/permissions returns 400 when the request body is missing", async () => {
+    // Input: POST without a JSON body.
+    // Expected: validation returns 400 instead of the route throwing while reading req.body.
+    mockSession();
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "actor-1",
+      role: "SYSADMIN",
+      siteId: "11111111-1111-1111-8111-111111111111",
+    });
+    usersServiceMock.getUserSiteContext.mockResolvedValue({
+      id: "user-1",
+      siteId: "22222222-2222-2222-8222-222222222222",
+    });
+
+    const response = await request(app).post("/domain/users/user-1/permissions");
+
+    expect(response.status).toBe(400);
+    expect(usersServiceMock.resolvePermissionScopeAccess).not.toHaveBeenCalled();
+    expect(usersServiceMock.createUserPermission).not.toHaveBeenCalled();
+  });
+
   it("POST /domain/users/:userId/permissions defaults a coordinator permission to the target user's site", async () => {
     // Input: POST a study-scoped permission without siteId as a same-site coordinator.
     // Expected: the route fills in the target user's siteId before resolving and creating the permission.
@@ -736,6 +757,41 @@ describe("users.router", () => {
     expect(usersServiceMock.deleteUserPermission).toHaveBeenCalledWith(
       "user-1",
       "perm-1",
+    );
+  });
+
+  it("DELETE /domain/users/:userId/permissions/:permissionId lets a sysadmin delete a stale permission row", async () => {
+    // Input: DELETE as a sysadmin for a permission whose stored scope no longer resolves.
+    // Expected: the route skips scope resolution and still deletes the row.
+    mockSession();
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "actor-1",
+      role: "SYSADMIN",
+      siteId: "11111111-1111-1111-8111-111111111111",
+    });
+    usersServiceMock.getUserSiteContext.mockResolvedValue({
+      id: "user-1",
+      siteId: "22222222-2222-2222-8222-222222222222",
+    });
+    usersServiceMock.getUserPermission.mockResolvedValue({
+      id: "perm-stale",
+      userId: "user-1",
+      permissionLevel: "READ",
+      siteId: null,
+      studyId: "33333333-3333-3333-8333-333333333333",
+      videoId: null,
+    });
+    usersServiceMock.deleteUserPermission.mockResolvedValue(undefined);
+
+    const response = await request(app).delete(
+      "/domain/users/user-1/permissions/perm-stale",
+    );
+
+    expect(response.status).toBe(204);
+    expect(usersServiceMock.resolvePermissionScopeAccess).not.toHaveBeenCalled();
+    expect(usersServiceMock.deleteUserPermission).toHaveBeenCalledWith(
+      "user-1",
+      "perm-stale",
     );
   });
 

@@ -58,8 +58,25 @@ const PERMISSION_RANK: Record<permission_level, number> = {
  * @returns `true` if the row shape is valid, otherwise `false`.
  */
 export function validatePermissionShape(row: PermissionRow): boolean {
-  void row;
-  return true;
+  if (typeof row !== "object" || row === null) {
+    return false;
+  }
+
+  const permissionLevel = row.permissionLevel;
+
+  if (
+    permissionLevel !== "READ" &&
+    permissionLevel !== "WRITE" &&
+    permissionLevel !== "EXPORT" &&
+    permissionLevel !== "ADMIN"
+  ) {
+    return false;
+  }
+
+  const scopeValues = [row.siteId, row.studyId, row.videoId];
+  return scopeValues.every(
+    (value) => value === null || typeof value === "string",
+  );
 }
 
 /**
