@@ -2,8 +2,17 @@ import { Router } from "express";
 import prisma from "../../lib/prisma.js";
 import { requireSession } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/errors.js";
-import { getUserDetail, listUsers } from "./users.service.js";
-import { listUsersQuerySchema } from "./users.types.js";
+import {
+  createUserPermission,
+  deleteUserPermission,
+  getUserDetail,
+  getUserPermission,
+  getUserSiteContext,
+  listUserPermissions,
+  listUsers,
+  resolvePermissionScopeAccess,
+} from "./users.service.js";
+import { createUserPermissionSchema, listUsersQuerySchema } from "./users.types.js";
 
 const router = Router();
 
@@ -88,6 +97,114 @@ router.get("/:userId", async (req, res) => {
   }
 
   res.json(user);
+});
+
+/**
+ * GET /domain/users/:userId/permissions - list one user's current permissions.
+ */
+router.get("/:userId/permissions", async (req, res) => {
+  const actor = await getActor(req.authSession.user.id);
+
+  if (actor.role !== "SYSADMIN" && actor.role !== "SITE_COORDINATOR") {
+    throw AppError.forbidden();
+  }
+
+  const targetUser = await getUserSiteContext(req.params.userId);
+
+  if (actor.role === "SITE_COORDINATOR" && targetUser.siteId !== actor.siteId) {
+    throw AppError.forbidden();
+  }
+
+  const result = await listUserPermissions(req.params.userId);
+  res.json(result);
+});
+
+/**
+ * POST /domain/users/:userId/permissions - create one explicit user permission.
+ */
+router.post("/:userId/permissions", async (req, res) => {
+  const actor = await getActor(req.authSession.user.id);
+
+  if (actor.role !== "SYSADMIN" && actor.role !== "SITE_COORDINATOR") {
+    throw AppError.forbidden();
+  }
+
+  const targetUser = await getUserSiteContext(req.params.userId);
+
+  if (actor.role === "SITE_COORDINATOR" && targetUser.siteId !== actor.siteId) {
+    throw AppError.forbidden();
+  }
+
+  // Coordinator-created permissions default to the managed user's site when the
+  // request does not explicitly choose a site scope.
+  const normalizedSiteId =
+    actor.role === "SITE_COORDINATOR" && (req.body.siteId === undefined || req.body.siteId === null)
+      ? targetUser.siteId
+      : req.body.siteId ?? null;
+
+  const parsed = createUserPermissionSchema.safeParse({
+    permissionLevel: req.body.permissionLevel,
+    siteId: normalizedSiteId,
+    studyId: req.body.studyId ?? null,
+    videoId: req.body.videoId ?? null,
+  });
+
+  if (!parsed.success) {
+    throw AppError.badRequest(parsed.error.issues[0].message);
+  }
+
+  const scopeAccess = await resolvePermissionScopeAccess(parsed.data);
+
+  if (
+    actor.role === "SITE_COORDINATOR" &&
+    (
+      scopeAccess.isGlobal ||
+      scopeAccess.siteIds.some((siteId) => siteId !== actor.siteId)
+    )
+  ) {
+    // Coordinators may only assign permissions that stay entirely within their own site.
+    throw AppError.forbidden("Site coordinator cannot assign permissions outside their own site");
+  }
+
+  const userPermission = await createUserPermission(req.params.userId, parsed.data);
+  res.status(201).json(userPermission);
+});
+
+/**
+ * DELETE /domain/users/:userId/permissions/:permissionId - remove one explicit user permission.
+ */
+router.delete("/:userId/permissions/:permissionId", async (req, res) => {
+  const actor = await getActor(req.authSession.user.id);
+
+  if (actor.role !== "SYSADMIN" && actor.role !== "SITE_COORDINATOR") {
+    throw AppError.forbidden();
+  }
+
+  const targetUser = await getUserSiteContext(req.params.userId);
+
+  if (actor.role === "SITE_COORDINATOR" && targetUser.siteId !== actor.siteId) {
+    throw AppError.forbidden();
+  }
+
+  const userPermission = await getUserPermission(
+    req.params.userId,
+    req.params.permissionId,
+  );
+  const scopeAccess = await resolvePermissionScopeAccess(userPermission);
+
+  if (
+    actor.role === "SITE_COORDINATOR" &&
+    (
+      scopeAccess.isGlobal ||
+      scopeAccess.siteIds.some((siteId) => siteId !== actor.siteId)
+    )
+  ) {
+    // Coordinators may only remove permissions that stay entirely within their own site.
+    throw AppError.forbidden("Site coordinator cannot remove permissions outside their own site");
+  }
+
+  await deleteUserPermission(req.params.userId, req.params.permissionId);
+  res.status(204).send();
 });
 
 export default router;

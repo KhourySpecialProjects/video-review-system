@@ -65,4 +65,17 @@ export type UserDetailResponse = {
   userPermissions: UserPermissionItem[];
 };
 
+export const createUserPermissionSchema = z.object({
+  permissionLevel: z.enum(["READ", "WRITE", "EXPORT", "ADMIN"]),
+  siteId: z.uuid("Invalid site ID").nullable(),
+  studyId: z.uuid("Invalid study ID").nullable(),
+  videoId: z.uuid("Invalid video ID").nullable(),
+});
+
+/** Response shape returned by the list user permissions endpoint. */
+export type ListUserPermissionsResponse = {
+  userPermissions: UserPermissionItem[];
+};
+
+export type CreateUserPermissionInput = z.infer<typeof createUserPermissionSchema>;
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
