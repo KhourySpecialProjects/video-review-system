@@ -116,13 +116,13 @@ export function ClipCard({
                         {isEditing ? (
                             <div className="flex items-center gap-2 w-full justify-between">
                                 <div className="flex items-center gap-1">
-                                    <Input type="number" value={draftStart} onChange={e => setDraftStart(Number(e.target.value))} className="h-7 w-[70px] px-2 text-xs" />
-                                    <span className="text-[10px]">ms</span>
+                                    <Input type="number" step={0.1} value={draftStart / 1000} onChange={e => setDraftStart(Number(e.target.value) * 1000)} className="h-7 w-[70px] px-2 text-xs" />
+                                    <span className="text-[10px]">s</span>
                                 </div>
                                 <ArrowRight className="h-4 w-4 shrink-0 mx-1" />
                                 <div className="flex items-center gap-1">
-                                    <Input type="number" value={draftEnd} onChange={e => setDraftEnd(Number(e.target.value))} className="h-7 w-[70px] px-2 text-xs" />
-                                    <span className="text-[10px]">ms</span>
+                                    <Input type="number" step={0.1} value={draftEnd / 1000} onChange={e => setDraftEnd(Number(e.target.value) * 1000)} className="h-7 w-[70px] px-2 text-xs" />
+                                    <span className="text-[10px]">s</span>
                                 </div>
                             </div>
                         ) : (

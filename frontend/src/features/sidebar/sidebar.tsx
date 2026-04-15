@@ -8,10 +8,17 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
+import { authClient } from "@/lib/auth-client"
 
 import { ClipCard } from "./ClipCard"
 import { TimestampAnnotation } from "./TimestampAnnotation"
 import { DrawingCard, type DrawingToolType } from "./DrawingCard"
+
+const SIDEBAR_PROVIDER_STYLE = {
+  "--sidebar-width": "100%",
+  width: "100%",
+  height: "100%",
+} as React.CSSProperties
 
 /**
  * Interface defining the properties of a Clip Annotation.
@@ -57,6 +64,12 @@ export interface AnnotationSidebarProps {
   /** Optional array of draw annotations */
   drawings?: DrawAnnotation[]
 
+  /** Optional callback fired when a user creates a new string note dynamically via sidebar */
+  onAddNoteRequest?: (author: string, content: string, timestampStr: string) => void
+
+  /** Optional callback fired when a user successfully edits a note text string */
+  onUpdateNote?: (id: string, content: string) => void
+
   /** Optional callbacks triggered when the user hits delete on a respective card */
   onDeleteClip?: (id: string) => void
   onDeleteNote?: (id: string) => void
@@ -75,53 +88,15 @@ export interface AnnotationSidebarProps {
   currentVideoTime?: number
 }
 
-/** 
- * Fallback mock data array for clip annotations.
- * Used internally to render placeholders if no external clips prop is actively streamed backwards.
- */
-const DUMMY_CLIPS: ClipAnnotation[] = [
-  {
-    id: "clip-1",
-    title: "Patient Response",
-    startMs: 38000,
-    endMs: 79000,
-    themeColor: "#EF4444", // Red-like
-  },
-  {
-    id: "clip-2",
-    title: "Hand Movement",
-    startMs: 92000,
-    endMs: 115000,
-    themeColor: "#A855F7", // Purple-like
-  },
-]
-
-/** 
- * Fallback mock data array for timestamp note observations.
- * Provides default structure to demonstrate note layout capability standalone.
- */
-const DUMMY_NOTES: NoteAnnotation[] = [
-  {
-    id: "note-1",
-    author: "Reviewer A",
-    content: "Make sure the transition here matches the audio cue.",
-    timestamp: "0:45",
-  },
-]
-
-/** 
- * Fallback mock data array for canvas vector drawings.
- * Mocks the duration footprint emitted from the freehand annotation overlay.
- */
-const DUMMY_DRAWINGS: DrawAnnotation[] = [
-  {
-    id: "draw-1",
-    type: "circle",
-    color: "#EF4444",
-    timestamp: 72,
-    duration: 5,
-  },
-]
+/** Parses a "MM:SS" timestamp string into total seconds. Returns 0 for malformed input. */
+function parseTimestamp(ts: string): number {
+  const parts = ts.split(':')
+  if (parts.length !== 2) return 0
+  const mins = parseInt(parts[0], 10)
+  const secs = parseInt(parts[1], 10)
+  if (isNaN(mins) || isNaN(secs)) return 0
+  return mins * 60 + secs
+}
 
 /**
  * Annotation Sidebar Component
@@ -138,75 +113,30 @@ export function AnnotationSidebar({
   onDeleteNote,
   onDeleteDrawing,
   onJumpToTime,
+  onAddNoteRequest,
+  onUpdateNote,
   onUpdateClip,
   onUpdateDrawingDuration,
   currentVideoTime,
 }: AnnotationSidebarProps) {
-  // Gracefully fallback to localized state if top-level props aren't provided yet
-  const [clips, setClips] = React.useState<ClipAnnotation[]>(propClips ?? DUMMY_CLIPS)
-  const [notes, setNotes] = React.useState<NoteAnnotation[]>(propNotes ?? DUMMY_NOTES)
-  const [drawings, setDrawings] = React.useState<DrawAnnotation[]>(propDrawings ?? DUMMY_DRAWINGS)
+  const { data: session } = authClient.useSession()
+  const authorName = session?.user?.name ?? "Unknown User"
 
-  // Sync internal state if standard props trickle down later
-  React.useEffect(() => { if (propClips) setClips(propClips) }, [propClips])
-  React.useEffect(() => { if (propNotes) setNotes(propNotes) }, [propNotes])
-  React.useEffect(() => { if (propDrawings) setDrawings(propDrawings) }, [propDrawings])
+  const clips = propClips ?? []
+  const notes = propNotes ?? []
+  const drawings = propDrawings ?? []
 
-  /**
-   * Orchestrates the deletion of a clip card.
-   * Routes the id upwards if the component is bound as a pure UI renderer, or wipes it locally if running standalone.
-   * @param id - The unique string identifier of the clip
-   */
-  const handleDeleteClip = (id: string) => {
-    if (onDeleteClip) onDeleteClip(id);
-    else setClips(prev => prev.filter(c => c.id !== id));
-  }
-
-  /**
-   * Orchestrates the deletion of a timestamp note.
-   * Routes the id upwards if the component is bound as a pure UI renderer, or wipes it locally if running standalone.
-   * @param id - The unique string identifier of the note
-   */
-  const handleDeleteNote = (id: string) => {
-    if (onDeleteNote) onDeleteNote(id);
-    else setNotes(prev => prev.filter(n => n.id !== id));
-  }
-
-  /**
-   * Orchestrates the deletion of a drawing segment.
-   * Routes the id upwards if the component is bound as a pure UI renderer, or wipes it locally if running standalone.
-   * @param id - The unique string identifier of the drawing
-   */
-  const handleDeleteDrawing = (id: string) => {
-    if (onDeleteDrawing) onDeleteDrawing(id);
-    else setDrawings(prev => prev.filter(d => d.id !== id));
-  }
-
-  /**
-   * Dispatches the event to generate a new Note block targeting the current frame.
-   * Formats the raw tracked execution seconds into a clean "MM:SS" UI format string.
-   */
   const handleAddNote = () => {
-    const timeSecs = currentVideoTime || 0;
-    const formattedTime = `${Math.floor(timeSecs / 60)}:${String(Math.floor(timeSecs % 60)).padStart(2, '0')}`;
-
-    setNotes(prev => [{
-      id: `note-${Date.now()}`,
-      author: "Current User",
-      content: "New timestamp observation...",
-      timestamp: formattedTime,
-    }, ...prev]);
+    const timeSecs = currentVideoTime ?? 0
+    const formattedTime = `${Math.floor(timeSecs / 60)}:${String(Math.floor(timeSecs % 60)).padStart(2, '0')}`
+    onAddNoteRequest?.(authorName, "", formattedTime)
   }
 
   return (
     <SidebarProvider
       defaultOpen={true}
       className="min-h-0 h-full"
-      style={{
-        "--sidebar-width": "100%",
-        "width": "100%",
-        "height": "100%",
-      } as React.CSSProperties}
+      style={SIDEBAR_PROVIDER_STYLE}
     >
       <Sidebar side="right" collapsible="none" className="border-l border-border bg-background w-full h-full">
         <Tabs defaultValue="clips" className="flex flex-col h-full w-full overflow-hidden">
@@ -242,7 +172,7 @@ export function AnnotationSidebar({
                 <TabsContent
                   value="clips"
                   className="m-0 flex flex-col gap-4 focus-visible:outline-none"
-                >                  
+                >
                   {clips.length > 0 ? (
                     clips.map((clip) => (
                       <ClipCard
@@ -251,23 +181,9 @@ export function AnnotationSidebar({
                         startMs={clip.startMs}
                         endMs={clip.endMs}
                         color={clip.themeColor}
-                        onJumpStart={() => {
-                          if (onJumpToTime) onJumpToTime(clip.startMs / 1000);
-                          else console.log("Jump to start:", clip.startMs);
-                        }}
-                        onUpdateClip={(updates) => {
-                          if (onUpdateClip) onUpdateClip(clip.id, updates);
-                          else {
-                            setClips(prev => prev.map(c => c.id === clip.id ? {
-                              ...c,
-                              title: updates.title ?? c.title,
-                              startMs: updates.startMs ?? c.startMs,
-                              endMs: updates.endMs ?? c.endMs
-                            } : c));
-                          }
-                        }}
-                        onDelete={() => handleDeleteClip(clip.id)}
-                        onAddToSequence={() => console.log("Add to sequence:", clip.id)}
+                        onJumpStart={() => onJumpToTime?.(clip.startMs / 1000)}
+                        onUpdateClip={(updates) => onUpdateClip?.(clip.id, updates)}
+                        onDelete={() => onDeleteClip?.(clip.id)}
                       />
                     ))
                   ) : (
@@ -286,23 +202,16 @@ export function AnnotationSidebar({
                     <Plus className="w-4 h-4 mr-2" />
                     New Note
                   </Button>
-                  
+
                   {notes.length > 0 ? (
                     notes.map((note) => (
                       <TimestampAnnotation
                         key={note.id}
                         timestamp={note.timestamp}
                         comment={note.content}
-                        onNavigate={(ts) => {
-                          if (onJumpToTime) {
-                            const [mins, secs] = ts.split(':').map(Number);
-                            onJumpToTime((mins || 0) * 60 + (secs || 0));
-                          } else {
-                            console.log("Navigate to:", ts);
-                          }
-                        }}
-                        onEdit={(newComment) => console.log("Edit note:", note.id, newComment)}
-                        onDelete={() => handleDeleteNote(note.id)}
+                        onNavigate={(ts) => onJumpToTime?.(parseTimestamp(ts))}
+                        onEdit={(newComment) => onUpdateNote?.(note.id, newComment)}
+                        onDelete={() => onDeleteNote?.(note.id)}
                       />
                     ))
                   ) : (
@@ -326,17 +235,9 @@ export function AnnotationSidebar({
                         color={draw.color}
                         timestamp={draw.timestamp}
                         duration={draw.duration}
-                        onJumpStart={(ts) => {
-                          if (onJumpToTime) onJumpToTime(draw.timestamp);
-                          else console.log("Jump to drawing:", ts);
-                        }}
-                        onEditDuration={(id, dur) => {
-                          if (onUpdateDrawingDuration) onUpdateDrawingDuration(id, dur);
-                          else {
-                            setDrawings(prev => prev.map(d => d.id === id ? { ...d, duration: dur } : d));
-                          }
-                        }}
-                        onDelete={(id) => handleDeleteDrawing(id)}
+                        onJumpStart={(ts) => onJumpToTime?.(ts)}
+                        onEditDuration={(id, dur) => onUpdateDrawingDuration?.(id, dur)}
+                        onDelete={(id) => onDeleteDrawing?.(id)}
                       />
                     ))
                   ) : (
