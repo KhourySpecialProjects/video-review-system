@@ -19,6 +19,7 @@ const { authMock, prismaMock, usersServiceMock } = vi.hoisted(() => ({
   usersServiceMock: {
     listUsers: vi.fn(),
     getUserDetail: vi.fn(),
+    getManageableSiteIds: vi.fn(),
     getUserSiteContext: vi.fn(),
     listUserPermissions: vi.fn(),
     resolvePermissionScopeAccess: vi.fn(),
@@ -46,6 +47,9 @@ describe("users.router", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    usersServiceMock.getManageableSiteIds.mockResolvedValue([
+      "11111111-1111-1111-8111-111111111111",
+    ]);
   });
 
   function mockSession(userId = "actor-1") {
@@ -176,7 +180,7 @@ describe("users.router", () => {
 
   it("GET /domain/users restricts a coordinator to their own site", async () => {
     // Input: GET /domain/users as a coordinator without a siteId filter.
-    // Expected: the service receives the coordinator site restriction.
+    // Expected: the service receives the full set of sites the coordinator can manage.
     mockSession();
     prismaMock.user.findUnique.mockResolvedValue({
       id: "actor-1",
@@ -202,7 +206,43 @@ describe("users.router", () => {
         limit: 20,
         offset: 0,
       },
+      ["11111111-1111-1111-8111-111111111111"],
+    );
+  });
+
+  it("GET /domain/users allows a coordinator to filter another manageable site", async () => {
+    // Input: GET /domain/users with a siteId the coordinator can administer.
+    // Expected: the request is allowed and the service is narrowed to that site.
+    mockSession();
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "actor-1",
+      role: "SITE_COORDINATOR",
+      siteId: "11111111-1111-1111-8111-111111111111",
+    });
+    usersServiceMock.getManageableSiteIds.mockResolvedValue([
       "11111111-1111-1111-8111-111111111111",
+      "22222222-2222-2222-8222-222222222222",
+    ]);
+    usersServiceMock.listUsers.mockResolvedValue({
+      users: [],
+      total: 0,
+      limit: 20,
+      offset: 0,
+    });
+
+    const response = await request(app)
+      .get("/domain/users")
+      .query({ siteId: "22222222-2222-2222-8222-222222222222" });
+
+    expect(response.status).toBe(200);
+    expect(usersServiceMock.listUsers).toHaveBeenCalledWith(
+      {
+        siteId: "22222222-2222-2222-8222-222222222222",
+        includeDeactivated: false,
+        limit: 20,
+        offset: 0,
+      },
+      ["22222222-2222-2222-8222-222222222222"],
     );
   });
 
@@ -260,6 +300,39 @@ describe("users.router", () => {
     const response = await request(app).get("/domain/users/user-1");
 
     expect(response.status).toBe(403);
+  });
+
+  it("GET /domain/users/:userId allows a coordinator to view a user in another managed site", async () => {
+    // Input: GET /domain/users/:userId for a user in another site the
+    // coordinator administers.
+    // Expected: the route returns the service result.
+    mockSession();
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "actor-1",
+      role: "SITE_COORDINATOR",
+      siteId: "11111111-1111-1111-8111-111111111111",
+    });
+    usersServiceMock.getManageableSiteIds.mockResolvedValue([
+      "11111111-1111-1111-8111-111111111111",
+      "22222222-2222-2222-8222-222222222222",
+    ]);
+    usersServiceMock.getUserDetail.mockResolvedValue({
+      id: "user-2",
+      name: "Jack Smith",
+      email: "jack@hospital.org",
+      role: "CLINICAL_REVIEWER",
+      siteId: "22222222-2222-2222-8222-222222222222",
+      isDeactivated: false,
+      userPermissions: [],
+    });
+
+    const response = await request(app).get("/domain/users/user-2");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      id: "user-2",
+      siteId: "22222222-2222-2222-8222-222222222222",
+    });
   });
 
   it("GET /domain/users/:userId returns 404 when the user does not exist", async () => {
@@ -349,6 +422,33 @@ describe("users.router", () => {
 
     expect(response.status).toBe(403);
     expect(usersServiceMock.listUserPermissions).not.toHaveBeenCalled();
+  });
+
+  it("GET /domain/users/:userId/permissions allows a coordinator in another managed site", async () => {
+    // Input: GET permissions for a user in another site the coordinator administers.
+    // Expected: the route allows the request.
+    mockSession();
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "actor-1",
+      role: "SITE_COORDINATOR",
+      siteId: "11111111-1111-1111-8111-111111111111",
+    });
+    usersServiceMock.getManageableSiteIds.mockResolvedValue([
+      "11111111-1111-1111-8111-111111111111",
+      "22222222-2222-2222-8222-222222222222",
+    ]);
+    usersServiceMock.getUserSiteContext.mockResolvedValue({
+      id: "user-2",
+      siteId: "22222222-2222-2222-8222-222222222222",
+    });
+    usersServiceMock.listUserPermissions.mockResolvedValue({
+      userPermissions: [],
+    });
+
+    const response = await request(app).get("/domain/users/user-2/permissions");
+
+    expect(response.status).toBe(200);
+    expect(usersServiceMock.listUserPermissions).toHaveBeenCalledWith("user-2");
   });
 
   // ========= POST /domain/users/:userId/permissions =========
@@ -509,9 +609,57 @@ describe("users.router", () => {
     expect(response.body).toMatchObject({
       status: "error",
       statusCode: 403,
-      message: "Site coordinator cannot assign permissions outside their own site",
+      message: "Site coordinator cannot assign permissions outside their managed sites",
     });
     expect(usersServiceMock.createUserPermission).not.toHaveBeenCalled();
+  });
+
+  it("POST /domain/users/:userId/permissions allows a coordinator to assign a different managed site", async () => {
+    // Input: POST a permission for a user in one managed site that grants
+    // access to another site the coordinator also administers.
+    // Expected: the route allows the create because both target user site and
+    // permission scope are inside the coordinator's manageable sites.
+    mockSession();
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "actor-1",
+      role: "SITE_COORDINATOR",
+      siteId: "11111111-1111-1111-8111-111111111111",
+    });
+    usersServiceMock.getManageableSiteIds.mockResolvedValue([
+      "11111111-1111-1111-8111-111111111111",
+      "22222222-2222-2222-8222-222222222222",
+    ]);
+    usersServiceMock.getUserSiteContext.mockResolvedValue({
+      id: "user-2",
+      siteId: "22222222-2222-2222-8222-222222222222",
+    });
+    usersServiceMock.resolvePermissionScopeAccess.mockResolvedValue({
+      isGlobal: false,
+      siteIds: ["11111111-1111-1111-8111-111111111111"],
+    });
+    usersServiceMock.createUserPermission.mockResolvedValue({
+      id: "perm-2",
+      userId: "user-2",
+      permissionLevel: "EXPORT",
+      siteId: "11111111-1111-1111-8111-111111111111",
+      studyId: null,
+      videoId: null,
+    });
+
+    const response = await request(app)
+      .post("/domain/users/user-2/permissions")
+      .send({
+        permissionLevel: "EXPORT",
+        siteId: "11111111-1111-1111-8111-111111111111",
+      });
+
+    expect(response.status).toBe(201);
+    expect(usersServiceMock.createUserPermission).toHaveBeenCalledWith("user-2", {
+      permissionLevel: "EXPORT",
+      siteId: "11111111-1111-1111-8111-111111111111",
+      studyId: null,
+      videoId: null,
+    });
   });
 
   it("POST /domain/users/:userId/permissions returns 409 for a duplicate permission", async () => {
@@ -628,7 +776,7 @@ describe("users.router", () => {
     expect(response.body).toMatchObject({
       status: "error",
       statusCode: 403,
-      message: "Site coordinator cannot remove permissions outside their own site",
+      message: "Site coordinator cannot remove permissions outside their managed sites",
     });
     expect(usersServiceMock.deleteUserPermission).not.toHaveBeenCalled();
   });
@@ -767,6 +915,39 @@ describe("users.router", () => {
 
     expect(response.status).toBe(403);
     expect(usersServiceMock.updateUserStatus).not.toHaveBeenCalled();
+  });
+
+  it("PATCH /domain/users/:userId/status allows a coordinator in another managed site", async () => {
+    // Input: PATCH status for a user in another site the coordinator administers.
+    // Expected: the route allows the change.
+    mockSession();
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "actor-1",
+      role: "SITE_COORDINATOR",
+      siteId: "11111111-1111-1111-8111-111111111111",
+    });
+    usersServiceMock.getManageableSiteIds.mockResolvedValue([
+      "11111111-1111-1111-8111-111111111111",
+      "22222222-2222-2222-8222-222222222222",
+    ]);
+    usersServiceMock.getUserSiteContext.mockResolvedValue({
+      id: "user-2",
+      siteId: "22222222-2222-2222-8222-222222222222",
+    });
+    usersServiceMock.updateUserStatus.mockResolvedValue({
+      id: "user-2",
+      isDeactivated: true,
+    });
+
+    const response = await request(app)
+      .patch("/domain/users/user-2/status")
+      .send({ isDeactivated: true });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      id: "user-2",
+      isDeactivated: true,
+    });
   });
 
   it("PATCH /domain/users/:userId/status returns 404 when the user does not exist", async () => {

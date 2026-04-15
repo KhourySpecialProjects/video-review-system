@@ -6,6 +6,7 @@ import {
   createUserPermission,
   deleteUserPermission,
   getUserDetail,
+  getManageableSiteIds,
   getUserPermission,
   getUserSiteContext,
   listUserPermissions,
@@ -50,6 +51,24 @@ async function getActor(actorUserId: string) {
 }
 
 /**
+ * Returns every site a coordinator may manage.
+ *
+ * @param actor - Authenticated actor record.
+ * @returns Unique site IDs the coordinator can administer.
+ */
+async function getCoordinatorManageableSiteIds(actor: {
+  id: string;
+  role: string;
+  siteId: string;
+}) {
+  if (actor.role !== "SITE_COORDINATOR") {
+    return [];
+  }
+
+  return getManageableSiteIds(actor.id, actor.siteId);
+}
+
+/**
  * GET /domain/users - list users with optional filters and pagination.
  */
 router.get("/", async (req, res) => {
@@ -64,21 +83,22 @@ router.get("/", async (req, res) => {
     throw AppError.forbidden();
   }
 
+  const manageableSiteIds = await getCoordinatorManageableSiteIds(actor);
+
   if (
     actor.role === "SITE_COORDINATOR" &&
     parsed.data.siteId !== undefined &&
-    parsed.data.siteId !== actor.siteId
+    !manageableSiteIds.includes(parsed.data.siteId)
   ) {
-    // Coordinators are local admins only, so they cannot request another
-    // site's user list through the optional siteId filter.
+    // Coordinators can only list sites they administer.
     throw AppError.forbidden();
   }
 
   const result = await listUsers(
     parsed.data,
-    // Even without a siteId filter, coordinators must only see users from
-    // their own site.
-    actor.role === "SITE_COORDINATOR" ? actor.siteId : undefined,
+    actor.role === "SITE_COORDINATOR"
+      ? (parsed.data.siteId ? [parsed.data.siteId] : manageableSiteIds)
+      : undefined,
   );
 
   res.json(result);
@@ -95,9 +115,13 @@ router.get("/:userId", async (req, res) => {
   }
 
   const user = await getUserDetail(req.params.userId);
+  const manageableSiteIds = await getCoordinatorManageableSiteIds(actor);
 
-  if (actor.role === "SITE_COORDINATOR" && user.siteId !== actor.siteId) {
-    // Coordinators may only view details for users in their own site.
+  if (
+    actor.role === "SITE_COORDINATOR" &&
+    !manageableSiteIds.includes(user.siteId)
+  ) {
+    // Coordinators may only view details for users in sites they administer.
     throw AppError.forbidden();
   }
 
@@ -115,8 +139,12 @@ router.get("/:userId/permissions", async (req, res) => {
   }
 
   const targetUser = await getUserSiteContext(req.params.userId);
+  const manageableSiteIds = await getCoordinatorManageableSiteIds(actor);
 
-  if (actor.role === "SITE_COORDINATOR" && targetUser.siteId !== actor.siteId) {
+  if (
+    actor.role === "SITE_COORDINATOR" &&
+    !manageableSiteIds.includes(targetUser.siteId)
+  ) {
     throw AppError.forbidden();
   }
 
@@ -135,8 +163,12 @@ router.post("/:userId/permissions", async (req, res) => {
   }
 
   const targetUser = await getUserSiteContext(req.params.userId);
+  const manageableSiteIds = await getCoordinatorManageableSiteIds(actor);
 
-  if (actor.role === "SITE_COORDINATOR" && targetUser.siteId !== actor.siteId) {
+  if (
+    actor.role === "SITE_COORDINATOR" &&
+    !manageableSiteIds.includes(targetUser.siteId)
+  ) {
     throw AppError.forbidden();
   }
 
@@ -164,11 +196,11 @@ router.post("/:userId/permissions", async (req, res) => {
     actor.role === "SITE_COORDINATOR" &&
     (
       scopeAccess.isGlobal ||
-      scopeAccess.siteIds.some((siteId) => siteId !== actor.siteId)
+      scopeAccess.siteIds.some((siteId) => !manageableSiteIds.includes(siteId))
     )
   ) {
-    // Coordinators may only assign permissions that stay entirely within their own site.
-    throw AppError.forbidden("Site coordinator cannot assign permissions outside their own site");
+    // Coordinators may only assign permissions within the sites they administer.
+    throw AppError.forbidden("Site coordinator cannot assign permissions outside their managed sites");
   }
 
   const userPermission = await createUserPermission(req.params.userId, parsed.data);
@@ -186,8 +218,12 @@ router.delete("/:userId/permissions/:permissionId", async (req, res) => {
   }
 
   const targetUser = await getUserSiteContext(req.params.userId);
+  const manageableSiteIds = await getCoordinatorManageableSiteIds(actor);
 
-  if (actor.role === "SITE_COORDINATOR" && targetUser.siteId !== actor.siteId) {
+  if (
+    actor.role === "SITE_COORDINATOR" &&
+    !manageableSiteIds.includes(targetUser.siteId)
+  ) {
     throw AppError.forbidden();
   }
 
@@ -201,11 +237,11 @@ router.delete("/:userId/permissions/:permissionId", async (req, res) => {
     actor.role === "SITE_COORDINATOR" &&
     (
       scopeAccess.isGlobal ||
-      scopeAccess.siteIds.some((siteId) => siteId !== actor.siteId)
+      scopeAccess.siteIds.some((siteId) => !manageableSiteIds.includes(siteId))
     )
   ) {
-    // Coordinators may only remove permissions that stay entirely within their own site.
-    throw AppError.forbidden("Site coordinator cannot remove permissions outside their own site");
+    // Coordinators may only remove permissions within the sites they administer.
+    throw AppError.forbidden("Site coordinator cannot remove permissions outside their managed sites");
   }
 
   await deleteUserPermission(req.params.userId, req.params.permissionId);
@@ -223,8 +259,12 @@ router.patch("/:userId/status", async (req, res) => {
   }
 
   const targetUser = await getUserSiteContext(req.params.userId);
+  const manageableSiteIds = await getCoordinatorManageableSiteIds(actor);
 
-  if (actor.role === "SITE_COORDINATOR" && targetUser.siteId !== actor.siteId) {
+  if (
+    actor.role === "SITE_COORDINATOR" &&
+    !manageableSiteIds.includes(targetUser.siteId)
+  ) {
     throw AppError.forbidden();
   }
 

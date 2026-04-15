@@ -63,7 +63,7 @@ export type PermissionScopeAccess = {
  */
 export async function listUsers(
   query: ListUsersQuery,
-  siteRestriction?: string
+  siteRestrictions?: string[],
 ): Promise<ListUsersResponse> {
   const where: Prisma.UserWhereInput = {};
 
@@ -71,8 +71,8 @@ export async function listUsers(
     where.role = query.role;
   }
 
-  if (siteRestriction) {
-    where.siteId = siteRestriction;
+  if (siteRestrictions && siteRestrictions.length > 0) {
+    where.siteId = { in: siteRestrictions };
   } else if (query.siteId) {
     where.siteId = query.siteId;
   }
@@ -141,6 +141,56 @@ export async function getUserSiteContext(userId: string) {
   }
 
   return user;
+}
+
+/**
+ * Resolves every site a coordinator can administer.
+ *
+ * The home site is always included. Additional sites come from explicit
+ * `ADMIN` permission rows, including scoped study/video admin permissions.
+ *
+ * @param userId - Coordinator user ID.
+ * @param homeSiteId - Coordinator home site ID.
+ * @returns Unique site IDs the coordinator can manage.
+ */
+export async function getManageableSiteIds(
+  userId: string,
+  homeSiteId: string,
+): Promise<string[]> {
+  const manageableSiteIds = new Set<string>([homeSiteId]);
+  const adminPermissions = await prisma.userPermission.findMany({
+    where: {
+      userId,
+      permissionLevel: "ADMIN",
+    },
+    select: {
+      siteId: true,
+      studyId: true,
+      videoId: true,
+    },
+  });
+
+  for (const permission of adminPermissions) {
+    try {
+      const scopeAccess = await resolvePermissionScopeAccess(permission);
+
+      if (scopeAccess.isGlobal) {
+        const sites = await prisma.site.findMany({
+          select: { id: true },
+        });
+
+        return sites.map((site) => site.id);
+      }
+
+      for (const siteId of scopeAccess.siteIds) {
+        manageableSiteIds.add(siteId);
+      }
+    } catch {
+      // Ignore stale or invalid admin permission rows when deriving management scope.
+    }
+  }
+
+  return [...manageableSiteIds];
 }
 
 /**
