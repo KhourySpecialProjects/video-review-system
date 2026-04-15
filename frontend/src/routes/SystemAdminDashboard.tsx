@@ -26,6 +26,7 @@ import {
     CardContent,
     CardTitle,
 } from "@/components/ui/card";
+import { AdminTable } from "@/features/admin/AdminTable";
 
 const navItems = [
     { label: "Dashboard", icon: LayoutDashboard, path: "/admin" },
@@ -142,6 +143,18 @@ export default function SystemAdminDashboard() {
                                 </Card>
                             ))}
                         </div>
+                    )}
+
+                    {location.pathname === "/admin/users" && (
+                        <AdminTable defaultTab="users" />
+                    )}
+
+                    {location.pathname === "/admin/sites" && (
+                        <AdminTable defaultTab="sites" />
+                    )}
+
+                    {location.pathname === "/admin/audit-logs" && (
+                        <AdminTable defaultTab="audit-logs" />
                     )}
                 </div>
             </SidebarInset>
