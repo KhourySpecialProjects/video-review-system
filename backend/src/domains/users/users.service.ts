@@ -270,6 +270,10 @@ export async function resolvePermissionScopeAccess(
       select: { siteId: true },
     });
 
+    if (siteStudies.length === 0) {
+      throw AppError.badRequest("Invalid permission scope");
+    }
+
     return {
       isGlobal: false,
       siteIds: [...new Set(siteStudies.map((row) => row.siteId))],
@@ -290,6 +294,10 @@ export async function resolvePermissionScopeAccess(
       where: { videoId },
       select: { siteId: true },
     });
+
+    if (videoStudies.length === 0) {
+      throw AppError.badRequest("Invalid permission scope");
+    }
 
     return {
       isGlobal: false,

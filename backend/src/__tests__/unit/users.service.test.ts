@@ -39,7 +39,10 @@ vi.mock("../../lib/prisma.js", () => ({
   default: prismaMock,
 }));
 
-import { getManageableSiteIds } from "../../domains/users/users.service.js";
+import {
+  getManageableSiteIds,
+  resolvePermissionScopeAccess,
+} from "../../domains/users/users.service.js";
 
 describe("users.service", () => {
   beforeEach(() => {
@@ -118,6 +121,38 @@ describe("users.service", () => {
           "22222222-2222-2222-8222-222222222222",
         ),
       ).rejects.toThrow("Database unavailable");
+    });
+  });
+
+  describe("resolvePermissionScopeAccess", () => {
+    it("rejects a study-only scope when the study is not associated with any site", async () => {
+      prismaMock.study.findUnique.mockResolvedValue({
+        id: "33333333-3333-3333-8333-333333333333",
+      });
+      prismaMock.siteStudy.findMany.mockResolvedValue([]);
+
+      await expect(
+        resolvePermissionScopeAccess({
+          siteId: null,
+          studyId: "33333333-3333-3333-8333-333333333333",
+          videoId: null,
+        }),
+      ).rejects.toThrow("Invalid permission scope");
+    });
+
+    it("rejects a video-only scope when the video is not associated with any site", async () => {
+      prismaMock.video.findUnique.mockResolvedValue({
+        id: "44444444-4444-4444-8444-444444444444",
+      });
+      prismaMock.videoStudy.findMany.mockResolvedValue([]);
+
+      await expect(
+        resolvePermissionScopeAccess({
+          siteId: null,
+          studyId: null,
+          videoId: "44444444-4444-4444-8444-444444444444",
+        }),
+      ).rejects.toThrow("Invalid permission scope");
     });
   });
 });
