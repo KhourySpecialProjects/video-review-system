@@ -22,6 +22,7 @@ import { notFoundHandler, errorHandler } from "./middleware/errors.js";
 import videosRouter from "./domains/videos/videos.router.js";
 import authRouter from "./domains/auth/auth.router.js";
 import annotationsRouter from "./domains/annotations/annotations.router.js";
+import usersRouter from "./domains/users/users.router.js";
 // import clipsRouter from "./domains/clips/clips.router";
 // import accountsRouter from "./domains/accounts/accounts.router";
 // import auditRouter from "./domains/audit/audit.router";
@@ -54,6 +55,7 @@ export function createApp() {
   app.use("/domain/videos", videosRouter);
   app.use("/domain/auth", authRouter);
   app.use("/domain/annotations", annotationsRouter);
+  app.use("/domain/users", usersRouter);
   // app.use("/domain/clips", clipsRouter);
   // app.use("/domain/accounts", accountsRouter);
   // app.use("/domain/audit", auditRouter);
