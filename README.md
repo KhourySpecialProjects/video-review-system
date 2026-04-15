@@ -2,118 +2,167 @@
 
 A secure web-based platform for managing and reviewing caregiver-recorded seizure videos for Angelman Syndrome clinical research. Built in collaboration with Dr. Wen-Hann Tan and the Angelman Syndrome Clinical Research Group at Boston Children's Hospital.
 
----
-
 ## Overview
 
-The portal supports four user roles — caregivers, clinical reviewers, site coordinators, and system administrators — each with clearly defined access boundaries. Core features include secure video upload, streaming, timestamped annotation, video clipping, and a full audit trail.
+The portal supports four user roles: caregivers, clinical reviewers, site coordinators, and system administrators. Each user comes with clearly defined access boundaries and toggleable permissions.
 
----
+Core features include secure video upload, video streaming, timestamped annotations, video clipping, and a full audit trail.
 
 ## Tech Stack
 
 | Layer | Technology |
-|---|---|
-| Frontend | React + TypeScript, Vite, React Router v7 (data layer mode) |
-| Styling | Tailwind CSS v4, shadcn/ui |
-| Backend | Go, chi v5 |
-| Database | PostgreSQL 16, pgx v5, goose migrations |
-| Infrastructure | Docker, AWS Amplify, AWS App Runner, AWS RDS, AWS S3 |
-
----
+| --- | --- |
+| Frontend | React 19, TypeScript, Vite, React Router 7 |
+| Styling/UI | Tailwind CSS 4, Base UI, shadcn-style component patterns |
+| Backend | Express 5, TypeScript, Better Auth, Zod |
+| Data Layer | Prisma 7, PostgreSQL 16 |
+| Testing | Vitest, Testing Library, Supertest |
+| Infra | Docker Compose, AWS RDS, AWS S3, AWS Secrets Manager |
 
 ## Repository Structure
 
-```
-angelman-video-portal/
-├── frontend/          # React SPA — Vite + React Router + Tailwind + shadcn/ui
-├── backend/           # Go REST API — chi + pgx + goose
-├── docker-compose.yml # Full local stack — frontend, backend, postgres
-└── .env.local         # Local environment variables (not committed)
+```text
+video-review-system/
+├── frontend/          # React SPA
+├── backend/           # Express + TypeScript API
+└── docker-compose.yml # Local service orchestration
 ```
 
----
-
-## Prerequisites
+## Requirements
 
 Make sure the following are installed before getting started:
 
-- [Node.js](https://nodejs.org/) v20+
-- [Go](https://go.dev/dl/) v1.22+
-- [Docker](https://www.docker.com/) + Docker Compose
-- [AWS CLI](https://aws.amazon.com/cli/)
+- [Node.js](https://nodejs.org/) 20+
+- `npm` 10+
+- [Docker](https://www.docker.com/) + Docker Compose if you want to run PostgreSQL in a container
+- PostgreSQL 16+ if you want to run the database locally without Docker
+- AWS CLI (https://aws.amazon.com/cli/)
 
----
+## Quick Start
 
-## Quick Start (Docker)
+### 1. Install dependencies
 
-The easiest way to run the full stack locally is with Docker Compose.
+The project uses **AWS Secrets Manager** to store environment secrets (database URLs, API keys, etc.) rather than committing them to the repository. To access these secrets, you first need to authenticate with AWS using SSO (Single Sign-On).
 
-### 1. Configure AWS credentials
+Run the following command and follow the prompts:
 
 ```bash
-aws configure
+aws configure sso
 ```
 
-### 2. Create `.env.local` in the project root
+When prompted, enter the following values:
 
-```env
-SECRET_NAME=angelman-portal/local
+| Prompt | Value |
+|--------|-------|
+| SSO session name | Any name you want (e.g. `dev`) |
+| SSO start URL | The URL from your AWS invitation email |
+| SSO region | `us-east-1` |
+| SSO registration scopes | Press Enter to accept the default |
+| _(browser opens)_ | Sign in with your AWS credentials |
+| Default client region | `us-east-1` |
+| Default output format | Press Enter to accept the default |
+| Profile name | **Must be set to `default`** |
+
+### 2. Create `.env` in the project root
+
+Once authenticated, run the script below. It fetches the project secrets from AWS Secrets Manager and writes them to a local `.env` file:
+
+```bash
+./scripts/pull-env.sh
 ```
+
+> **Note:** You will need to re-run this script whenever your AWS SSO session expires (typically after 8 hours) or when secrets are rotated.
 
 ### 3. Start all services
 
 ```bash
-docker-compose up --build
+docker compose up -d postgres
 ```
 
-| Service  | URL                    |
-|----------|------------------------|
-| Frontend | http://localhost:3000  |
-| Backend  | http://localhost:8080  |
-| Postgres | localhost:5432         |
-
-### 4. Stop all services
+### 4. Start the backend
 
 ```bash
-docker-compose down
+cd backend
+npx prisma generate
+npx prisma migrate dev
+npm run dev
 ```
 
-To also remove the database volume:
+The backend runs on `http://localhost:8080` when `PORT=8080` is set in `.env`.
+
+### 5. Start the frontend
+
+In a separate terminal:
 
 ```bash
-docker-compose down -v
+cd frontend
+npm run dev
 ```
 
----
+The frontend runs on `https://localhost:5173` with the current Vite config.
 
-## Running Services Individually
+## Architecture Overview
 
-See [`frontend/README.md`](./frontend/README.md) and [`backend/README.md`](./backend/README.md) for per-service setup instructions.
+Current application flow:
 
----
+```mermaid
+flowchart LR
+    A["React Frontend<br/>Vite + React Router"] --> B["Express API<br/>REST endpoints + middleware"]
+    B --> C["Better Auth<br/>sessions + email/password auth"]
+    B --> D["Prisma ORM"]
+    D --> E["PostgreSQL"]
+    B -. "infrastructure" .-> F["AWS S3"]
+```
+
+- The frontend is a React single-page app served separately from the backend.
+- The backend is an Express API that handles HTTP routing, validation, auth integration, and domain logic.
+- Better Auth manages session and credential flows, while application-level authorization is built on top of it.
+- Prisma is the data access layer between the backend and PostgreSQL.
+- AWS storage is the infrastructure for video storage and retrieval.
 
 ## User Roles
 
 | Role | Access |
-|---|---|
-| Caregiver | Upload and view their own videos only |
-| Clinical Reviewer | Stream, annotate, clip, and note all videos |
-| Site Coordinator | Manage caregiver accounts and videos within their site |
-| System Administrator | Full system access, manage all accounts and audit logs |
+| --- | --- |
+| Caregiver | Upload and view only their own videos |
+| Clinical Reviewer | Review videos, add notes, and participate in clinician workflows |
+| Site Coordinator | Manage users and workflows within their site scope |
+| System Administrator | Global administrative access across the system |
 
----
+## Key Libraries
 
-## AWS Deployment
+Notable libraries currently used:
 
-```
-Users → AWS Amplify (Frontend SPA)
-               ↓ API calls
-        AWS App Runner (Go Backend)
-               ↓
-          AWS RDS (PostgreSQL)
-               ↓
-          AWS S3 (Video Storage)
-```
+- `react-router` for client-side routing, route loaders, and frontend navigation structure
+- `better-auth` for authentication and session handling
+- `prisma` and `@prisma/client` for the database layer
+- `zod` for request validation and schema parsing
+- `@base-ui/react` for UI primitives
+- `mediabunny` for frontend video-processing utilities
+- `vitest`, `@testing-library/react`, and `supertest` for testing
 
-Refer to the deployment sections in each service README for full instructions.
+## Testing
+
+This repo includes both frontend and backend tests, with the backend test setup being more fully documented in [backend/README.md](./backend/README.md).
+
+Common commands:
+
+- `frontend`: `npm test`
+- `backend`: `npm test`
+- `backend`: `npm run test:unit`
+- `backend`: `npm run test:http`
+- `backend`: `npm run test:coverage`
+
+At a high level:
+
+- frontend tests cover UI behavior and feature-level components
+- backend tests cover request validation, routing behavior, and service-layer logic
+
+## Screenshots / Demo
+
+To be added.
+
+## Additional Service Docs
+
+- [`frontend/README.md`](./frontend/README.md)
+- [`backend/README.md`](./backend/README.md)

@@ -18,7 +18,10 @@
     "paths": {
       "@/*": [
         "./src/*"
-      ]
+      ],
+      "@shared-types/*": [
+        "./types/*"
+      ],
     },
     "rootDirs": [
       ".",
@@ -40,6 +43,7 @@
     "noUncheckedSideEffectImports": true
   },
   "include": [
-    "src"
-  ]
+    "src",
+    "../shared"
+, "types"  ]
 }

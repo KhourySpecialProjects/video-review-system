@@ -1,0 +1,22 @@
+$kind: http-request
+name: PUT update video
+description: |-
+  Update video metadata or status. At least one field must be provided.
+  Valid status values: UPLOADING, UPLOADED, FAILED.
+  Returns the updated video record.
+method: PUT
+url: '{{baseUrl}}/domain/videos/{{videoId}}'
+order: 10000
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Cookie
+    value: '{{sessionCookie}}'
+body:
+  type: json
+  content: |-
+    {
+      "status": "UPLOADED",
+      "durationSeconds": 180,
+      "takenAt": "2026-04-09T12:00:00.000Z"
+    }

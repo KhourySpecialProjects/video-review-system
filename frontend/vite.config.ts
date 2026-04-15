@@ -16,6 +16,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@shared": path.resolve(__dirname, "../shared"),
     },
   },
   server: {
@@ -25,9 +26,18 @@ export default defineConfig({
       'Cross-Origin-Embedder-Policy': 'require-corp',
     },
     proxy: {
-      // Forward /api/* to the Go backend during local development
+      // Forward /api/auth/* to the Express backend (Better Auth)
+      '/api/auth': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+      // Forward remaining /api/* to the Go backend during local development
       '/api': {
         target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/domain': {
+        target: 'http://localhost:3000',
         changeOrigin: true,
       },
     },

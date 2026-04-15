@@ -1,0 +1,9 @@
+$kind: http-request
+name: DELETE annotation
+description: Delete an annotation by ID. Returns 204 No Content. 404 if not found.
+method: DELETE
+url: '{{baseUrl}}/domain/annotations/{{annotationId}}'
+order: 5000
+headers:
+  - key: Cookie
+    value: '{{sessionCookie}}'
