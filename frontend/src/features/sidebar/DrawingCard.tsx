@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { PenLine, Circle as CircleIcon, Square, Clock } from "lucide-react";
+import { PenLine, Circle as CircleIcon, Square, Clock, Eraser } from "lucide-react";
 import { SidebarCard } from "./SidebarCard";
 import { Input } from "@/components/ui/input";
 import { formatDuration } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 
-export type DrawingToolType = "freehand" | "circle" | "rectangle";
+export type DrawingToolType = "freehand" | "circle" | "rectangle" | "eraser";
 
 export interface DrawingCardProps {
     /** Unique identifier for the drawing */
@@ -30,12 +30,14 @@ const toolIcons: Record<DrawingToolType, React.ElementType> = {
     freehand: PenLine,
     circle: CircleIcon,
     rectangle: Square,
+    eraser: Eraser,
 };
 
 const toolLabels: Record<DrawingToolType, string> = {
     freehand: "Freehand Stroke",
     circle: "Circle",
     rectangle: "Rectangle",
+    eraser: "Eraser",
 };
 
 /**

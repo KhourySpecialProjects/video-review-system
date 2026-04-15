@@ -21,7 +21,7 @@ export const router = createBrowserRouter([
     {
         path: "/",
         element: <Root />,
-        loader: authGuardLoader,
+        //    loader: authGuardLoader,
         children: [
             {
                 element: <Home />,

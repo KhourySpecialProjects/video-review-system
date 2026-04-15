@@ -48,6 +48,16 @@ export function annotationReducer(
                 history,
             };
         }
+        case "UPDATE": {
+            const history = [
+                ...state.history,
+                state.annotations,
+            ].slice(-MAX_HISTORY);
+            return {
+                annotations: state.annotations.map((a) => a.id === action.id ? { ...a, ...action.updates } as Annotation : a),
+                history,
+            };
+        }
         case "UNDO": {
             if (state.history.length === 0) return state;
             const previous = state.history[state.history.length - 1];
@@ -127,6 +137,11 @@ export function useAnnotationState(
         [],
     );
 
+    const updateAnnotation = useCallback(
+        (id: string, updates: Partial<Annotation>) => dispatch({ type: "UPDATE", id, updates }),
+        [],
+    );
+
     const undo = useCallback(() => dispatch({ type: "UNDO" }), []);
 
     const clear = useCallback(() => dispatch({ type: "CLEAR" }), []);
@@ -140,6 +155,7 @@ export function useAnnotationState(
         annotations: state.annotations,
         addAnnotation,
         removeAnnotation,
+        updateAnnotation,
         undo,
         clear,
         init,

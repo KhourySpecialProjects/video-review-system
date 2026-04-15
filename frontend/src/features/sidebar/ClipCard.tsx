@@ -1,4 +1,6 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ArrowRight, Plus } from "lucide-react";
 import { formatDuration } from "@/lib/format";
 import { SidebarCard } from "./SidebarCard";
@@ -16,11 +18,14 @@ export interface ClipCardProps {
     /** Called when the user clicks the Jump button to seek to the clip's start time. */
     onJumpStart: () => void;
     /** Called when the user confirms editing the clip. */
-    onEdit: () => void;
+    /** Optional fallback callback when the user clicks edit if custom action is needed */
+    onEdit?: () => void;
     /** Called when the user confirms deleting the clip. */
     onDelete: () => void;
     /** Called when the user clicks "Add to sequence". */
     onAddToSequence?: () => void;
+    /** Called when a user hits 'Save' effectively committing edits to title or time boundaries */
+    onUpdateClip?: (updates: { title?: string; startMs?: number; endMs?: number }) => void;
 }
 
 /**
@@ -37,22 +42,69 @@ export function ClipCard({
     onEdit,
     onDelete,
     onAddToSequence,
+    onUpdateClip,
 }: ClipCardProps) {
-    const startTime = formatDuration(Math.max(0, startMs) / 1000);
-    const endTime = formatDuration(Math.max(0, endMs) / 1000);
-    const duration = formatDuration(Math.max(0, endMs - startMs) / 1000);
+    const [isEditing, setIsEditing] = useState(false);
+    const [draftTitle, setDraftTitle] = useState(title);
+    const [draftStart, setDraftStart] = useState(startMs);
+    const [draftEnd, setDraftEnd] = useState(endMs);
+
+    // Sync if parent overrides
+    useEffect(() => {
+        if (!isEditing) {
+            setDraftTitle(title);
+            setDraftStart(startMs);
+            setDraftEnd(endMs);
+        }
+    }, [title, startMs, endMs, isEditing]);
+
+    const handleEditToggle = () => {
+        setIsEditing(true);
+        if (onEdit) onEdit();
+    };
+
+    const handleSave = () => {
+        setIsEditing(false);
+        if (onUpdateClip) {
+            onUpdateClip({ title: draftTitle, startMs: draftStart, endMs: draftEnd });
+        }
+    };
+
+    const activeStartMs = isEditing ? draftStart : startMs;
+    const activeEndMs = isEditing ? draftEnd : endMs;
+
+    // By enforcing Flooring onto the boundary seconds BEFORE computing duration, 
+    // we guarantee the mathematical difference perfectly aligns with what's visibly printed on the UI.
+    const startSecs = Math.floor(Math.max(0, activeStartMs) / 1000);
+    const endSecs = Math.floor(Math.max(0, activeEndMs) / 1000);
+    const durationSecs = Math.max(0, endSecs - startSecs);
+
+    const startTime = formatDuration(startSecs);
+    const endTime = formatDuration(endSecs);
+    const duration = formatDuration(durationSecs);
 
     return (
         <SidebarCard
             className="overflow-hidden bg-card text-card-foreground border-l-4"
             style={{ borderLeftColor: color }}
+            isEditing={isEditing}
+            onSave={handleSave}
+            onCancelEdit={() => setIsEditing(false)}
             title={
-                <span className="leading-tight tracking-tight line-clamp-2 wrap-break-word mr-2" title={title}>
-                    {title}
-                </span>
+                isEditing ? (
+                    <Input 
+                        value={draftTitle} 
+                        onChange={(e) => setDraftTitle(e.target.value)} 
+                        className="text-sm font-medium h-7 w-full mr-2" 
+                    />
+                ) : (
+                    <span className="leading-tight tracking-tight line-clamp-2 wrap-break-word mr-2" title={title}>
+                        {title}
+                    </span>
+                )
             }
             onPlay={onJumpStart}
-            onEdit={onEdit}
+            onEdit={handleEditToggle}
             onDelete={onDelete}
             content={
                 <div className="flex flex-col gap-4">
@@ -60,12 +112,26 @@ export function ClipCard({
                         <span className="text-sm font-medium" style={{ color }}>{duration}</span>
                     </div>
 
-                    <div className="flex flex-col gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                            <span>{startTime}</span>
-                            <ArrowRight className="h-4 w-4" />
-                            <span>{endTime}</span>
-                        </div>
+                    <div className="flex flex-col gap-4 text-sm text-muted-foreground mt-2">
+                        {isEditing ? (
+                            <div className="flex items-center gap-2 w-full justify-between">
+                                <div className="flex items-center gap-1">
+                                    <Input type="number" value={draftStart} onChange={e => setDraftStart(Number(e.target.value))} className="h-7 w-[70px] px-2 text-xs" />
+                                    <span className="text-[10px]">ms</span>
+                                </div>
+                                <ArrowRight className="h-4 w-4 shrink-0 mx-1" />
+                                <div className="flex items-center gap-1">
+                                    <Input type="number" value={draftEnd} onChange={e => setDraftEnd(Number(e.target.value))} className="h-7 w-[70px] px-2 text-xs" />
+                                    <span className="text-[10px]">ms</span>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2">
+                                <span>{startTime}</span>
+                                <ArrowRight className="h-4 w-4" />
+                                <span>{endTime}</span>
+                            </div>
+                        )}
 
                         {onAddToSequence && (
                             <div className="flex items-center pt-2">
