@@ -45,12 +45,18 @@ const { prismaMock, authMock } = vi.hoisted(() => {
   };
 });
 
+const sendInviteEmailMock = vi.hoisted(() => vi.fn());
+
 vi.mock("../../lib/prisma.js", () => ({
   default: prismaMock,
 }));
 
 vi.mock("../../lib/auth.js", () => ({
   auth: authMock.auth,
+}));
+
+vi.mock("../../lib/ses.js", () => ({
+  sendInviteEmail: sendInviteEmailMock,
 }));
 
 import {
@@ -62,6 +68,7 @@ describe("auth.service", () => {
   beforeEach(() => {
     resetAuthPrismaMock(prismaMock);
     resetAuthMock(authMock);
+    sendInviteEmailMock.mockReset();
 
     // Input: auth.service.ts uses Prisma's callback transaction form.
     // Expected: the unit test routes that callback back into the same hoisted
@@ -104,6 +111,8 @@ describe("auth.service", () => {
     );
     expect(result).toEqual({
       id: invitation.id,
+      createdAt: invitation.createdAt,
+      expiresAt: invitation.expiresAt,
       token: expect.any(String),
     });
   });
@@ -123,8 +132,9 @@ describe("auth.service", () => {
       const result = await createInvite(makeCreateInviteInput());
       const persistedInvite = prismaMock.invitation.create.mock.calls[0][0].data;
 
+      expect(result.token).toBeDefined();
       expect(persistedInvite.tokenHash).toBe(
-        crypto.createHash("sha256").update(result.token).digest("hex"),
+        crypto.createHash("sha256").update(result.token!).digest("hex"),
       );
       expect(persistedInvite.expiresAt).toEqual(
         new Date(now.getTime() + 24 * 60 * 60 * 1000),
@@ -132,6 +142,23 @@ describe("auth.service", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("sends an invite email with the normalized email and token", async () => {
+    // Input: createInvite(...) succeeds with a mixed-case email.
+    // Expected: sendInviteEmail is called with the normalized email and the
+    // generated token.
+    const invitation = makeInvitation();
+    prismaMock.invitation.create.mockResolvedValue(invitation);
+
+    await createInvite(
+      makeCreateInviteInput({ email: "Invitee@Example.com" }),
+    );
+
+    expect(sendInviteEmailMock).toHaveBeenCalledWith(
+      "invitee@example.com",
+      expect.any(String),
+    );
   });
 
   it("does not return or log the activation token in production", async () => {
@@ -145,9 +172,13 @@ describe("auth.service", () => {
     prismaMock.invitation.create.mockResolvedValue(invitation);
 
     try {
-      await expect(createInvite(makeCreateInviteInput())).resolves.toEqual({
+      const result = await createInvite(makeCreateInviteInput());
+      expect(result).toEqual({
         id: invitation.id,
+        createdAt: invitation.createdAt,
+        expiresAt: invitation.expiresAt,
       });
+      expect(result).not.toHaveProperty("token");
       expect(console.log).not.toHaveBeenCalled();
     } finally {
       process.env.NODE_ENV = originalNodeEnv;
