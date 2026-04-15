@@ -1,3 +1,5 @@
+import { apiFetch } from "@/lib/api"
+
 const PART_SIZE = 10 * 1024 * 1024 // 10 MB — must match backend
 
 type InitiateUploadResponse = {
@@ -67,7 +69,7 @@ async function initiateUpload(metadata: {
   takenAt: string
   contentType: string
 }): Promise<InitiateUploadResponse> {
-  const res = await fetch("/domain/videos/upload", {
+  const res = await apiFetch("/videos/upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(metadata),
@@ -110,7 +112,7 @@ async function uploadPart(url: string, body: Blob): Promise<string> {
  * @param parts - Array of { partNumber, etag } for all uploaded parts
  */
 async function completeUpload(videoId: string, parts: UploadedPart[]): Promise<void> {
-  const res = await fetch(`/domain/videos/${videoId}/complete-upload`, {
+  const res = await apiFetch(`/videos/${videoId}/complete-upload`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ parts }),
@@ -181,7 +183,7 @@ export async function uploadVideo(
  * @param videoId - The video uuid to cancel
  */
 export async function cancelUpload(videoId: string): Promise<void> {
-  const res = await fetch(`/domain/videos/${videoId}/cancel-upload`, {
+  const res = await apiFetch(`/videos/${videoId}/cancel-upload`, {
     method: "POST",
   })
 
@@ -206,7 +208,7 @@ export async function resumeUpload(
   file: Blob,
   onProgress?: (percent: number) => void
 ): Promise<string> {
-  const statusRes = await fetch(`/domain/videos/${videoId}/upload-status`)
+  const statusRes = await apiFetch(`/videos/${videoId}/upload-status`)
   if (!statusRes.ok) {
     const body = await statusRes.json().catch(() => null)
     throw new Error(body?.message ?? `Failed to fetch upload status (${statusRes.status})`)

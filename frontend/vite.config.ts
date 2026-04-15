@@ -13,9 +13,11 @@ export default defineConfig({
       },
     }),
     tailwindcss(), basicSsl()],
+  envDir: path.resolve(__dirname, ".."),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@shared-types": path.resolve(__dirname, "./types"),
       "@shared": path.resolve(__dirname, "../shared"),
     },
   },
@@ -33,11 +35,7 @@ export default defineConfig({
       },
       // Forward remaining /api/* to the Go backend during local development
       '/api': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-      },
-      '/domain': {
-        target: 'http://localhost:3000',
+        target: process.env.NODE_ENV == 'production' ? process.env.API_BASE_URL : 'http://localhost:3000',
         changeOrigin: true,
       },
     },
