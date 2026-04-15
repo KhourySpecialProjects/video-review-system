@@ -11,8 +11,13 @@ import {
   listUserPermissions,
   listUsers,
   resolvePermissionScopeAccess,
+  updateUserStatus,
 } from "./users.service.js";
-import { createUserPermissionSchema, listUsersQuerySchema } from "./users.types.js";
+import {
+  createUserPermissionSchema,
+  listUsersQuerySchema,
+  updateUserStatusSchema,
+} from "./users.types.js";
 
 const router = Router();
 
@@ -205,6 +210,34 @@ router.delete("/:userId/permissions/:permissionId", async (req, res) => {
 
   await deleteUserPermission(req.params.userId, req.params.permissionId);
   res.status(204).send();
+});
+
+/**
+ * PATCH /domain/users/:userId/status - deactivate or reactivate one user.
+ */
+router.patch("/:userId/status", async (req, res) => {
+  const actor = await getActor(req.authSession.user.id);
+
+  if (actor.role !== "SYSADMIN" && actor.role !== "SITE_COORDINATOR") {
+    throw AppError.forbidden();
+  }
+
+  const targetUser = await getUserSiteContext(req.params.userId);
+
+  if (actor.role === "SITE_COORDINATOR" && targetUser.siteId !== actor.siteId) {
+    throw AppError.forbidden();
+  }
+
+  const parsed = updateUserStatusSchema.safeParse({
+    isDeactivated: req.body.isDeactivated,
+  });
+
+  if (!parsed.success) {
+    throw AppError.badRequest(parsed.error.issues[0].message);
+  }
+
+  const result = await updateUserStatus(req.params.userId, parsed.data);
+  res.json(result);
 });
 
 export default router;

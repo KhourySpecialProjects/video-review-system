@@ -25,6 +25,7 @@ const { authMock, prismaMock, usersServiceMock } = vi.hoisted(() => ({
     createUserPermission: vi.fn(),
     getUserPermission: vi.fn(),
     deleteUserPermission: vi.fn(),
+    updateUserStatus: vi.fn(),
   },
 }));
 
@@ -658,6 +659,138 @@ describe("users.router", () => {
       status: "error",
       statusCode: 404,
       message: "User permission not found",
+    });
+  });
+
+  // ========= PATCH /domain/users/:userId/status =========
+
+  it("PATCH /domain/users/:userId/status updates deactivation status for a sysadmin", async () => {
+    // Input: PATCH a valid status body as a sysadmin.
+    // Expected: the route returns the updated user status.
+    mockSession();
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "actor-1",
+      role: "SYSADMIN",
+      siteId: "11111111-1111-1111-8111-111111111111",
+    });
+    usersServiceMock.getUserSiteContext.mockResolvedValue({
+      id: "user-1",
+      siteId: "22222222-2222-2222-8222-222222222222",
+    });
+    usersServiceMock.updateUserStatus.mockResolvedValue({
+      id: "user-1",
+      isDeactivated: true,
+    });
+
+    const response = await request(app)
+      .patch("/domain/users/user-1/status")
+      .send({ isDeactivated: true });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      id: "user-1",
+      isDeactivated: true,
+    });
+    expect(usersServiceMock.updateUserStatus).toHaveBeenCalledWith("user-1", {
+      isDeactivated: true,
+    });
+  });
+
+  it("PATCH /domain/users/:userId/status allows a same-site coordinator", async () => {
+    // Input: PATCH status for a user in the coordinator's site.
+    // Expected: the route allows the change and returns the updated status.
+    mockSession();
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "actor-1",
+      role: "SITE_COORDINATOR",
+      siteId: "11111111-1111-1111-8111-111111111111",
+    });
+    usersServiceMock.getUserSiteContext.mockResolvedValue({
+      id: "user-1",
+      siteId: "11111111-1111-1111-8111-111111111111",
+    });
+    usersServiceMock.updateUserStatus.mockResolvedValue({
+      id: "user-1",
+      isDeactivated: false,
+    });
+
+    const response = await request(app)
+      .patch("/domain/users/user-1/status")
+      .send({ isDeactivated: false });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      id: "user-1",
+      isDeactivated: false,
+    });
+  });
+
+  it("PATCH /domain/users/:userId/status returns 400 for an invalid body", async () => {
+    // Input: PATCH status without a boolean isDeactivated value.
+    // Expected: request validation fails before the service is called.
+    mockSession();
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "actor-1",
+      role: "SYSADMIN",
+      siteId: "11111111-1111-1111-8111-111111111111",
+    });
+    usersServiceMock.getUserSiteContext.mockResolvedValue({
+      id: "user-1",
+      siteId: "22222222-2222-2222-8222-222222222222",
+    });
+
+    const response = await request(app)
+      .patch("/domain/users/user-1/status")
+      .send({ isDeactivated: "yes" });
+
+    expect(response.status).toBe(400);
+    expect(usersServiceMock.updateUserStatus).not.toHaveBeenCalled();
+  });
+
+  it("PATCH /domain/users/:userId/status returns 403 for a coordinator outside the target site", async () => {
+    // Input: PATCH status for a user outside the coordinator's site.
+    // Expected: the route rejects the request before updating status.
+    mockSession();
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "actor-1",
+      role: "SITE_COORDINATOR",
+      siteId: "11111111-1111-1111-8111-111111111111",
+    });
+    usersServiceMock.getUserSiteContext.mockResolvedValue({
+      id: "user-1",
+      siteId: "22222222-2222-2222-8222-222222222222",
+    });
+
+    const response = await request(app)
+      .patch("/domain/users/user-1/status")
+      .send({ isDeactivated: true });
+
+    expect(response.status).toBe(403);
+    expect(usersServiceMock.updateUserStatus).not.toHaveBeenCalled();
+  });
+
+  it("PATCH /domain/users/:userId/status returns 404 when the user does not exist", async () => {
+    // Input: PATCH status for a missing user.
+    // Expected: the route returns the user not-found error.
+    mockSession();
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "actor-1",
+      role: "SYSADMIN",
+      siteId: "11111111-1111-1111-8111-111111111111",
+    });
+    usersServiceMock.getUserSiteContext.mockRejectedValue(
+      AppError.notFound("User not found"),
+    );
+
+    const response = await request(app)
+      .patch("/domain/users/missing-user/status")
+      .send({ isDeactivated: true });
+
+    expect(response.status).toBe(404);
+    expect(response.body).toMatchObject({
+      status: "error",
+      statusCode: 404,
+      message: "User not found",
     });
   });
 });

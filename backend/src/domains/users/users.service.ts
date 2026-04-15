@@ -6,6 +6,8 @@ import type {
   ListUserPermissionsResponse,
   ListUsersQuery,
   ListUsersResponse,
+  UpdateUserStatusInput,
+  UpdateUserStatusResponse,
   UserDetailResponse,
   UserPermissionItem,
 } from "./users.types.js";
@@ -377,5 +379,31 @@ export async function deleteUserPermission(
 
   await prisma.userPermission.delete({
     where: { id: permissionId },
+  });
+}
+
+/**
+ * Updates a user's deactivation status without deleting the user.
+ *
+ * @param userId - Target user ID.
+ * @param input - Requested deactivation status.
+ * @returns User ID and updated deactivation flag.
+ * @throws {AppError} If the user does not exist.
+ */
+export async function updateUserStatus(
+  userId: string,
+  input: UpdateUserStatusInput,
+): Promise<UpdateUserStatusResponse> {
+  await getUserSiteContext(userId);
+
+  return prisma.user.update({
+    where: { id: userId },
+    data: {
+      isDeactivated: input.isDeactivated,
+    },
+    select: {
+      id: true,
+      isDeactivated: true,
+    },
   });
 }

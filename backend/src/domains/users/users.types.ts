@@ -72,6 +72,10 @@ export const createUserPermissionSchema = z.object({
   videoId: z.uuid("Invalid video ID").nullable(),
 });
 
+export const updateUserStatusSchema = z.object({
+  isDeactivated: z.boolean(),
+});
+
 /** Response shape returned by the list user permissions endpoint. */
 export type ListUserPermissionsResponse = {
   userPermissions: UserPermissionItem[];
@@ -79,3 +83,9 @@ export type ListUserPermissionsResponse = {
 
 export type CreateUserPermissionInput = z.infer<typeof createUserPermissionSchema>;
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
+export type UpdateUserStatusInput = z.infer<typeof updateUserStatusSchema>;
+
+export type UpdateUserStatusResponse = {
+  id: string;
+  isDeactivated: boolean;
+};
