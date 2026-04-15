@@ -185,8 +185,18 @@ export async function getManageableSiteIds(
       for (const siteId of scopeAccess.siteIds) {
         manageableSiteIds.add(siteId);
       }
-    } catch {
-      // Ignore stale or invalid admin permission rows when deriving management scope.
+    } catch (error) {
+      if (
+        error instanceof AppError &&
+        error.statusCode === 400 &&
+        error.message === "Invalid permission scope"
+      ) {
+        // Ignore stale or invalid admin permission rows when deriving
+        // management scope.
+        continue;
+      }
+
+      throw error;
     }
   }
 
