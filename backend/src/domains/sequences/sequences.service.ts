@@ -98,6 +98,9 @@ export async function addClipToSequence(sequenceId: string, input: AddClipToSequ
   if (!clip) throw AppError.notFound("Clip not found");
   if (existing) throw AppError.conflict("Clip is already in this sequence");
 
+  // ensure the clip belongs to the same video, site, and study as the sequence
+  assertClipMatchesSequence(clip, sequence);
+
   return prisma.sequenceItem.create({
     data: {
       clipId: input.clipId,
@@ -191,4 +194,32 @@ export async function deleteSequence(sequenceId: string) {
   await prisma.stitchedSequence.delete({
     where: { id: sequenceId },
   });
+}
+
+/**
+ * Validates that a clip belongs to the same video, site, and study as the
+ * target sequence. Throws 400 if there's a mismatch.
+ *
+ * Both stitched sequences and video clips carry studyId, siteId, and a
+ * video reference (videoId on sequence, sourceVideoId on clip), so this
+ * is a direct field comparison.
+ *
+ * @param clip     - The video clip to validate
+ * @param sequence - The stitched sequence the clip is being added to
+ * 
+ * @throws {AppError} with 400 status if any of the three fields don't match
+ */
+function assertClipMatchesSequence(
+  clip: { sourceVideoId: string; siteId: string; studyId: string },
+  sequence: { videoId: string; siteId: string; studyId: string }
+): void {
+  if (clip.sourceVideoId !== sequence.videoId) {
+    throw AppError.badRequest("Clip must belong to the same video as the sequence.");
+  }
+  if (clip.siteId !== sequence.siteId) {
+    throw AppError.badRequest("Clip must belong to the same site as the sequence.");
+  }
+  if (clip.studyId !== sequence.studyId) {
+    throw AppError.badRequest("Clip must belong to the same study as the sequence.");
+  }
 }
