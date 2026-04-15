@@ -6,11 +6,22 @@ import {
   makeCreateInviteInput,
 } from "../helpers/fixtures.js";
 
-const { authServiceMock } = vi.hoisted(() => ({
+const { authMock, authServiceMock } = vi.hoisted(() => ({
+  authMock: {
+    auth: {
+      api: {
+        getSession: vi.fn(),
+      },
+    },
+  },
   authServiceMock: {
     createInvite: vi.fn(),
     activateInvite: vi.fn(),
   },
+}));
+
+vi.mock("../../lib/auth.js", () => ({
+  auth: authMock.auth,
 }));
 
 vi.mock("../../domains/auth/auth.service.js", () => authServiceMock);
@@ -22,15 +33,21 @@ describe("auth.router", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    process.env.ADMIN_SECRET = "test-admin-secret";
   });
+
+  function mockSession(role: string = "SYSADMIN", userId = "actor-1") {
+    authMock.auth.api.getSession.mockResolvedValue({
+      user: { id: userId, role },
+    });
+  }
 
   // ========= POST /domain/auth/invite =========
 
-  it("POST /domain/auth/invite requires the admin-secret header", async () => {
-    // Input: POST /domain/auth/invite without the admin-secret header.
-    // Expected: the route returns status 401 and does not call the invite
-    // service.
+  it("POST /domain/auth/invite requires a valid session", async () => {
+    // Input: POST /domain/auth/invite without an authenticated session.
+    // Expected: requireSession blocks the request with 401.
+    authMock.auth.api.getSession.mockResolvedValue(null);
+
     const response = await request(app)
       .post("/domain/auth/invite")
       .send(makeCreateInviteInput());
@@ -44,35 +61,28 @@ describe("auth.router", () => {
     expect(authServiceMock.createInvite).not.toHaveBeenCalled();
   });
 
-  it("POST /domain/auth/invite fails closed when ADMIN_SECRET is not configured", async () => {
-    // Input: POST /domain/auth/invite when the server has no configured admin
-    // secret.
-    // Expected: the route still returns status 401 and does not call the invite
-    // service.
-    delete process.env.ADMIN_SECRET;
-    authServiceMock.createInvite.mockResolvedValue({
-      id: "invite-id",
-      token: "activation-token",
-    });
+  it("POST /domain/auth/invite forbids non-sysadmin users", async () => {
+    // Input: POST /domain/auth/invite as a site coordinator.
+    // Expected: the route returns 403 before calling the service.
+    mockSession("SITE_COORDINATOR");
 
     const response = await request(app)
       .post("/domain/auth/invite")
       .send(makeCreateInviteInput());
 
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(403);
     expect(response.body).toMatchObject({
       status: "error",
-      statusCode: 401,
-      message: "Unauthorized",
+      statusCode: 403,
+      message: "Forbidden",
     });
     expect(authServiceMock.createInvite).not.toHaveBeenCalled();
   });
 
   it("POST /domain/auth/invite validates the body and forwards it to the service", async () => {
-    // Input: POST /domain/auth/invite with a valid admin header and valid
-    // invite payload.
-    // Expected: the route calls the invite service with the same payload and
-    // returns the service result.
+    // Input: POST /domain/auth/invite as a sysadmin with a valid payload.
+    // Expected: the route calls the invite service with the same payload and returns the service result.
+    mockSession("SYSADMIN");
     const input = makeCreateInviteInput();
     const payload = { id: "invite-id", token: "activation-token" };
 
@@ -80,7 +90,6 @@ describe("auth.router", () => {
 
     const response = await request(app)
       .post("/domain/auth/invite")
-      .set("admin-secret", "test-admin-secret")
       .send(input);
 
     expect(response.status).toBe(200);
@@ -89,13 +98,11 @@ describe("auth.router", () => {
   });
 
   it("POST /domain/auth/invite rejects invalid payloads before the service is called", async () => {
-    // Input: POST /domain/auth/invite with valid admin header but invalid email
-    // and role values.
-    // Expected: the route returns status 400 and does not call the invite
-    // service.
+    // Input: POST /domain/auth/invite as a sysadmin with invalid email and role values.
+    // Expected: the route returns status 400 and does not call the invite service.
+    mockSession("SYSADMIN");
     const response = await request(app)
       .post("/domain/auth/invite")
-      .set("admin-secret", "test-admin-secret")
       .send({ email: "bad-email", role: "INVALID_ROLE" });
 
     expect(response.status).toBe(400);

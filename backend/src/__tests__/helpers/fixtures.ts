@@ -52,11 +52,11 @@ export function makeCreateVideoInput(
   overrides: Partial<CreateVideoInput> = {},
 ): CreateVideoInput {
   return {
-    patientId: "550e8400-e29b-41d4-a716-446655440000",
+    videoTitle: "Test video title",
+    videoDescription: "Test video description",
     videoName: "test-video.mp4",
     fileSize: 52428800,
     durationSeconds: 42,
-    createdAt: "2026-01-01T12:00:00.000Z",
     takenAt: "2026-01-01T12:00:00.000Z",
     contentType: "video/mp4",
     ...overrides,
