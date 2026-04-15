@@ -1,7 +1,7 @@
 import { createBrowserRouter } from "react-router";
+import SystemAdminDashboard from "./routes/SystemAdminDashboard";
 import Root from "./routes/root";
 import Home from "./routes/home";
-import SystemAdminDashboard from "./routes/SystemAdminDashboard";
 import VideoView from "./routes/video-view";
 import { AllVideos } from "./features/video/allVideos/AllVideos";
 import VideoReview from "./routes/VideoReview";
