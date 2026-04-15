@@ -86,51 +86,30 @@ export async function getSequence(sequenceId: string) {
  * @throws {AppError} 409 if the clip is already in this sequence
  */
 export async function addClipToSequence(sequenceId: string, input: AddClipToSequenceInput) {
-  const sequence = await prisma.stitchedSequence.findUnique({
-    where: { id: sequenceId },
-  });
+  const [sequence, clip, existing] = await Promise.all([
+    prisma.stitchedSequence.findUnique({ where: { id: sequenceId } }),
+    prisma.videoClip.findUnique({ where: { id: input.clipId } }),
+    prisma.sequenceItem.findUnique({
+      where: { clipId_sequenceId: { clipId: input.clipId, sequenceId } },
+    }),
+  ]);
 
-  if (!sequence) {
-    throw AppError.notFound("Sequence not found");
-  }
+  if (!sequence) throw AppError.notFound("Sequence not found");
+  if (!clip) throw AppError.notFound("Clip not found");
+  if (existing) throw AppError.conflict("Clip is already in this sequence");
 
-  const clip = await prisma.videoClip.findUnique({
-    where: { id: input.clipId },
-  });
-
-  if (!clip) {
-    throw AppError.notFound("Clip not found");
-  }
-
-  // Check if clip is already in this sequence
-  const existing = await prisma.sequenceItem.findUnique({
-    where: {
-      clipId_sequenceId: {
-        clipId: input.clipId,
-        sequenceId,
-      },
-    },
-  });
-
-  if (existing) {
-    throw AppError.conflict("Clip is already in this sequence");
-  }
-
-  const item = await prisma.sequenceItem.create({
+  return prisma.sequenceItem.create({
     data: {
       clipId: input.clipId,
       sequenceId,
       playOrder: input.playOrder,
     },
   });
-
-  return item;
 }
 
 /**
  * Reorders clips within a sequence by replacing all play order values.
- * Uses a transaction to ensure consistency — deletes existing items
- * and recreates them with the new ordering.
+ * Uses a transaction to ensure consistency
  *
  * @param sequenceId - uuid of the sequence to reorder
  * @param input - { items: [{ clipId, playOrder }] } defining the new order
@@ -148,21 +127,13 @@ export async function reorderSequenceClips(sequenceId: string, input: ReorderSeq
     throw AppError.notFound("Sequence not found");
   }
 
-  await prisma.$transaction(async (tx) => {
-    // Delete all existing items for this sequence
-    await tx.sequenceItem.deleteMany({
-      where: { sequenceId },
-    });
-
-    // Recreate with new play order values
-    await tx.sequenceItem.createMany({
-      data: input.items.map((item) => ({
-        clipId: item.clipId,
-        sequenceId,
-        playOrder: item.playOrder,
-      })),
-    });
-  });
+  // updates clips in the sequence to match the new play order
+  await prisma.$transaction(input.items.map((item) =>
+    prisma.sequenceItem.update({
+      where: { clipId_sequenceId: { clipId: item.clipId, sequenceId } },
+      data: { playOrder: item.playOrder },
+    })
+  ));
 
   // Return the updated sequence with ordered items
   return await getSequence(sequenceId);

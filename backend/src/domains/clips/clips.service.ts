@@ -31,6 +31,9 @@ export async function createClip(input: CreateClipInput, createdByUserId: string
   if (input.endTimeS > video.durationSeconds) {
     throw AppError.badRequest("End time exceeds video duration");
   }
+  if (input.startTimeS >= video.durationSeconds) {
+    throw AppError.badRequest("Start time exceeds video duration");
+  }
 
   const clip = await prisma.videoClip.create({
     data: {
@@ -80,10 +83,6 @@ export async function deleteClip(clipId: string) {
   const clip = await prisma.videoClip.findUnique({
     where: { id: clipId },
   });
-
-  if (!clip) {
-    throw AppError.notFound("Clip not found");
-  }
 
   await prisma.videoClip.delete({
     where: { id: clipId },
