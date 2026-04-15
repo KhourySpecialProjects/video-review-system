@@ -152,6 +152,23 @@ describe("ses", () => {
       }
     });
 
+    it("does not log the reset URL in production", async () => {
+      process.env.SES_FROM_EMAIL = "noreply@example.com";
+      const originalNodeEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = "production";
+
+      try {
+        await sendPasswordResetEmail(
+          "user@example.com",
+          "https://app.example.com/reset?token=abc",
+        );
+
+        expect(console.log).not.toHaveBeenCalled();
+      } finally {
+        process.env.NODE_ENV = originalNodeEnv;
+      }
+    });
+
     it("skips sending when SES_FROM_EMAIL is not configured", async () => {
       const original = process.env.SES_FROM_EMAIL;
       delete process.env.SES_FROM_EMAIL;

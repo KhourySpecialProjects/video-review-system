@@ -16,17 +16,17 @@ const router = Router();
  * @header admin-secret - Required. Must match ADMIN_SECRET env var.
  * @body {CreateInviteInput} - { email: string, role: Role }
  *
- * @returns {object} 200 - { id: string, token?: string }
+ * @returns {object} 200 - { id: string, createdAt: string, expiresAt: string, token?: string }
  * @throws {AppError} 400 - { error: string } on validation or service error
  * @throws {AppError} 401 - { error: "Unauthorized" } if admin-secret invalid
  *
  * @todo Replace admin-secret with authenticated admin route once real admins exist
  */
-router.post("/invite",  async (req, res) => {
+router.post("/invite", requireSession, async (req, res) => {
 
-  // if (req.authSession.user.role !== "SYSADMIN") {
-  //   throw AppError.forbidden();
-  // }
+  if (req.authSession.user.role !== "SYSADMIN") {
+    throw AppError.forbidden();
+  }
 
 
 

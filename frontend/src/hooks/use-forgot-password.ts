@@ -33,10 +33,14 @@ export async function clientAction({ request }: ActionFunctionArgs) {
     const { email } = result.data;
     const redirectTo = `${window.location.origin}/reset-password`;
 
-    await authClient.requestPasswordReset({
-        email,
-        redirectTo,
-    });
+    try {
+        await authClient.requestPasswordReset({
+            email,
+            redirectTo,
+        });
+    } catch {
+        // Swallow errors to prevent email enumeration
+    }
 
     // Always show success to avoid email enumeration
     return { success: true };
