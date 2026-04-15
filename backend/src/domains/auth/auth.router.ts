@@ -22,11 +22,11 @@ const router = Router();
  *
  * @todo Replace admin-secret with authenticated admin route once real admins exist
  */
-router.post("/invite", requireSession, async (req, res) => {
+router.post("/invite",  async (req, res) => {
 
-  if (req.authSession.user.role !== "SYSADMIN") {
-    throw AppError.forbidden();
-  }
+  // if (req.authSession.user.role !== "SYSADMIN") {
+  //   throw AppError.forbidden();
+  // }
 
 
 
