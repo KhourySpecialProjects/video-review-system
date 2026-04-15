@@ -146,8 +146,8 @@ export async function getUserSiteContext(userId: string) {
 /**
  * Resolves every site a coordinator can administer.
  *
- * The home site is always included. Additional sites come from explicit
- * `ADMIN` permission rows, including scoped study/video admin permissions.
+ * The home site is always included. Additional sites come only from global
+ * admin or explicit site-wide `ADMIN` permission rows.
  *
  * @param userId - Coordinator user ID.
  * @param homeSiteId - Coordinator home site ID.
@@ -162,42 +162,43 @@ export async function getManageableSiteIds(
     where: {
       userId,
       permissionLevel: "ADMIN",
+      OR: [
+        {
+          siteId: null,
+          studyId: null,
+          videoId: null,
+        },
+        {
+          siteId: { not: null },
+          studyId: null,
+          videoId: null,
+        },
+      ],
     },
     select: {
       siteId: true,
-      studyId: true,
-      videoId: true,
     },
   });
 
   for (const permission of adminPermissions) {
-    try {
-      const scopeAccess = await resolvePermissionScopeAccess(permission);
+    if (permission.siteId === null) {
+      const sites = await prisma.site.findMany({
+        select: { id: true },
+      });
 
-      if (scopeAccess.isGlobal) {
-        const sites = await prisma.site.findMany({
-          select: { id: true },
-        });
-
-        return sites.map((site) => site.id);
-      }
-
-      for (const siteId of scopeAccess.siteIds) {
-        manageableSiteIds.add(siteId);
-      }
-    } catch (error) {
-      if (
-        error instanceof AppError &&
-        error.statusCode === 400 &&
-        error.message === "Invalid permission scope"
-      ) {
-        // Ignore stale or invalid admin permission rows when deriving
-        // management scope.
-        continue;
-      }
-
-      throw error;
+      return sites.map((site) => site.id);
     }
+
+    const site = await prisma.site.findUnique({
+      where: { id: permission.siteId },
+      select: { id: true },
+    });
+
+    if (!site) {
+      continue;
+    }
+
+    manageableSiteIds.add(permission.siteId);
   }
 
   return [...manageableSiteIds];

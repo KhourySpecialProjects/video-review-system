@@ -47,17 +47,13 @@ describe("users.service", () => {
   });
 
   describe("getManageableSiteIds", () => {
-    it("ignores stale admin permissions with invalid scope", async () => {
+    it("adds explicit site-wide admin permissions and ignores stale site rows", async () => {
       prismaMock.userPermission.findMany.mockResolvedValue([
         {
           siteId: "11111111-1111-1111-8111-111111111111",
-          studyId: null,
-          videoId: null,
         },
         {
           siteId: "33333333-3333-3333-8333-333333333333",
-          studyId: null,
-          videoId: null,
         },
       ]);
       prismaMock.site.findUnique
@@ -75,15 +71,46 @@ describe("users.service", () => {
       ]);
     });
 
-    it("rethrows unexpected errors while resolving manageable sites", async () => {
+    it("returns all sites for a global admin permission", async () => {
       prismaMock.userPermission.findMany.mockResolvedValue([
         {
           siteId: null,
-          studyId: null,
-          videoId: null,
         },
       ]);
-      prismaMock.site.findMany.mockRejectedValue(new Error("Database unavailable"));
+      prismaMock.site.findMany.mockResolvedValue([
+        { id: "11111111-1111-1111-8111-111111111111" },
+        { id: "22222222-2222-2222-8222-222222222222" },
+      ]);
+
+      const result = await getManageableSiteIds(
+        "actor-1",
+        "33333333-3333-3333-8333-333333333333",
+      );
+
+      expect(result).toEqual([
+        "11111111-1111-1111-8111-111111111111",
+        "22222222-2222-2222-8222-222222222222",
+      ]);
+    });
+
+    it("does not treat narrower study or video admin as full site administration", async () => {
+      prismaMock.userPermission.findMany.mockResolvedValue([]);
+
+      const result = await getManageableSiteIds(
+        "actor-1",
+        "22222222-2222-2222-8222-222222222222",
+      );
+
+      expect(result).toEqual(["22222222-2222-2222-8222-222222222222"]);
+    });
+
+    it("rethrows unexpected errors while loading explicit site admin rows", async () => {
+      prismaMock.userPermission.findMany.mockResolvedValue([
+        {
+          siteId: "11111111-1111-1111-8111-111111111111",
+        },
+      ]);
+      prismaMock.site.findUnique.mockRejectedValue(new Error("Database unavailable"));
 
       await expect(
         getManageableSiteIds(
