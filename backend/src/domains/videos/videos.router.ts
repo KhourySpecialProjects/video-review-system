@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import * as videosService from "./videos.service.js";
 import { AppError } from "../../middleware/errors.js";
-import { requireInternalAuth, requireSession, authorize } from "../../middleware/auth.js";
+import { requireInternalAuth, requireSession } from "../../middleware/auth.js";
 import { createVideoSchema, completeUploadSchema, updateVideoSchema, searchVideosSchema, updateS3KeySchema } from "./videos.types.js";
 import prisma from "../../lib/prisma.js";
 
@@ -47,10 +47,6 @@ router.use(requireSession);
  */
 router.get(
   "/",
-  authorize({
-    action: "read",
-    resource: "video",
-  }),
   async (req, res) => {
     const parsedLimit = Number.parseInt(String(req.query.limit), 10);
     const parsedOffset = Number.parseInt(String(req.query.offset), 10);
@@ -128,18 +124,6 @@ router.get("/:id/detail", async (req, res) => {
  */
 router.get(
   "/:id/stream",
-  authorize({
-    action: "read",
-    resource: "video",
-    getResourceOwnerId: async(req) => {
-      const video = await prisma.video.findUnique({ where: { id: req.params.id as string } });
-      return video?.uploadedByUserId || null;
-    },
-    getStudyId: async (req) => {
-      const vs = await prisma.videoStudy.findFirst({ where: { videoId: req.params.id as string } });
-      return vs?.studyId ?? null;
-    }
-  }),
   async (req, res) => {
     const result = await videosService.getVideoStreamUrl(req.params.id as string);
     if (!result) {
@@ -178,10 +162,6 @@ router.get(
  */
 router.post(
   "/upload",
-  authorize({
-    action: "write",
-    resource: "video",
-  }), 
   async (req, res) => {
     const parsed = createVideoSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -284,19 +264,7 @@ router.post("/:id/cancel-upload", async (req, res) => {
  * @returns 404 if no video with that id exists (Prisma P2025 → errorHandler)
  */
 router.put(
-  "/:id",
-  authorize({
-    action: "write",
-    resource: "video",
-    getResourceOwnerId: async (req) => {
-      const video = await prisma.video.findUnique({ where: { id: req.params.id as string } });
-      return video?.uploadedByUserId ?? null;
-    },
-    getStudyId: async (req) => {
-      const vs = await prisma.videoStudy.findFirst({ where: { videoId: req.params.id as string } });
-      return vs?.studyId ?? null;
-    },
-  }), 
+  "/:id", 
   async (req, res) => {
     const parsed = updateVideoSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -323,19 +291,7 @@ router.put(
  * @returns 404 if no video with that id exists (Prisma P2025 → errorHandler)
  */
 router.delete(
-  "/:id",
-  authorize({
-    action: "delete",
-    resource: "video",
-    getResourceOwnerId: async (req) => {
-      const video = await prisma.video.findUnique({ where: { id: req.params.id as string } });
-      return video?.uploadedByUserId ?? null;
-    },
-    getStudyId: async (req) => {
-      const vs = await prisma.videoStudy.findFirst({ where: { videoId: req.params.id as string } });
-      return vs?.studyId ?? null;
-    },
-  }), 
+  "/:id", 
   async (req, res) => {
     // Prisma throws P2025 if not found — caught by errorHandler as 404
     await videosService.deleteVideo(req.params.id as string);

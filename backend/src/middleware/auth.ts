@@ -1,10 +1,19 @@
 import type { Request, Response, NextFunction } from "express";
 import { auth, type Session } from "../lib/auth.js";
-import prisma from "../lib/prisma.js";
 import { permission_level } from '../generated/prisma';
 import { AppError } from "./errors.js";
 import { fromNodeHeaders } from "better-auth/node";
 import type { user_role } from "../generated/prisma/client.js";
+
+// backend/src/middleware/authorization.ts
+// Express middleware wrappers around the core authorization logic
+
+import {
+  checkPermission,
+  getHighestPermission,
+  PERMISSION_RANK,
+  type ResourceContext,
+} from "../lib/auth.js";
 
 // ────────────────────────────────────────────────────────────
 // Extend Express Request to carry the authenticated user
@@ -76,112 +85,100 @@ export async function requireInternalAuth(req: Request, _res: Response, next: Ne
 }
 
 // ────────────────────────────────────────────────────────────
-// Layer 2: authorize
-// Role-based access control scoped to site, study, and video.
-//
-// Access model:
-//   SYSADMIN            → full access to everything
-//   SITE_COORDINATOR    → full governance over their site within their studies
-//   CLINICAL_REVIEWER   → read videos + create annotations/notes in their site & study
-//   CAREGIVER           → read, write, export their OWN videos in their site & study
+// Role gate
 // ────────────────────────────────────────────────────────────
 
-const PERMISSION_HIERARCHY: Record<permission_level, number> = {
-  READ: 1,
-  WRITE: 2,
-  EXPORT: 3,
-  ADMIN: 4,
-};
+/**
+ * Simple role check — throws 403 if user's role is not in the list.
+ */
+export function requireRole(...roles: user_role[]) {
+  return (req: Request, _res: Response, next: NextFunction) => {
+    const userRole = req.authSession.user.role as user_role;
+    if (!roles.includes(userRole)) {
+      throw AppError.forbidden("Your role does not have access to this resource.");
+    }
+    next();
+  };
+}
+
+// ────────────────────────────────────────────────────────────
+// Permission check (single resource)
+// ────────────────────────────────────────────────────────────
+
+type ContextResolver =
+  | ((req: Request) => Promise<ResourceContext[]>)
+  | ((req: Request) => ResourceContext[]);
 
 /**
- * Resolves the effective permission level a user has for a given resource.
+ * Middleware factory: checks that the user has at least `requiredLevel`
+ * permission for the resource resolved from the request.
  *
- * Checks grants from most-specific to least-specific:
- *   1. Exact video grant
- *   2. Study-wide grant (covers all videos in that study)
- *   3. Site-wide grant (covers all studies/videos in that site)
- *   4. Global grant (all NULLs)
- *
- * Returns the highest permission_level found across all matching rows,
- * or null if the user has no access.
+ * For CAREGIVER: delegates to `caregiverCheck` if provided, otherwise denies.
  */
-async function getEffectivePermission(
-  userId: string,
-  resource: {
-    videoId?: string;
-    studyId?: string;
-    siteId?: string;
-  }
-): Promise<permission_level | null> {
-  // Build an OR filter for every scope that could grant access.
-  // A row matches if it targets the exact resource OR is a wildcard
-  // that covers it.
-  const scopeFilters: any[] = [];
+export function requirePermission(
+  requiredLevel: permission_level,
+  resolveContexts: ContextResolver,
+  caregiverCheck?: (req: Request) => Promise<boolean>
+) {
+  return async (req: Request, _res: Response, next: NextFunction) => {
+    const { id: userId, role } = req.authSession.user;
 
-  // 1. Global grant (all NULLs) — always relevant
-  scopeFilters.push({
-    siteId: null,
-    studyId: null,
-    videoId: null,
-  });
+    if (role === "CAREGIVER") {
+      if (caregiverCheck && (await caregiverCheck(req))) return next();
+      throw AppError.forbidden();
+    }
 
-  // 2. Site-wide grant
-  if (resource.siteId) {
-    scopeFilters.push({
-      siteId: resource.siteId,
-      studyId: null,
-      videoId: null,
-    });
-  }
+    const contexts = await resolveContexts(req);
+    const allowed = await checkPermission(userId, role as user_role, requiredLevel, contexts);
+    if (!allowed) throw AppError.forbidden();
 
-  // 3. Study-wide grant
-  if (resource.studyId) {
-    scopeFilters.push({
-      siteId: null,
-      studyId: resource.studyId,
-      videoId: null,
-    });
-  }
+    next();
+  };
+}
 
-  // 4. Exact video grant
-  if (resource.videoId) {
-    scopeFilters.push({
-      siteId: null,
-      studyId: null,
-      videoId: resource.videoId,
-    });
-  }
+// ────────────────────────────────────────────────────────────
+// Permission + ownership check (mutations)
+// ────────────────────────────────────────────────────────────
 
-  // Queries all filters and finds the strongest permission level across them. 
-  // If no rows match, the user has no access.
-  const grants = await prisma.userPermission.findMany({
-    where: {
-      userId,
-      OR: scopeFilters,
-    },
-    select: { permissionLevel: true },
-  });
-
-  if (grants.length === 0) return null;
-
-  // Return the strongest grant
-  return grants.reduce((best, g) =>
-    PERMISSION_HIERARCHY[g.permissionLevel] > PERMISSION_HIERARCHY[best.permissionLevel]
-      ? g
-      : best
-  ).permissionLevel;
+interface OwnershipResolver {
+  resolveContexts: ContextResolver;
+  resolveOwnerId: (req: Request) => Promise<string | null>;
 }
 
 /**
- * Boolean check: does the user have at least `required` access
- * to the given resource?
+ * Middleware factory for PUT/DELETE on annotations, clips, sequences.
+ *
+ * - User needs at least WRITE for the scope.
+ * - If their highest matching level is WRITE (not ADMIN), they must
+ *   also be the resource owner.
+ * - ADMIN skips the ownership check.
  */
-async function canAccess(
-  userId: string,
-  resource: { videoId?: string; studyId?: string; siteId?: string },
-  required: permission_level
-): Promise<boolean> {
-  const effective = await getEffectivePermission(userId, resource);
-  if (!effective) return false;
-  return PERMISSION_HIERARCHY[effective] >= PERMISSION_HIERARCHY[required];
+export function requirePermissionWithOwnership(
+  requiredLevel: permission_level,
+  resolver: OwnershipResolver
+) {
+  return async (req: Request, _res: Response, next: NextFunction) => {
+    const { id: userId, role } = req.authSession.user;
+
+    if (role === "CAREGIVER") throw AppError.forbidden();
+
+    const contexts = await resolver.resolveContexts(req);
+
+    const allowed = await checkPermission(userId, role as user_role, requiredLevel, contexts);
+    if (!allowed) throw AppError.forbidden();
+
+    const highest = await getHighestPermission(userId, role as user_role, contexts);
+    if (!highest) throw AppError.forbidden();
+
+    // ADMIN can edit/delete anyone's resources
+    if (highest === "ADMIN") return next();
+
+    // WRITE users can only edit/delete their own
+    const ownerId = await resolver.resolveOwnerId(req);
+    if (ownerId !== userId) {
+      throw AppError.forbidden("You can only modify your own resources.");
+    }
+
+    next();
+  };
 }
