@@ -45,26 +45,21 @@ const PERMISSION_RANK: Record<permission_level, number> = {
  * Returns whether a permission row uses one of the supported scope shapes.
  *
  * Valid shapes:
- * - global: `{ siteId: null, studyId: null, videoId: null }`
- * - site-wide: `{ siteId: "site-uuid", studyId: null, videoId: null }`
- * - study-wide: `{ siteId: null, studyId: "study-uuid", videoId: null }`
- * - video-only: `{ siteId: null, studyId: null, videoId: "video-uuid" }`
- *
- * Invalid examples:
- * - `{ siteId: "site-uuid", studyId: "study-uuid", videoId: null }`
- * - `{ siteId: "site-uuid", studyId: null, videoId: "video-uuid" }`
- * - `{ siteId: null, studyId: "study-uuid", videoId: "video-uuid" }`
+ * - global:                                  `{ siteId: null, studyId: null, videoId: null }`
+ * - site-wide:                               `{ siteId: "site-uuid", studyId: null, videoId: null }`
+ * - study-wide:                              `{ siteId: null, studyId: "study-uuid", videoId: null }`
+ * - video-wide:                              `{ siteId: null, studyId: null, videoId: "video-uuid" }`
+ * - video within one study across all sites: `{ siteId: null, studyId: "study-uuid", videoId: "video-uuid" }`
+ * - study within one site:                   `{ siteId: "site-uuid", studyId: "study-uuid", videoId: null }`
+ * - video within one site:                   `{ siteId: "site-uuid", studyId: null, videoId: "video-uuid" }`
+ * - video within one study within one site:  `{ siteId: "site-uuid", studyId: "study-uuid", videoId: "video-uuid" }`
  *
  * @param row - Permission row to validate.
  * @returns `true` if the row shape is valid, otherwise `false`.
  */
 export function validatePermissionShape(row: PermissionRow): boolean {
-  const scopeAnchorCount =
-    Number(row.siteId !== null) +
-    Number(row.studyId !== null) +
-    Number(row.videoId !== null);
-
-  return scopeAnchorCount <= 1;
+  void row;
+  return true;
 }
 
 /**
@@ -78,7 +73,7 @@ export function validatePermissionShape(row: PermissionRow): boolean {
  */
 export function comparePermissionLevels(
   a: permission_level,
-  b: permission_level
+  b: permission_level,
 ): number {
   return PERMISSION_RANK[a] - PERMISSION_RANK[b];
 }
@@ -99,7 +94,7 @@ export function comparePermissionLevels(
  */
 export function matchesPermissionTarget(
   row: PermissionRow,
-  target: PermissionTarget
+  target: PermissionTarget,
 ): boolean {
   if (!validatePermissionShape(row)) {
     return false;
@@ -109,19 +104,23 @@ export function matchesPermissionTarget(
     return true;
   }
 
-  if (row.siteId !== null) {
-    return row.siteId === target.siteId;
+  if (row.siteId !== null && row.siteId !== target.siteId) {
+    return false;
   }
 
   if (row.studyId !== null) {
-    return target.studyId !== undefined && row.studyId === target.studyId;
+    if (target.studyId === undefined || row.studyId !== target.studyId) {
+      return false;
+    }
   }
 
   if (row.videoId !== null) {
-    return target.videoId !== undefined && row.videoId === target.videoId;
+    if (target.videoId === undefined || row.videoId !== target.videoId) {
+      return false;
+    }
   }
 
-  return false;
+  return true;
 }
 
 /**
@@ -135,7 +134,7 @@ export function matchesPermissionTarget(
  */
 export function resolvePermissionLevel(
   rows: PermissionRow[],
-  target: PermissionTarget
+  target: PermissionTarget,
 ): permission_level | null {
   let strongest: permission_level | null = null;
 
@@ -144,7 +143,10 @@ export function resolvePermissionLevel(
       continue;
     }
 
-    if (strongest === null || comparePermissionLevels(row.permissionLevel, strongest) > 0) {
+    if (
+      strongest === null ||
+      comparePermissionLevels(row.permissionLevel, strongest) > 0
+    ) {
       strongest = row.permissionLevel;
     }
   }

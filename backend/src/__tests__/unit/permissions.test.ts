@@ -10,10 +10,9 @@ import {
 describe("permissions", () => {
   // ========= validatePermissionShape =========
 
-  it("accepts the four supported permission row shapes", () => {
+  it("accepts all supported permission row shapes, including scoped combinations", () => {
     // Input: one row for each supported shape.
-    // Expected: validation returns true for global, site-wide, study-wide, and
-    // video-only rows.
+    // Expected: validation returns true for standalone scopes and site-bounded combinations.
     const rows: PermissionRow[] = [
       {
         siteId: null,
@@ -39,15 +38,6 @@ describe("permissions", () => {
         videoId: "video-a",
         permissionLevel: "READ",
       },
-    ];
-
-    expect(rows.every(validatePermissionShape)).toBe(true);
-  });
-
-  it("rejects mixed scope shapes", () => {
-    // Input: rows with more than one scope anchor set.
-    // Expected: validation returns false for each ambiguous shape.
-    const rows: PermissionRow[] = [
       {
         siteId: "site-a",
         studyId: "study-a",
@@ -74,7 +64,7 @@ describe("permissions", () => {
       },
     ];
 
-    expect(rows.every((row) => !validatePermissionShape(row))).toBe(true);
+    expect(rows.every(validatePermissionShape)).toBe(true);
   });
 
   // ========= comparePermissionLevels =========
@@ -153,6 +143,58 @@ describe("permissions", () => {
     })).toBe(false);
   });
 
+  it("matches site-bounded study permissions only within the same site and study", () => {
+    // Input: one row scoped to Study A within Site A and two video targets.
+    // Expected: the row matches only the target with both the same site and study.
+    const row: PermissionRow = {
+      siteId: "site-a",
+      studyId: "study-a",
+      videoId: null,
+      permissionLevel: "WRITE",
+    };
+
+    expect(matchesPermissionTarget(row, {
+      siteId: "site-a",
+      studyId: "study-a",
+      videoId: "video-a",
+    })).toBe(true);
+
+    expect(matchesPermissionTarget(row, {
+      siteId: "site-b",
+      studyId: "study-a",
+      videoId: "video-a",
+    })).toBe(false);
+  });
+
+  it("matches study-bounded video permissions across all sites", () => {
+    // Input: one row scoped to Video A within Study A and two video targets.
+    // Expected: the row matches any site as long as the study and video match.
+    const row: PermissionRow = {
+      siteId: null,
+      studyId: "study-a",
+      videoId: "video-a",
+      permissionLevel: "WRITE",
+    };
+
+    expect(matchesPermissionTarget(row, {
+      siteId: "site-a",
+      studyId: "study-a",
+      videoId: "video-a",
+    })).toBe(true);
+
+    expect(matchesPermissionTarget(row, {
+      siteId: "site-b",
+      studyId: "study-a",
+      videoId: "video-a",
+    })).toBe(true);
+
+    expect(matchesPermissionTarget(row, {
+      siteId: "site-a",
+      studyId: "study-b",
+      videoId: "video-a",
+    })).toBe(false);
+  });
+
   it("matches video-only permissions for the exact video only", () => {
     // Input: one video-only row and two video targets.
     // Expected: the row matches only the exact video ID.
@@ -176,13 +218,36 @@ describe("permissions", () => {
     })).toBe(false);
   });
 
-  it("never matches invalid permission row shapes", () => {
-    // Input: an invalid mixed-shape row and a video target.
-    // Expected: invalid rows are ignored by matching logic.
+  it("matches site-bounded video permissions only within the same site", () => {
+    // Input: one row scoped to Video A within Site A and two video targets.
+    // Expected: the row matches only the target with both the same site and video.
+    const row: PermissionRow = {
+      siteId: "site-a",
+      studyId: null,
+      videoId: "video-a",
+      permissionLevel: "READ",
+    };
+
+    expect(matchesPermissionTarget(row, {
+      siteId: "site-a",
+      studyId: "study-a",
+      videoId: "video-a",
+    })).toBe(true);
+
+    expect(matchesPermissionTarget(row, {
+      siteId: "site-b",
+      studyId: "study-a",
+      videoId: "video-a",
+    })).toBe(false);
+  });
+
+  it("matches fully scoped site, study, and video permissions exactly", () => {
+    // Input: one row scoped to Video A within Study A within Site A and two targets.
+    // Expected: the row matches only the exact site, study, and video combination.
     const row: PermissionRow = {
       siteId: "site-a",
       studyId: "study-a",
-      videoId: null,
+      videoId: "video-a",
       permissionLevel: "ADMIN",
     };
 
@@ -190,7 +255,36 @@ describe("permissions", () => {
       siteId: "site-a",
       studyId: "study-a",
       videoId: "video-a",
+    })).toBe(true);
+
+    expect(matchesPermissionTarget(row, {
+      siteId: "site-a",
+      studyId: "study-b",
+      videoId: "video-a",
     })).toBe(false);
+  });
+
+  it("matches a fully specified cross-site study + video row", () => {
+    // Input: a study + video row without site restriction and two targets.
+    // Expected: the row matches the same study/video combination across sites.
+    const row: PermissionRow = {
+      siteId: null,
+      studyId: "study-a",
+      videoId: "video-a",
+      permissionLevel: "ADMIN",
+    };
+
+    expect(matchesPermissionTarget(row, {
+      siteId: "site-a",
+      studyId: "study-a",
+      videoId: "video-a",
+    })).toBe(true);
+
+    expect(matchesPermissionTarget(row, {
+      siteId: "site-b",
+      studyId: "study-a",
+      videoId: "video-a",
+    })).toBe(true);
   });
 
   // ========= resolvePermissionLevel =========
@@ -248,15 +342,41 @@ describe("permissions", () => {
     expect(result).toBe("EXPORT");
   });
 
-  it("ignores invalid rows when resolving a target", () => {
-    // Input: one invalid stronger row and one valid weaker row.
-    // Expected: the invalid row is ignored and the valid row decides the
-    // result.
+  it("lets a more specific scoped combination override a weaker broader match", () => {
+    // Input: a site-wide READ row and a stronger site+study+video row for one target.
+    // Expected: the exact scoped row wins for that specific target.
     const rows: PermissionRow[] = [
       {
         siteId: "site-a",
-        studyId: "study-a",
+        studyId: null,
         videoId: null,
+        permissionLevel: "READ",
+      },
+      {
+        siteId: "site-a",
+        studyId: "study-a",
+        videoId: "video-a",
+        permissionLevel: "ADMIN",
+      },
+    ];
+
+    const result = resolvePermissionLevel(rows, {
+      siteId: "site-a",
+      studyId: "study-a",
+      videoId: "video-a",
+    });
+
+    expect(result).toBe("ADMIN");
+  });
+
+  it("resolves the strongest level when study + video scope also matches", () => {
+    // Input: one study+video row and one weaker video-wide row for the same target.
+    // Expected: the more specific stronger row wins.
+    const rows: PermissionRow[] = [
+      {
+        siteId: null,
+        studyId: "study-a",
+        videoId: "video-a",
         permissionLevel: "ADMIN",
       },
       {
@@ -273,6 +393,6 @@ describe("permissions", () => {
       videoId: "video-a",
     });
 
-    expect(result).toBe("READ");
+    expect(result).toBe("ADMIN");
   });
 });
