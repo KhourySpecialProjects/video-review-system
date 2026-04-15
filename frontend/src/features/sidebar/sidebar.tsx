@@ -6,7 +6,9 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ScrollArea } from "@/components/ui/scroll-area"
+
+import { ClipCard } from "./ClipCard"
+import { TimestampAnnotation } from "./TimestampAnnotation"
 
 /**
  * Interface defining the properties of a Clip Annotation.
@@ -14,9 +16,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 export interface ClipAnnotation {
   id: string
   title: string
-  duration: string
-  start: string
-  end: string
+  startMs: number
+  endMs: number
   /** The theme color applied to the clip's visual indicators (hex or rgba) */
   themeColor: string
 }
@@ -55,18 +56,16 @@ export interface AnnotationSidebarProps {
 const DUMMY_CLIPS: ClipAnnotation[] = [
   {
     id: "clip-1",
-    title: "Title",
-    duration: "0:41",
-    start: "0:38",
-    end: "1:19",
+    title: "Patient Response",
+    startMs: 38000,
+    endMs: 79000,
     themeColor: "#EF4444", // Red-like
   },
   {
     id: "clip-2",
-    title: "Title",
-    duration: "0:23",
-    start: "1:32",
-    end: "1:55",
+    title: "Hand Movement",
+    startMs: 92000,
+    endMs: 115000,
     themeColor: "#A855F7", // Purple-like
   },
 ]
@@ -103,15 +102,19 @@ export function AnnotationSidebar({
   return (
     <SidebarProvider
       defaultOpen={true}
+      className="min-h-0 h-full"
       style={{
-        "--sidebar-width": "350px",
+        "--sidebar-width": "100%",
+        "width": "100%",
+        "height": "100%",
       } as React.CSSProperties}
     >
-      <Sidebar side="right" className="border-l border-border bg-sidebar">
-        <Tabs defaultValue="clips" className="flex flex-col h-full w-full">
+      <Sidebar side="right" collapsible="none" className="border-l border-border bg-background w-full h-full">
+        <Tabs defaultValue="clips" className="flex flex-col h-full w-full overflow-hidden">
           {/* Top Navigation Tabs */}
-          <SidebarHeader className="p-3 border-b border-border">
-            <TabsList className="w-full grid grid-cols-3 bg-muted p-1 rounded-lg h-12">
+          <SidebarHeader className="p-4 pb-3 border-b border-border bg-background">
+            <h2 className="font-semibold text-lg mb-2 text-foreground">Annotations</h2>
+            <TabsList className="w-full grid grid-cols-3 bg-muted p-1 rounded-lg h-11">
               <TabsTrigger
                 value="clips"
                 className="rounded-md data-active:bg-background data-active:text-foreground data-active:shadow-sm text-muted-foreground h-full font-medium transition-all border border-transparent data-active:border-border"
@@ -135,7 +138,6 @@ export function AnnotationSidebar({
 
           {/* Scrollable Content Area */}
           <SidebarContent>
-            <ScrollArea className="h-full">
               <div className="p-4">
                 {/* Clips Tab Content */}
                 <TabsContent
@@ -144,9 +146,17 @@ export function AnnotationSidebar({
                 >
                   {clips.length > 0 ? (
                     clips.map((clip) => (
-                      <div key={clip.id} className="p-4 border rounded-xl bg-muted/50 text-muted-foreground text-sm flex items-center justify-center min-h-[100px]">
-                        Clip Card Placeholder - {clip.id}
-                      </div>
+                      <ClipCard
+                        key={clip.id}
+                        title={clip.title}
+                        startMs={clip.startMs}
+                        endMs={clip.endMs}
+                        color={clip.themeColor}
+                        onJumpStart={() => console.log("Jump to start:", clip.startMs)}
+                        onEdit={() => console.log("Edit clip:", clip.id)}
+                        onDelete={() => console.log("Delete clip:", clip.id)}
+                        onAddToSequence={() => console.log("Add to sequence:", clip.id)}
+                      />
                     ))
                   ) : (
                     <p className="text-sm text-muted-foreground text-center py-8">
@@ -162,9 +172,14 @@ export function AnnotationSidebar({
                 >
                   {notes.length > 0 ? (
                     notes.map((note) => (
-                      <div key={note.id} className="p-4 border rounded-xl bg-muted/50 text-muted-foreground text-sm flex items-center justify-center min-h-[100px]">
-                        Note Card Placeholder - {note.id}
-                      </div>
+                      <TimestampAnnotation
+                        key={note.id}
+                        timestamp={note.timestamp}
+                        comment={note.content}
+                        onNavigate={(ts) => console.log("Navigate to:", ts)}
+                        onEdit={(newComment) => console.log("Edit note:", note.id, newComment)}
+                        onDelete={() => console.log("Delete note:", note.id)}
+                      />
                     ))
                   ) : (
                     <p className="text-sm text-muted-foreground text-center py-8">
@@ -191,7 +206,6 @@ export function AnnotationSidebar({
                   )}
                 </TabsContent>
               </div>
-            </ScrollArea>
           </SidebarContent>
         </Tabs>
       </Sidebar>

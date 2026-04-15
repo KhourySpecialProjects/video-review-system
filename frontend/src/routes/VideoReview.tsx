@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/sidebar";
 import { ClipTimeline } from "@/features/video/clips/ClipTimeline";
 import { useClipTimeline } from "@/features/video/clips/useClipTimeline";
-import { TimestampAnnotation } from "@/features/sidebar/TimestampAnnotation";
+import { AnnotationSidebar } from "@/features/sidebar/sidebar";
 import { GeneralNotes } from "@/features/annotate/video-summary/comment/GeneralNotes";
 import { useGeneralNotes } from "@/features/annotate/video-summary/comment/useGeneralNotes";
 import { TagManager } from "@/features/annotate/video-summary/tags/TagManager";
@@ -161,23 +161,9 @@ export default function VideoReview() {
                     <ResizableHandle withHandle />
 
                     {/* Right sidebar — full height */}
-                    <ResizablePanel defaultSize="20%" minSize="15%">
-                        <div className="flex h-full flex-col gap-4 p-4 overflow-y-auto border-l bg-background">
-                            <h2 className="font-semibold text-lg mb-2">Annotations</h2>
-                            <TimestampAnnotation
-                                timestamp="01:23"
-                                comment="Seizure begins at this time."
-                                onNavigate={(ts) => console.log("Navigate to:", ts)}
-                                onEdit={(newComment) => console.log("Edit saved:", newComment)}
-                                onDelete={() => console.log("Delete clicked")}
-                            />
-                            <TimestampAnnotation
-                                timestamp="04:56"
-                                comment="Patient is experiencing confusion."
-                                onNavigate={(ts) => console.log("Navigate to:", ts)}
-                                onEdit={(newComment) => console.log("Edit saved:", newComment)}
-                                onDelete={() => console.log("Delete clicked")}
-                            />
+                    <ResizablePanel defaultSize="20%" minSize="15%" className="overflow-hidden bg-background">
+                        <div className="h-full w-full">
+                            <AnnotationSidebar />
                         </div>
                     </ResizablePanel>
                 </ResizablePanelGroup>
