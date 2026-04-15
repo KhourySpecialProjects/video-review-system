@@ -13,6 +13,7 @@ import {
 import { ClipTimeline } from "@/features/video/clips/ClipTimeline";
 import { useClipTimeline } from "@/features/video/clips/useClipTimeline";
 import { AnnotationSidebar } from "@/features/sidebar/sidebar";
+import { DrawingCard } from "@/features/sidebar/DrawingCard";
 import { GeneralNotes } from "@/features/annotate/video-summary/comment/GeneralNotes";
 import { useGeneralNotes } from "@/features/annotate/video-summary/comment/useGeneralNotes";
 import { TagManager } from "@/features/annotate/video-summary/tags/TagManager";
