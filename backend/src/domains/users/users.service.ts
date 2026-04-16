@@ -274,6 +274,10 @@ export async function listUserPermissions(
  * Resolves which site IDs are affected by a permission scope and validates that
  * any referenced site/study/video relationships actually exist.
  *
+ * TODO: Break this into smaller helpers or rewrite it entirely once permission
+ * scope handling stabilizes. It currently mixes scope-shape branching,
+ * relationship validation, and site-resolution logic in one place.
+ *
  * @param scope - Permission scope being checked or created.
  * @returns Whether the scope is global and which site IDs it covers.
  * @throws {AppError} If the scope references invalid or unrelated records.
