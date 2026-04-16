@@ -48,6 +48,7 @@ export function useKeyboardShortcuts({
 
         function handleKeyDown(e: KeyboardEvent) {
             if (isTyping(e)) return;
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
 
             const video = player.videoRef.current;
 

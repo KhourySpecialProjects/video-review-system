@@ -28,12 +28,14 @@ import { VideoMetadataSidebar } from "@/features/video/metadata/VideoMetadataSid
 import type { AnnotationTool, DrawingSettings } from "@/features/video/annotations/types";
 
 export default function VideoReview() {
-    const videoRef = useRef<HTMLVideoElement>(null);
     const videoContainerRef = useRef<HTMLDivElement>(null);
 
     const [videoDuration, setVideoDuration] = useState(0);
 
-    const timeline = useClipTimeline(videoDuration, videoRef, (clip) => {
+    const player = useVideoPlayer();
+    useKeyboardShortcuts({ player });
+
+    const timeline = useClipTimeline(videoDuration, player.videoRef, (clip) => {
         console.log("Clip created:", clip);
     });
 
@@ -42,8 +44,6 @@ export default function VideoReview() {
     const { tags, addTag, removeTag, editTag } = useTags();
     const tagManager = useTagManager({ onAddTag: addTag, onEditTag: editTag });
     const annotationState = useAnnotationState();
-    const player = useVideoPlayer();
-    useKeyboardShortcuts({ player });
     const [tool, setTool] = useState<AnnotationTool>("freehand");
     const [settings, setSettings] = useState<DrawingSettings>({
         color: "#ef4444",
@@ -53,7 +53,7 @@ export default function VideoReview() {
     const [videoCurrentTime, setVideoCurrentTime] = useState(0);
 
     useEffect(() => {
-        const video = videoRef.current;
+        const video = player.videoRef.current;
         if (!video) return;
 
         const onTimeUpdate = () => setVideoCurrentTime(video.currentTime);
@@ -114,7 +114,7 @@ export default function VideoReview() {
                                         className="relative flex-1 overflow-hidden rounded-md bg-black"
                                     >
                                         <video
-                                            ref={videoRef}
+                                            ref={player.videoRef}
                                             src="/sample.mp4"
                                             className="h-full w-full object-contain"
                                             controls
@@ -151,8 +151,8 @@ export default function VideoReview() {
                                         currentTime={videoCurrentTime}
                                         markers={annotationsToMarkers(annotationState.annotations)}
                                         onSeek={(time) => {
-                                            if (videoRef.current) {
-                                                videoRef.current.currentTime = time;
+                                            if (player.videoRef.current) {
+                                                player.videoRef.current.currentTime = time;
                                             }
                                         }}
                                     />
