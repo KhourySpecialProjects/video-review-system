@@ -260,10 +260,6 @@ router.delete("/:userId/permissions/:permissionId", async (req, res) => {
  * PATCH /domain/users/:userId/status - deactivate or reactivate one user.
  */
 router.patch("/:userId/status", async (req, res) => {
-  const actor = await getActor(req.authSession.user.id);
-
-  assertUserManagementActor(actor);
-
   const parsed = updateUserStatusSchema.safeParse({
     isDeactivated: req.body.isDeactivated,
   });
@@ -272,7 +268,13 @@ router.patch("/:userId/status", async (req, res) => {
     throw AppError.badRequest(parsed.error.issues[0].message);
   }
 
-  const targetUser = await getUserSiteContext(req.params.userId);
+  const [actor, targetUser] = await Promise.all([
+    getActor(req.authSession.user.id),
+    getUserSiteContext(req.params.userId),
+  ]);
+
+  assertUserManagementActor(actor);
+
   const manageableSiteIds = await getCoordinatorManageableSiteIds(actor);
 
   if (
