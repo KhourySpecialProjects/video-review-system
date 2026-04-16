@@ -7,8 +7,9 @@ import {
 } from "@/components/ui/sidebar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Plus } from "lucide-react"
-import { authClient } from "@/lib/auth-client"
+import { useAuth } from "@/context/auth-context"
 
 import { ClipCard } from "./ClipCard"
 import { TimestampAnnotation } from "./TimestampAnnotation"
@@ -84,6 +85,9 @@ export interface AnnotationSidebarProps {
   /** Optional callback fired when a user modifies a drawing's visibility playback duration */
   onUpdateDrawingDuration?: (id: string, duration: number) => void
 
+  /** Optional state indicating data is fetching, renders skeleton card loaders when true */
+  isLoading?: boolean
+
   /** Optional reference to the current video playback time in seconds */
   currentVideoTime?: number
 }
@@ -96,6 +100,34 @@ function parseTimestamp(ts: string): number {
   const secs = parseInt(parts[1], 10)
   if (isNaN(mins) || isNaN(secs)) return 0
   return mins * 60 + secs
+}
+
+/**
+ * Standardized skeleton loader mirroring the dimensions of a SidebarCard.
+ */
+function SidebarCardSkeleton() {
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 w-full">
+          <Skeleton className="h-6 w-6 rounded-md" />
+          <Skeleton className="h-4 w-3/4" />
+        </div>
+      </div>
+      <div className="mt-1 flex flex-col gap-2">
+        <Skeleton className="h-3 w-1/2" />
+        <Skeleton className="h-3 w-1/3" />
+      </div>
+    </div>
+  )
+}
+
+function SkeletonList() {
+  return (
+    <>
+      {Array.from({ length: 3 }).map((_, i) => <SidebarCardSkeleton key={i} />)}
+    </>
+  )
 }
 
 /**
@@ -117,10 +149,11 @@ export function AnnotationSidebar({
   onUpdateNote,
   onUpdateClip,
   onUpdateDrawingDuration,
+  isLoading,
   currentVideoTime,
 }: AnnotationSidebarProps) {
-  const { data: session } = authClient.useSession()
-  const authorName = session?.user?.name ?? "Unknown User"
+  const { user } = useAuth()
+  const authorName = user?.name ?? "Unknown User"
 
   const clips = propClips ?? []
   const notes = propNotes ?? []
@@ -173,7 +206,9 @@ export function AnnotationSidebar({
                   value="clips"
                   className="m-0 flex flex-col gap-4 focus-visible:outline-none"
                 >
-                  {clips.length > 0 ? (
+                  {isLoading ? (
+                    <SkeletonList />
+                  ) : clips.length > 0 ? (
                     clips.map((clip) => (
                       <ClipCard
                         key={clip.id}
@@ -198,12 +233,14 @@ export function AnnotationSidebar({
                   value="notes"
                   className="m-0 flex flex-col gap-4 focus-visible:outline-none"
                 >
-                  <Button variant="outline" size="sm" className="cursor-pointer w-full flex items-center justify-center border-dashed" onClick={handleAddNote}>
+                  <Button variant="outline" size="sm" className="cursor-pointer w-full flex items-center justify-center border-dashed" onClick={handleAddNote} disabled={isLoading}>
                     <Plus className="w-4 h-4 mr-2" />
                     New Note
                   </Button>
 
-                  {notes.length > 0 ? (
+                  {isLoading ? (
+                    <SkeletonList />
+                  ) : notes.length > 0 ? (
                     notes.map((note) => (
                       <TimestampAnnotation
                         key={note.id}
@@ -226,7 +263,9 @@ export function AnnotationSidebar({
                   value="draw"
                   className="m-0 flex flex-col gap-4 focus-visible:outline-none"
                 >
-                  {drawings.length > 0 ? (
+                  {isLoading ? (
+                    <SkeletonList />
+                  ) : drawings.length > 0 ? (
                     drawings.map((draw) => (
                       <DrawingCard
                         key={draw.id}

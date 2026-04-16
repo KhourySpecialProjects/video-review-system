@@ -48,6 +48,7 @@ export function ClipCard({
     const [draftTitle, setDraftTitle] = useState(title);
     const [draftStart, setDraftStart] = useState(startMs);
     const [draftEnd, setDraftEnd] = useState(endMs);
+    const [timeError, setTimeError] = useState<string | null>(null);
 
     // Sync if parent overrides
     useEffect(() => {
@@ -64,6 +65,11 @@ export function ClipCard({
     };
 
     const handleSave = () => {
+        if (draftEnd <= draftStart) {
+            setTimeError("End time must be after start time.");
+            return;
+        }
+        setTimeError(null);
         setIsEditing(false);
         if (onUpdateClip) {
             onUpdateClip({ title: draftTitle, startMs: draftStart, endMs: draftEnd });
@@ -114,16 +120,21 @@ export function ClipCard({
 
                     <div className="flex flex-col gap-4 text-sm text-muted-foreground mt-2">
                         {isEditing ? (
-                            <div className="flex items-center gap-2 w-full justify-between">
-                                <div className="flex items-center gap-1">
-                                    <Input type="number" step={0.1} value={draftStart / 1000} onChange={e => setDraftStart(Number(e.target.value) * 1000)} className="h-7 w-[70px] px-2 text-xs" />
-                                    <span className="text-[10px]">s</span>
+                            <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2 w-full justify-between">
+                                    <div className="flex items-center gap-1">
+                                        <Input type="number" step={0.1} value={draftStart / 1000} onChange={e => { setDraftStart(Number(e.target.value) * 1000); setTimeError(null); }} className="h-7 w-[70px] px-2 text-xs" />
+                                        <span className="text-[10px]">s</span>
+                                    </div>
+                                    <ArrowRight className="h-4 w-4 shrink-0 mx-1" />
+                                    <div className="flex items-center gap-1">
+                                        <Input type="number" step={0.1} value={draftEnd / 1000} onChange={e => { setDraftEnd(Number(e.target.value) * 1000); setTimeError(null); }} className="h-7 w-[70px] px-2 text-xs" />
+                                        <span className="text-[10px]">s</span>
+                                    </div>
                                 </div>
-                                <ArrowRight className="h-4 w-4 shrink-0 mx-1" />
-                                <div className="flex items-center gap-1">
-                                    <Input type="number" step={0.1} value={draftEnd / 1000} onChange={e => setDraftEnd(Number(e.target.value) * 1000)} className="h-7 w-[70px] px-2 text-xs" />
-                                    <span className="text-[10px]">s</span>
-                                </div>
+                                {timeError && (
+                                    <p className="text-xs text-destructive">{timeError}</p>
+                                )}
                             </div>
                         ) : (
                             <div className="flex items-center gap-2">
