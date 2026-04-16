@@ -264,6 +264,14 @@ router.patch("/:userId/status", async (req, res) => {
 
   assertUserManagementActor(actor);
 
+  const parsed = updateUserStatusSchema.safeParse({
+    isDeactivated: req.body.isDeactivated,
+  });
+
+  if (!parsed.success) {
+    throw AppError.badRequest(parsed.error.issues[0].message);
+  }
+
   const targetUser = await getUserSiteContext(req.params.userId);
   const manageableSiteIds = await getCoordinatorManageableSiteIds(actor);
 
@@ -272,14 +280,6 @@ router.patch("/:userId/status", async (req, res) => {
     !manageableSiteIds.includes(targetUser.siteId)
   ) {
     throw AppError.forbidden();
-  }
-
-  const parsed = updateUserStatusSchema.safeParse({
-    isDeactivated: req.body.isDeactivated,
-  });
-
-  if (!parsed.success) {
-    throw AppError.badRequest(parsed.error.issues[0].message);
   }
 
   const result = await updateUserStatus(req.params.userId, parsed.data);
