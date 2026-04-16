@@ -1,12 +1,12 @@
 import { Router } from "express";
-import prisma from "../../lib/prisma.js";
 import { requireSession } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/errors.js";
 import {
   createUserPermission,
   deleteUserPermission,
+  getActor,
+  getCoordinatorManageableSiteIds,
   getUserDetail,
-  getManageableSiteIds,
   getUserPermission,
   getUserSiteContext,
   listUserPermissions,
@@ -25,58 +25,12 @@ const router = Router();
 router.use(requireSession);
 
 /**
- * Loads the authenticated user from the database.
- *
- * @param actorUserId - Authenticated user ID from the session.
- * @returns Minimal actor record for authorization.
- * @throws {AppError} If the actor cannot be loaded.
- */
-async function getActor(actorUserId: string) {
-  // Load authorization data from the database so role/site checks use the
-  // current persisted values for the authenticated actor.
-  const actor = await prisma.user.findUnique({
-    where: { id: actorUserId },
-    select: {
-      id: true,
-      role: true,
-      siteId: true,
-    },
-  });
-
-  if (!actor) {
-    throw AppError.unauthorized();
-  }
-
-  return actor;
-}
-
-/**
- * Returns every site a coordinator may manage.
- *
- * @param actor - Authenticated actor record.
- * @returns Unique site IDs the coordinator can administer.
- */
-async function getCoordinatorManageableSiteIds(actor: {
-  id: string;
-  role: string;
-  siteId: string;
-}) {
-  if (actor.role !== "SITE_COORDINATOR") {
-    return [];
-  }
-
-  return getManageableSiteIds(actor.id, actor.siteId);
-}
-
-/**
  * Ensures the actor can use the user-management routes in this router.
  *
  * @param actor - Authenticated actor record.
  * @throws {AppError} If the actor is not a sysadmin or site coordinator.
  */
-function assertUserManagementActor(actor: {
-  role: string;
-}) {
+function assertUserManagementActor(actor: { role: string }) {
   if (actor.role !== "SYSADMIN" && actor.role !== "SITE_COORDINATOR") {
     throw AppError.forbidden();
   }
@@ -109,7 +63,9 @@ router.get("/", async (req, res) => {
   const result = await listUsers(
     parsed.data,
     actor.role === "SITE_COORDINATOR"
-      ? (parsed.data.siteId ? [parsed.data.siteId] : manageableSiteIds)
+      ? parsed.data.siteId
+        ? [parsed.data.siteId]
+        : manageableSiteIds
       : undefined,
   );
 
@@ -187,7 +143,7 @@ router.post("/:userId/permissions", async (req, res) => {
     actor.role === "SITE_COORDINATOR" &&
     (rawBody.siteId === undefined || rawBody.siteId === null)
       ? targetUser.siteId
-      : rawBody.siteId ?? null;
+      : (rawBody.siteId ?? null);
 
   const parsed = createUserPermissionSchema.safeParse({
     permissionLevel: rawBody.permissionLevel,
@@ -204,16 +160,19 @@ router.post("/:userId/permissions", async (req, res) => {
 
   if (
     actor.role === "SITE_COORDINATOR" &&
-    (
-      scopeAccess.isGlobal ||
-      scopeAccess.siteIds.some((siteId) => !manageableSiteIds.includes(siteId))
-    )
+    (scopeAccess.isGlobal ||
+      scopeAccess.siteIds.some((siteId) => !manageableSiteIds.includes(siteId)))
   ) {
     // Coordinators may only assign permissions within the sites they administer.
-    throw AppError.forbidden("Site coordinator cannot assign permissions outside their managed sites");
+    throw AppError.forbidden(
+      "Site coordinator cannot assign permissions outside their managed sites",
+    );
   }
 
-  const userPermission = await createUserPermission(req.params.userId, parsed.data);
+  const userPermission = await createUserPermission(
+    req.params.userId,
+    parsed.data,
+  );
   res.status(201).json(userPermission);
 });
 
@@ -248,7 +207,9 @@ router.delete("/:userId/permissions/:permissionId", async (req, res) => {
       scopeAccess.siteIds.some((siteId) => !manageableSiteIds.includes(siteId))
     ) {
       // Coordinators may only remove permissions within the sites they administer.
-      throw AppError.forbidden("Site coordinator cannot remove permissions outside their managed sites");
+      throw AppError.forbidden(
+        "Site coordinator cannot remove permissions outside their managed sites",
+      );
     }
   }
 

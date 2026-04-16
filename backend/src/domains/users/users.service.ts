@@ -54,6 +54,12 @@ export type PermissionScopeAccess = {
   siteIds: string[];
 };
 
+export type UserManagementActor = {
+  id: string;
+  role: string;
+  siteId: string;
+};
+
 /**
  * Lists users with optional filters and pagination.
  *
@@ -118,6 +124,33 @@ export async function getUserDetail(userId: string): Promise<UserDetailResponse>
   }
 
   return user;
+}
+
+/**
+ * Loads the authenticated user from the database for user-management
+ * authorization checks.
+ *
+ * @param actorUserId - Authenticated user ID from the session.
+ * @returns Minimal actor record for authorization.
+ * @throws {AppError} If the actor cannot be loaded.
+ */
+export async function getActor(
+  actorUserId: string,
+): Promise<UserManagementActor> {
+  const actor = await prisma.user.findUnique({
+    where: { id: actorUserId },
+    select: {
+      id: true,
+      role: true,
+      siteId: true,
+    },
+  });
+
+  if (!actor) {
+    throw AppError.unauthorized();
+  }
+
+  return actor;
 }
 
 /**
@@ -198,6 +231,22 @@ export async function getManageableSiteIds(
   }
 
   return [...manageableSiteIds];
+}
+
+/**
+ * Returns every site a site coordinator may manage.
+ *
+ * @param actor - Authenticated actor record.
+ * @returns Unique site IDs the coordinator can administer.
+ */
+export async function getCoordinatorManageableSiteIds(
+  actor: UserManagementActor,
+): Promise<string[]> {
+  if (actor.role !== "SITE_COORDINATOR") {
+    return [];
+  }
+
+  return getManageableSiteIds(actor.id, actor.siteId);
 }
 
 /**

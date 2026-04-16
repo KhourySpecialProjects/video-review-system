@@ -17,6 +17,8 @@ const { authMock, prismaMock, usersServiceMock } = vi.hoisted(() => ({
     },
   },
   usersServiceMock: {
+    getActor: vi.fn(),
+    getCoordinatorManageableSiteIds: vi.fn(),
     listUsers: vi.fn(),
     getUserDetail: vi.fn(),
     getManageableSiteIds: vi.fn(),
@@ -47,6 +49,31 @@ describe("users.router", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    usersServiceMock.getActor.mockImplementation(async (actorUserId: string) => {
+      const actor = await prismaMock.user.findUnique({
+        where: { id: actorUserId },
+        select: {
+          id: true,
+          role: true,
+          siteId: true,
+        },
+      });
+
+      if (!actor) {
+        throw AppError.unauthorized();
+      }
+
+      return actor;
+    });
+    usersServiceMock.getCoordinatorManageableSiteIds.mockImplementation(
+      async (actor: { id: string; role: string; siteId: string }) => {
+        if (actor.role !== "SITE_COORDINATOR") {
+          return [];
+        }
+
+        return usersServiceMock.getManageableSiteIds(actor.id, actor.siteId);
+      },
+    );
     usersServiceMock.getManageableSiteIds.mockResolvedValue([
       "11111111-1111-1111-8111-111111111111",
     ]);
