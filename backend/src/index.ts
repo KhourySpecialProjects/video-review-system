@@ -36,7 +36,7 @@ export function createApp() {
 
   // middleware
   app.use(cors({
-    origin: process.env.ALLOWED_ORIGIN || "http://localhost:5173",
+    origin: process.env.ALLOWED_ORIGIN?.split(",") || ["https://localhost:5173"],
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   }));
@@ -47,7 +47,7 @@ export function createApp() {
   app.use(express.json());
 
   // health check (no auth required)
-  app.get("/health", (req, res) => {
+  app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
   });
 
