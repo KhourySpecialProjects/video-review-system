@@ -12,11 +12,11 @@ describe("videos.types", () => {
     // Input: createVideoSchema receives all required fields.
     // Expected: the payload parses successfully without changing the fields.
     const payload = {
-      patientId: "550e8400-e29b-41d4-a716-446655440000",
+      videoTitle: "Test video title",
+      videoDescription: "Test video description",
       videoName: "test-video.mp4",
       fileSize: 52428800,
       durationSeconds: 42,
-      createdAt: "2026-01-01T12:00:00.000Z",
       takenAt: "2026-01-01T12:00:00.000Z",
       contentType: "video/mp4" as const,
     };
@@ -24,11 +24,16 @@ describe("videos.types", () => {
     expect(createVideoSchema.parse(payload)).toEqual(payload);
   });
 
-  it("rejects create payloads with an invalid patientId", () => {
-    // Input: createVideoSchema receives patientId "not-a-uuid".
-    // Expected: parsing fails because patientId is not a valid UUID.
+  it("rejects create payloads with a missing title", () => {
+    // Input: createVideoSchema receives an empty videoTitle.
+    // Expected: parsing fails because videoTitle is required.
     const result = createVideoSchema.safeParse({
-      patientId: "not-a-uuid",
+      videoTitle: "",
+      videoName: "test-video.mp4",
+      fileSize: 52428800,
+      durationSeconds: 42,
+      takenAt: "2026-01-01T12:00:00.000Z",
+      contentType: "video/mp4",
     });
 
     expect(result.success).toBe(false);
@@ -39,8 +44,12 @@ describe("videos.types", () => {
     // Expected: parsing fails because durationSeconds must be a positive
     // integer.
     const result = createVideoSchema.safeParse({
-      patientId: "550e8400-e29b-41d4-a716-446655440000",
+      videoTitle: "Test video title",
+      videoName: "test-video.mp4",
+      fileSize: 52428800,
       durationSeconds: -1,
+      takenAt: "2026-01-01T12:00:00.000Z",
+      contentType: "video/mp4",
     });
 
     expect(result.success).toBe(false);
@@ -50,8 +59,12 @@ describe("videos.types", () => {
     // Input: createVideoSchema receives takenAt "not-a-date".
     // Expected: parsing fails because takenAt must be an ISO datetime string.
     const result = createVideoSchema.safeParse({
-      patientId: "550e8400-e29b-41d4-a716-446655440000",
+      videoTitle: "Test video title",
+      videoName: "test-video.mp4",
+      fileSize: 52428800,
+      durationSeconds: 42,
       takenAt: "not-a-date",
+      contentType: "video/mp4",
     });
 
     expect(result.success).toBe(false);

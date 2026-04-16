@@ -22,6 +22,7 @@ import { notFoundHandler, errorHandler } from "./middleware/errors.js";
 import videosRouter from "./domains/videos/videos.router.js";
 import authRouter from "./domains/auth/auth.router.js";
 import annotationsRouter from "./domains/annotations/annotations.router.js";
+import usersRouter from "./domains/users/users.router.js";
 // import clipsRouter from "./domains/clips/clips.router";
 // import accountsRouter from "./domains/accounts/accounts.router";
 // import auditRouter from "./domains/audit/audit.router";
@@ -37,7 +38,7 @@ export function createApp() {
   app.use(cors({
     origin: process.env.ALLOWED_ORIGIN?.split(",") || ["https://localhost:5173"],
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   }));
 
   // mount Better Auth before express.json() - it handles its own body parsing
@@ -51,12 +52,13 @@ export function createApp() {
   });
 
   // domain routes
-  app.use("/api/domain/videos", videosRouter);
-  app.use("/api/domain/auth", authRouter);
-  app.use("/api/domain/annotations", annotationsRouter);
-  // app.use("/api/domain/clips", clipsRouter);
-  // app.use("/api/domain/accounts", accountsRouter);
-  // app.use("/api/domain/audit", auditRouter);
+  app.use("/domain/videos", videosRouter);
+  app.use("/domain/auth", authRouter);
+  app.use("/domain/annotations", annotationsRouter);
+  app.use("/domain/users", usersRouter);
+  // app.use("/domain/clips", clipsRouter);
+  // app.use("/domain/accounts", accountsRouter);
+  // app.use("/domain/audit", auditRouter);
 
   // error handling — must be registered after all routes
   app.use(notFoundHandler);

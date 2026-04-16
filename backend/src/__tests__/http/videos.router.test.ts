@@ -8,7 +8,14 @@ import {
   makeVideo,
 } from "../helpers/fixtures.js";
 
-const { videosServiceMock } = vi.hoisted(() => ({
+const { authMock, videosServiceMock } = vi.hoisted(() => ({
+  authMock: {
+    auth: {
+      api: {
+        getSession: vi.fn(),
+      },
+    },
+  },
   videosServiceMock: {
     listVideos: vi.fn(),
     getVideoStreamUrl: vi.fn(),
@@ -20,6 +27,10 @@ const { videosServiceMock } = vi.hoisted(() => ({
   },
 }));
 
+vi.mock("../../lib/auth.js", () => ({
+  auth: authMock.auth,
+}));
+
 vi.mock("../../domains/videos/videos.service.js", () => videosServiceMock);
 
 import videosRouter from "../../domains/videos/videos.router.js";
@@ -29,6 +40,9 @@ describe("videos.router", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    authMock.auth.api.getSession.mockResolvedValue({
+      user: { id: "user-123", role: "CLINICAL_REVIEWER" },
+    });
   });
 
   // ========= GET /domain/videos =========
@@ -61,6 +75,7 @@ describe("videos.router", () => {
       })),
     });
     expect(videosServiceMock.listVideos).toHaveBeenCalledWith({
+      userId: "user-123",
       limit: 5,
       offset: 10,
     });
@@ -83,6 +98,7 @@ describe("videos.router", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual(payload);
     expect(videosServiceMock.listVideos).toHaveBeenCalledWith({
+      userId: "user-123",
       limit: 20,
       offset: 0,
     });
@@ -106,6 +122,7 @@ describe("videos.router", () => {
 
     expect(response.status).toBe(200);
     expect(videosServiceMock.listVideos).toHaveBeenCalledWith({
+      userId: "user-123",
       limit: 20,
       offset: 0,
     });
@@ -115,7 +132,7 @@ describe("videos.router", () => {
 
   it("POST /domain/videos/upload validates the body and forwards parsed data to the service", async () => {
     // Input: POST /domain/videos/upload with a valid create payload.
-    // Expected: the route adds the placeholder uploadedByUserId, calls the
+    // Expected: the route adds the authenticated uploadedByUserId, calls the
     // service with the final payload, and returns status 201.
     const input = makeCreateVideoInput();
     const uploadResult = {
@@ -133,17 +150,21 @@ describe("videos.router", () => {
     expect(response.status).toBe(201);
     expect(videosServiceMock.initiateVideoUpload).toHaveBeenCalledWith({
       ...input,
-      uploadedByUserId: "00000000-0000-0000-0000-000000000000",
+      uploadedByUserId: "user-123",
     });
   });
 
   it("POST /domain/videos/upload rejects invalid payloads before the service is called", async () => {
-    // Input: POST /domain/videos/upload with an invalid patientId and negative
+    // Input: POST /domain/videos/upload with a missing title and negative
     // durationSeconds.
     // Expected: the route returns status 400 and does not call the service.
     const response = await request(app).post("/domain/videos/upload").send({
-      patientId: "not-a-uuid",
+      videoTitle: "",
+      videoName: "test-video.mp4",
+      fileSize: 52428800,
       durationSeconds: -1,
+      takenAt: "2026-01-01T12:00:00.000Z",
+      contentType: "video/mp4",
     });
 
     expect(response.status).toBe(400);
