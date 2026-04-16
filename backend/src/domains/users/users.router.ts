@@ -69,6 +69,20 @@ async function getCoordinatorManageableSiteIds(actor: {
 }
 
 /**
+ * Ensures the actor can use the user-management routes in this router.
+ *
+ * @param actor - Authenticated actor record.
+ * @throws {AppError} If the actor is not a sysadmin or site coordinator.
+ */
+function assertUserManagementActor(actor: {
+  role: string;
+}) {
+  if (actor.role !== "SYSADMIN" && actor.role !== "SITE_COORDINATOR") {
+    throw AppError.forbidden();
+  }
+}
+
+/**
  * GET /domain/users - list users with optional filters and pagination.
  */
 router.get("/", async (req, res) => {
@@ -79,9 +93,7 @@ router.get("/", async (req, res) => {
     throw AppError.badRequest(parsed.error.issues[0].message);
   }
 
-  if (actor.role !== "SYSADMIN" && actor.role !== "SITE_COORDINATOR") {
-    throw AppError.forbidden();
-  }
+  assertUserManagementActor(actor);
 
   const manageableSiteIds = await getCoordinatorManageableSiteIds(actor);
 
@@ -110,9 +122,7 @@ router.get("/", async (req, res) => {
 router.get("/:userId", async (req, res) => {
   const actor = await getActor(req.authSession.user.id);
 
-  if (actor.role !== "SYSADMIN" && actor.role !== "SITE_COORDINATOR") {
-    throw AppError.forbidden();
-  }
+  assertUserManagementActor(actor);
 
   const user = await getUserDetail(req.params.userId);
   const manageableSiteIds = await getCoordinatorManageableSiteIds(actor);
@@ -134,9 +144,7 @@ router.get("/:userId", async (req, res) => {
 router.get("/:userId/permissions", async (req, res) => {
   const actor = await getActor(req.authSession.user.id);
 
-  if (actor.role !== "SYSADMIN" && actor.role !== "SITE_COORDINATOR") {
-    throw AppError.forbidden();
-  }
+  assertUserManagementActor(actor);
 
   const targetUser = await getUserSiteContext(req.params.userId);
   const manageableSiteIds = await getCoordinatorManageableSiteIds(actor);
@@ -158,9 +166,7 @@ router.get("/:userId/permissions", async (req, res) => {
 router.post("/:userId/permissions", async (req, res) => {
   const actor = await getActor(req.authSession.user.id);
 
-  if (actor.role !== "SYSADMIN" && actor.role !== "SITE_COORDINATOR") {
-    throw AppError.forbidden();
-  }
+  assertUserManagementActor(actor);
 
   const targetUser = await getUserSiteContext(req.params.userId);
   const manageableSiteIds = await getCoordinatorManageableSiteIds(actor);
@@ -217,9 +223,7 @@ router.post("/:userId/permissions", async (req, res) => {
 router.delete("/:userId/permissions/:permissionId", async (req, res) => {
   const actor = await getActor(req.authSession.user.id);
 
-  if (actor.role !== "SYSADMIN" && actor.role !== "SITE_COORDINATOR") {
-    throw AppError.forbidden();
-  }
+  assertUserManagementActor(actor);
 
   const targetUser = await getUserSiteContext(req.params.userId);
   const manageableSiteIds = await getCoordinatorManageableSiteIds(actor);
@@ -258,9 +262,7 @@ router.delete("/:userId/permissions/:permissionId", async (req, res) => {
 router.patch("/:userId/status", async (req, res) => {
   const actor = await getActor(req.authSession.user.id);
 
-  if (actor.role !== "SYSADMIN" && actor.role !== "SITE_COORDINATOR") {
-    throw AppError.forbidden();
-  }
+  assertUserManagementActor(actor);
 
   const targetUser = await getUserSiteContext(req.params.userId);
   const manageableSiteIds = await getCoordinatorManageableSiteIds(actor);
