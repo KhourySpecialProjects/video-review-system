@@ -137,20 +137,7 @@ router.post("/:userId/permissions", async (req, res) => {
   const rawBody =
     typeof req.body === "object" && req.body !== null ? req.body : {};
 
-  // Coordinator-created permissions default to the managed user's site when the
-  // request does not explicitly choose a site scope.
-  const normalizedSiteId =
-    actor.role === "SITE_COORDINATOR" &&
-    (rawBody.siteId === undefined || rawBody.siteId === null)
-      ? targetUser.siteId
-      : (rawBody.siteId ?? null);
-
-  const parsed = createUserPermissionSchema.safeParse({
-    permissionLevel: rawBody.permissionLevel,
-    siteId: normalizedSiteId,
-    studyId: rawBody.studyId ?? null,
-    videoId: rawBody.videoId ?? null,
-  });
+  const parsed = createUserPermissionSchema.safeParse(rawBody);
 
   if (!parsed.success) {
     throw AppError.badRequest(parsed.error.issues[0].message);

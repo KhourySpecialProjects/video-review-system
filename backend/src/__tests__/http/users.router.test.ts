@@ -511,6 +511,8 @@ describe("users.router", () => {
       .send({
         permissionLevel: "READ",
         siteId: "22222222-2222-2222-8222-222222222222",
+        studyId: null,
+        videoId: null,
       });
 
     expect(response.status).toBe(201);
@@ -552,6 +554,8 @@ describe("users.router", () => {
       .send({
         permissionLevel: "READ",
         siteId: "not-a-uuid",
+        studyId: null,
+        videoId: null,
       });
 
     expect(response.status).toBe(400);
@@ -580,9 +584,9 @@ describe("users.router", () => {
     expect(usersServiceMock.createUserPermission).not.toHaveBeenCalled();
   });
 
-  it("POST /domain/users/:userId/permissions defaults a coordinator permission to the target user's site", async () => {
-    // Input: POST a study-scoped permission without siteId as a same-site coordinator.
-    // Expected: the route fills in the target user's siteId before resolving and creating the permission.
+  it("POST /domain/users/:userId/permissions returns 400 when siteId is omitted", async () => {
+    // Input: POST a permission body without an explicit siteId.
+    // Expected: request validation fails because the client must send the full permission payload.
     mockSession();
     prismaMock.user.findUnique.mockResolvedValue({
       id: "actor-1",
@@ -593,39 +597,17 @@ describe("users.router", () => {
       id: "user-1",
       siteId: "11111111-1111-1111-8111-111111111111",
     });
-    usersServiceMock.resolvePermissionScopeAccess.mockResolvedValue({
-      isGlobal: false,
-      siteIds: ["11111111-1111-1111-8111-111111111111"],
-    });
-    usersServiceMock.createUserPermission.mockResolvedValue({
-      id: "perm-1",
-      userId: "user-1",
-      permissionLevel: "READ",
-      siteId: "11111111-1111-1111-8111-111111111111",
-      studyId: "33333333-3333-3333-8333-333333333333",
-      videoId: null,
-    });
-
     const response = await request(app)
       .post("/domain/users/user-1/permissions")
       .send({
         permissionLevel: "READ",
         studyId: "33333333-3333-3333-8333-333333333333",
+        videoId: null,
       });
 
-    expect(response.status).toBe(201);
-    expect(usersServiceMock.resolvePermissionScopeAccess).toHaveBeenCalledWith({
-      permissionLevel: "READ",
-      siteId: "11111111-1111-1111-8111-111111111111",
-      studyId: "33333333-3333-3333-8333-333333333333",
-      videoId: null,
-    });
-    expect(usersServiceMock.createUserPermission).toHaveBeenCalledWith("user-1", {
-      permissionLevel: "READ",
-      siteId: "11111111-1111-1111-8111-111111111111",
-      studyId: "33333333-3333-3333-8333-333333333333",
-      videoId: null,
-    });
+    expect(response.status).toBe(400);
+    expect(usersServiceMock.resolvePermissionScopeAccess).not.toHaveBeenCalled();
+    expect(usersServiceMock.createUserPermission).not.toHaveBeenCalled();
   });
 
   it("POST /domain/users/:userId/permissions returns 403 when a coordinator explicitly assigns another site", async () => {
@@ -651,6 +633,8 @@ describe("users.router", () => {
       .send({
         permissionLevel: "READ",
         siteId: "22222222-2222-2222-8222-222222222222",
+        studyId: null,
+        videoId: null,
       });
 
     expect(response.status).toBe(403);
@@ -699,6 +683,8 @@ describe("users.router", () => {
       .send({
         permissionLevel: "EXPORT",
         siteId: "11111111-1111-1111-8111-111111111111",
+        studyId: null,
+        videoId: null,
       });
 
     expect(response.status).toBe(201);
@@ -736,6 +722,8 @@ describe("users.router", () => {
       .send({
         permissionLevel: "READ",
         siteId: "22222222-2222-2222-8222-222222222222",
+        studyId: null,
+        videoId: null,
       });
 
     expect(response.status).toBe(409);
