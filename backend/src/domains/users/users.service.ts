@@ -157,48 +157,44 @@ export async function getManageableSiteIds(
   userId: string,
   homeSiteId: string,
 ): Promise<string[]> {
-  const manageableSiteIds = new Set<string>([homeSiteId]);
-  const adminPermissions = await prisma.userPermission.findMany({
+  const globalAdminPermission = await prisma.userPermission.findFirst({
     where: {
       userId,
       permissionLevel: "ADMIN",
-      OR: [
-        {
-          siteId: null,
-          studyId: null,
-          videoId: null,
-        },
-        {
-          siteId: { not: null },
-          studyId: null,
-          videoId: null,
-        },
-      ],
+      siteId: null,
+      studyId: null,
+      videoId: null,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (globalAdminPermission) {
+    const sites = await prisma.site.findMany({
+      select: { id: true },
+    });
+
+    return sites.map((site) => site.id);
+  }
+
+  const siteAdminPermissions = await prisma.userPermission.findMany({
+    where: {
+      userId,
+      permissionLevel: "ADMIN",
+      siteId: { not: null },
+      studyId: null,
+      videoId: null,
     },
     select: {
       siteId: true,
     },
   });
 
-  for (const permission of adminPermissions) {
-    if (permission.siteId === null) {
-      const sites = await prisma.site.findMany({
-        select: { id: true },
-      });
+  const manageableSiteIds = new Set<string>([homeSiteId]);
 
-      return sites.map((site) => site.id);
-    }
-
-    const site = await prisma.site.findUnique({
-      where: { id: permission.siteId },
-      select: { id: true },
-    });
-
-    if (!site) {
-      continue;
-    }
-
-    manageableSiteIds.add(permission.siteId);
+  for (const permission of siteAdminPermissions) {
+    manageableSiteIds.add(permission.siteId!);
   }
 
   return [...manageableSiteIds];
