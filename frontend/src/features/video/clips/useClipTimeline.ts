@@ -195,6 +195,15 @@ export function useClipTimeline(
         setClips((prev) => prev.filter((_, i) => i !== index));
     }, []);
 
+    const addClip = useCallback((clip: ClipRange) => {
+        setClips((prev) => [...prev, clip]);
+        onClipCreated?.(clip);
+    }, [onClipCreated]);
+
+    const updateClip = useCallback((index: number, updates: Partial<ClipRange>) => {
+        setClips((prev) => prev.map((c, i) => i === index ? { ...c, ...updates } : c));
+    }, []);
+
     /** Nudge step for keyboard arrow keys, in seconds. */
     const KEYBOARD_STEP = 1;
     /** Large nudge step for Shift + arrow keys, in seconds. */
@@ -286,6 +295,8 @@ export function useClipTimeline(
         startTime,
         hoverTime,
         clips,
+        addClip,
+        updateClip,
         removeClip,
         onTrackMouseMove,
         onTrackMouseLeave,

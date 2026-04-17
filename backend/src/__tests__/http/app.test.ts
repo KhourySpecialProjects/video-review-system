@@ -111,6 +111,20 @@ describe("app wiring", () => {
     );
   });
 
+  it("CORS preflight allows PATCH for the user status route", async () => {
+    // Input: OPTIONS preflight for PATCH /domain/users/:userId/status.
+    // Expected: the response advertises PATCH in the allowed methods list.
+    const app = await getApp();
+
+    const response = await request(app)
+      .options("/domain/users/user-1/status")
+      .set("Origin", "http://localhost:5173")
+      .set("Access-Control-Request-Method", "PATCH");
+
+    expect(response.status).toBe(204);
+    expect(response.headers["access-control-allow-methods"]).toContain("PATCH");
+  });
+
   // ========= Mounted Domain Routers =========
 
   it("mounts the videos router at /domain/videos", async () => {

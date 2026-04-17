@@ -14,6 +14,8 @@ export type ClipRange = {
     startTime: number;
     /** End time of the clip in seconds. */
     endTime: number;
+    /** Optional explicit custom title override authored by User. */
+    title?: string;
 };
 
 /**
@@ -89,11 +91,24 @@ export type UseClipTimelineReturn = {
     /** All completed clips created so far. */
     clips: ClipRange[];
     /**
+     * Adds a new clip to the end of the clips array.
+     *
+     * @param clip - The ClipRange to add.
+     */
+    addClip: (clip: ClipRange) => void;
+    /**
      * Removes a clip by its index in the `clips` array.
      *
      * @param index - Zero-based index of the clip to remove.
      */
     removeClip: (index: number) => void;
+    /**
+     * Updates an existing clip selectively by substituting values over the old object bounds.
+     * 
+     * @param index - Index in the queue array.
+     * @param updates - The subset properties you wish to manipulate.
+     */
+    updateClip: (index: number, updates: Partial<ClipRange>) => void;
     /**
      * Handler for `mousemove` on the track.
      * Scrubs the video and updates the hover needle position.
