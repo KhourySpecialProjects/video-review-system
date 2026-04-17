@@ -200,92 +200,92 @@ export function AnnotationSidebar({
 
           {/* Scrollable Content Area */}
           <SidebarContent>
-              <div className="p-4">
-                {/* Clips Tab Content */}
-                <TabsContent
-                  value="clips"
-                  className="m-0 flex flex-col gap-4 focus-visible:outline-none"
-                >
-                  {isLoading ? (
-                    <SkeletonList />
-                  ) : clips.length > 0 ? (
-                    clips.map((clip) => (
-                      <ClipCard
-                        key={clip.id}
-                        title={clip.title}
-                        startMs={clip.startMs}
-                        endMs={clip.endMs}
-                        color={clip.themeColor}
-                        onJumpStart={() => onJumpToTime?.(clip.startMs / 1000)}
-                        onUpdateClip={(updates) => onUpdateClip?.(clip.id, updates)}
-                        onDelete={() => onDeleteClip?.(clip.id)}
-                      />
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground text-center py-8">
-                      No clips available.
-                    </p>
-                  )}
-                </TabsContent>
+            <div className="p-4">
+              {/* Clips Tab Content */}
+              <TabsContent
+                value="clips"
+                className="m-0 flex flex-col gap-4 focus-visible:outline-none"
+              >
+                {isLoading ? (
+                  <SkeletonList />
+                ) : clips.length > 0 ? (
+                  clips.map((clip) => (
+                    <ClipCard
+                      key={clip.id}
+                      title={clip.title}
+                      startMs={clip.startMs}
+                      endMs={clip.endMs}
+                      color={clip.themeColor}
+                      onJumpStart={() => onJumpToTime?.(clip.startMs / 1000)}
+                      onUpdateClip={(updates) => onUpdateClip?.(clip.id, updates)}
+                      onDelete={() => onDeleteClip?.(clip.id)}
+                    />
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No clips available.
+                  </p>
+                )}
+              </TabsContent>
 
-                {/* Notes Tab Content */}
-                <TabsContent
-                  value="notes"
-                  className="m-0 flex flex-col gap-4 focus-visible:outline-none"
-                >
-                  <Button variant="outline" size="sm" className="cursor-pointer w-full flex items-center justify-center border-dashed" onClick={handleAddNote} disabled={isLoading}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Note
-                  </Button>
+              {/* Notes Tab Content */}
+              <TabsContent
+                value="notes"
+                className="m-0 flex flex-col gap-4 focus-visible:outline-none"
+              >
+                <Button variant="outline" size="sm" className="cursor-pointer w-full flex items-center justify-center border-dashed" onClick={handleAddNote} disabled={isLoading}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Note
+                </Button>
 
-                  {isLoading ? (
-                    <SkeletonList />
-                  ) : notes.length > 0 ? (
-                    notes.map((note) => (
-                      <TimestampAnnotation
-                        key={note.id}
-                        timestamp={note.timestamp}
-                        comment={note.content}
-                        onNavigate={(ts) => onJumpToTime?.(parseTimestamp(ts))}
-                        onEdit={(newComment) => onUpdateNote?.(note.id, newComment)}
-                        onDelete={() => onDeleteNote?.(note.id)}
-                      />
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground text-center py-8">
-                      No notes available.
-                    </p>
-                  )}
-                </TabsContent>
+                {isLoading ? (
+                  <SkeletonList />
+                ) : notes.length > 0 ? (
+                  notes.map((note) => (
+                    <TimestampAnnotation
+                      key={note.id}
+                      timestamp={note.timestamp}
+                      comment={note.content}
+                      onNavigate={(ts) => onJumpToTime?.(parseTimestamp(ts))}
+                      onEdit={(newComment) => onUpdateNote?.(note.id, newComment)}
+                      onDelete={() => onDeleteNote?.(note.id)}
+                    />
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No notes available.
+                  </p>
+                )}
+              </TabsContent>
 
-                {/* Draw Tab Content */}
-                <TabsContent
-                  value="draw"
-                  className="m-0 flex flex-col gap-4 focus-visible:outline-none"
-                >
-                  {isLoading ? (
-                    <SkeletonList />
-                  ) : drawings.length > 0 ? (
-                    drawings.map((draw) => (
-                      <DrawingCard
-                        key={draw.id}
-                        id={draw.id}
-                        type={draw.type}
-                        color={draw.color}
-                        timestamp={draw.timestamp}
-                        duration={draw.duration}
-                        onJumpStart={(ts) => onJumpToTime?.(ts)}
-                        onEditDuration={(id, dur) => onUpdateDrawingDuration?.(id, dur)}
-                        onDelete={(id) => onDeleteDrawing?.(id)}
-                      />
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground text-center py-8">
-                      No drawings available.
-                    </p>
-                  )}
-                </TabsContent>
-              </div>
+              {/* Draw Tab Content */}
+              <TabsContent
+                value="draw"
+                className="m-0 flex flex-col gap-4 focus-visible:outline-none"
+              >
+                {isLoading ? (
+                  <SkeletonList />
+                ) : drawings.length > 0 ? (
+                  drawings.map((draw) => (
+                    <DrawingCard
+                      key={draw.id}
+                      id={draw.id}
+                      type={draw.type}
+                      color={draw.color}
+                      timestamp={draw.timestamp}
+                      duration={draw.duration}
+                      onJumpStart={(ts) => onJumpToTime?.(ts)}
+                      onEditDuration={(id, dur) => onUpdateDrawingDuration?.(id, dur)}
+                      onDelete={(id) => onDeleteDrawing?.(id)}
+                    />
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No drawings available.
+                  </p>
+                )}
+              </TabsContent>
+            </div>
           </SidebarContent>
         </Tabs>
       </Sidebar>
