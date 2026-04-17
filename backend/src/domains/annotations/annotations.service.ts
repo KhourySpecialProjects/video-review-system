@@ -108,9 +108,9 @@ export async function updateAnnotation(id: string, data: UpdateAnnotationInput) 
   const annotation = await prisma.annotation.update({
     where: { id },
     data: {
-      timestampS: data.timestampSeconds,
-      durationS: data.durationSeconds,
-      payload: data.payload as Prisma.InputJsonValue,
+      ...(data.timestampSeconds !== undefined && { timestampS: data.timestampSeconds }),
+      ...(data.durationSeconds !== undefined && { durationS: data.durationSeconds }),
+      ...(data.payload !== undefined && { payload: data.payload as Prisma.InputJsonValue }),
     },
   });
   return annotation;

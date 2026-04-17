@@ -27,6 +27,8 @@ const PERMISSION_LABEL: Record<PermissionLevel, string> = {
  */
 export function ReviewCard({
     id,
+    studyId,
+    siteId,
     title,
     reviewerName,
     tags,
@@ -36,7 +38,7 @@ export function ReviewCard({
     permissionLevel,
 }: ReviewVideo) {
     return (
-        <Link to={`/review/${id}`} className="block">
+        <Link to={`/review/${id}/${studyId}/${siteId}`} className="block">
             <Card
                 size="sm"
                 className="group transition-shadow hover:shadow-l"

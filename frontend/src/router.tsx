@@ -17,11 +17,12 @@ import { clientAction as forgotPasswordAction } from "./hooks/use-forgot-passwor
 import { ResetPassword } from "./features/login/reset-password";
 import { clientAction as resetPasswordAction } from "./hooks/use-reset-password";
 import { authGuardLoader } from "./hooks/auth-guard";
-import { homeLoader, searchLoader, videoViewLoader, videoViewAction, videoReviewLoader, videoReviewAction } from "./lib/video.service";
+import { homeLoader, searchLoader, videoViewLoader, videoViewAction, videoReviewLoader, videoReviewAction, videoReviewShouldRevalidate } from "./lib/video.service";
 import { incompleteUploadsLoader, incompleteUploadsAction } from "./features/layout/incomplete-uploads.route";
 import { clipsLoader, clipsAction } from "./features/video/clips/clips.route";
 import { sequencesLoader, sequencesAction } from "./features/video/sequences/sequences.route";
 import { annotationsLoader, annotationsAction } from "./features/video/annotations/annotations.route";
+import { myStudiesLoader } from "./features/video/videoUpload/studies.route";
 
 export const router = createBrowserRouter([
     {
@@ -48,10 +49,11 @@ export const router = createBrowserRouter([
                 action: videoViewAction,
             },
             {
-                path: "review/:videoId",
+                path: "review/:videoId/:studyId/:siteId",
                 element: <VideoReview />,
                 loader: videoReviewLoader,
                 action: videoReviewAction,
+                shouldRevalidate: videoReviewShouldRevalidate,
             },
             {
                 path: "reviews",
@@ -86,6 +88,10 @@ export const router = createBrowserRouter([
         path: "/annotations",
         loader: annotationsLoader,
         action: annotationsAction,
+    },
+    {
+        path: "/studies/mine",
+        loader: myStudiesLoader,
     },
     {
         path: "/signup/:token",

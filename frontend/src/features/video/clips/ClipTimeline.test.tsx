@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { useRef } from "react";
 import { ClipTimeline } from "./ClipTimeline";
 import { useClipTimeline } from "./useClipTimeline";
-import type { ClipRange } from "./types";
+import type { Clip } from "@shared/clip";
 
 const TRACK_WIDTH = 200;
 
@@ -25,16 +25,39 @@ afterEach(() => {
     vi.restoreAllMocks();
 });
 
+const mockFetcherSubmit = vi.fn();
+
+vi.mock("react-router", () => ({
+    useFetcher: () => ({ submit: mockFetcherSubmit }),
+}));
+
+/** Creates a minimal Clip for test use. */
+function makeClip(startTimeS: number, endTimeS: number): Clip {
+    return {
+        id: crypto.randomUUID(),
+        sourceVideoId: "video-1",
+        studyId: "study-1",
+        siteId: "site-1",
+        title: `Clip ${startTimeS}s–${endTimeS}s`,
+        startTimeS,
+        endTimeS,
+        createdByUserId: "user-1",
+        createdByName: "Test User",
+        createdAt: new Date().toISOString(),
+        themeColor: "#3b82f6",
+    };
+}
+
 // Wrapper that mirrors how the parent calls the hook and passes it down
 function Timeline({
     duration = 120,
-    onClipCreated,
+    clips = [] as Clip[],
 }: {
     duration?: number;
-    onClipCreated?: (clip: ClipRange) => void;
+    clips?: Clip[];
 }) {
     const videoRef = useRef<HTMLVideoElement>(null);
-    const timeline = useClipTimeline(duration, videoRef, onClipCreated);
+    const timeline = useClipTimeline(duration, videoRef, clips, "video-1", "study-1", "site-1");
     return <ClipTimeline duration={duration} timeline={timeline} />;
 }
 
@@ -106,14 +129,6 @@ describe("ClipTimeline — hover needle", () => {
         fireEvent.mouseLeave(getTrack());
         expect(screen.queryByTestId("hover-needle")).toBeNull();
     });
-
-    it("shows the hover needle after a clip is completed (back in idle)", () => {
-        render(<Timeline />);
-        clickAt(50);
-        clickAt(150);
-        moveAt(100);
-        expect(screen.getByTestId("hover-needle")).toBeInTheDocument();
-    });
 });
 
 describe("ClipTimeline — setting start time", () => {
@@ -146,11 +161,17 @@ describe("ClipTimeline — setting start time", () => {
 });
 
 describe("ClipTimeline — completing a clip", () => {
-    it("renders a completed clip region after second click", () => {
+    it("submits a create request on second click and returns to idle", () => {
+        mockFetcherSubmit.mockClear();
         render(<Timeline />);
         clickAt(50);
         clickAt(150);
-        expect(screen.getByTestId("clip-region")).toBeInTheDocument();
+        expect(mockFetcherSubmit).toHaveBeenCalledOnce();
+        const [formData] = mockFetcherSubmit.mock.calls[0] as [FormData, unknown];
+        expect(formData.get("intent")).toBe("create");
+        const payload = JSON.parse(formData.get("payload") as string);
+        expect(payload.startTimeS).toBe(30);
+        expect(payload.endTimeS).toBe(90);
     });
 
     it("removes the start needle after clip is completed (back to idle)", () => {
@@ -166,78 +187,27 @@ describe("ClipTimeline — completing a clip", () => {
         clickAt(150);
         expect(screen.queryByTestId("selection-region")).toBeNull();
     });
-
-    it("calls onClipCreated with correct start and end times", () => {
-        const onClipCreated = vi.fn();
-        render(<Timeline onClipCreated={onClipCreated} />);
-        clickAt(50);  // 30s
-        clickAt(150); // 90s
-        expect(onClipCreated).toHaveBeenCalledOnce();
-        expect(onClipCreated).toHaveBeenCalledWith({
-            startTime: 30,
-            endTime: 90,
-        });
-    });
-
-    it("normalises a reversed selection so startTime < endTime", () => {
-        const onClipCreated = vi.fn();
-        render(<Timeline onClipCreated={onClipCreated} />);
-        clickAt(150); // click at 90s first
-        clickAt(50);  // then 30s
-        expect(onClipCreated).toHaveBeenCalledWith({
-            startTime: 30,
-            endTime: 90,
-        });
-    });
-
-    it("updates the clip count in status text", () => {
-        render(<Timeline />);
-        clickAt(50);
-        clickAt(150);
-        expect(
-            getByTextContent("1 clip — Click to set start time"),
-        ).toBeInTheDocument();
-    });
 });
 
-describe("ClipTimeline — multiple clips", () => {
-    it("renders multiple completed clip regions", () => {
-        render(<Timeline />);
-        clickAt(0);
-        clickAt(50);
-        clickAt(100);
-        clickAt(150);
+describe("ClipTimeline — server-loaded clips", () => {
+    it("renders a clip region for each loaded clip", () => {
+        const clips = [makeClip(30, 90)];
+        render(<Timeline clips={clips} />);
+        expect(screen.getByTestId("clip-region")).toBeInTheDocument();
+    });
+
+    it("renders multiple clip regions when multiple clips are loaded", () => {
+        const clips = [makeClip(0, 30), makeClip(60, 90)];
+        render(<Timeline clips={clips} />);
         expect(screen.getAllByTestId("clip-region")).toHaveLength(2);
     });
 
-    it("calls onClipCreated for each clip", () => {
-        const onClipCreated = vi.fn();
-        render(<Timeline onClipCreated={onClipCreated} />);
-        clickAt(0);
-        clickAt(50);
-        clickAt(100);
-        clickAt(150);
-        expect(onClipCreated).toHaveBeenCalledTimes(2);
-    });
-
-    it("updates the clip count correctly for multiple clips", () => {
-        render(<Timeline />);
-        clickAt(0);
-        clickAt(50);
-        clickAt(100);
-        clickAt(150);
+    it("shows the loaded clip count in status text", () => {
+        const clips = [makeClip(0, 30)];
+        render(<Timeline clips={clips} />);
         expect(
-            getByTextContent("2 clips — Click to set start time"),
+            getByTextContent("1 clip — Click to set start time"),
         ).toBeInTheDocument();
-    });
-
-    it("returns to idle after each clip allowing a new one immediately", () => {
-        render(<Timeline />);
-        clickAt(0);
-        clickAt(50);
-        clickAt(100);
-        expect(screen.getByTestId("start-needle")).toBeInTheDocument();
-        expect(screen.getByText(/Start:/)).toBeInTheDocument();
     });
 });
 

@@ -1,5 +1,42 @@
-import type { Sequence } from "@shared/sequence";
+import type { Sequence, SequenceItem } from "@shared/sequence";
 import { apiFetch } from "./api";
+
+/**
+ * @description Raw sequence shape returned by the backend. Prisma nests the
+ * creator's name under `createdBy` and uses `sequenceItems` for the item
+ * list, whereas our shared type flattens `createdByName` and renames the
+ * relation to `items`. This type captures the on-the-wire shape so we can
+ * normalize it in one place.
+ */
+type RawSequence = Omit<Sequence, "items" | "createdByName"> & {
+  createdBy?: { name?: string | null } | null;
+  createdByName?: string | null;
+  sequenceItems?: Array<{ clipId: string; playOrder: number }> | null;
+  items?: SequenceItem[] | null;
+};
+
+/**
+ * @description Normalizes a sequence record from the backend into the shared
+ * Sequence shape: flattens createdBy.name and coerces sequenceItems → items.
+ * Tolerates either naming so older or already-normalized responses both work.
+ *
+ * @param raw - The raw sequence record from the API
+ * @returns A Sequence matching the shared type
+ */
+function normalizeSequence(raw: RawSequence): Sequence {
+  const rawItems = raw.items ?? raw.sequenceItems ?? [];
+  return {
+    id: raw.id,
+    videoId: raw.videoId,
+    studyId: raw.studyId,
+    siteId: raw.siteId,
+    title: raw.title,
+    createdByUserId: raw.createdByUserId,
+    createdByName: raw.createdByName ?? raw.createdBy?.name ?? "",
+    createdAt: raw.createdAt,
+    items: rawItems.map((i) => ({ clipId: i.clipId, playOrder: i.playOrder })),
+  };
+}
 
 /**
  * @description Payload for creating a new sequence.
@@ -39,7 +76,8 @@ export async function fetchSequences(
   const params = new URLSearchParams({ videoId, studyId });
   const res = await apiFetch(`/sequences?${params}`);
   if (!res.ok) throw new Error("Failed to fetch sequences");
-  return res.json();
+  const data = (await res.json()) as { sequences: RawSequence[] };
+  return { sequences: (data.sequences ?? []).map(normalizeSequence) };
 }
 
 /**
@@ -56,7 +94,7 @@ export async function createSequence(
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error("Failed to create sequence");
-  return res.json();
+  return normalizeSequence((await res.json()) as RawSequence);
 }
 
 /**

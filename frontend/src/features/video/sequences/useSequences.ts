@@ -1,4 +1,5 @@
-import { useFetcher } from "react-router";
+import { useEffect, useRef } from "react";
+import { useFetcher, useRevalidator } from "react-router";
 import type { Clip } from "@shared/clip";
 import type { Sequence } from "@shared/sequence";
 import type { CreateSequencePayload } from "@/lib/sequence.service";
@@ -6,13 +7,24 @@ import type { CreateSequencePayload } from "@/lib/sequence.service";
 /**
  * @description Hook that wraps useFetcher for sequence CRUD operations.
  * All mutations submit to the /sequences resource route, which handles
- * API calls and toast notifications. React Router revalidates the loader
- * automatically after each action.
+ * API calls and toast notifications. Because /sequences is a resource
+ * route outside the current match tree, revalidation of parent loaders
+ * does not happen automatically — this hook triggers it manually via
+ * useRevalidator whenever the fetcher returns to an idle state.
  *
  * @returns Fetcher state and mutation functions
  */
 export function useSequenceFetcher() {
   const fetcher = useFetcher();
+  const { revalidate } = useRevalidator();
+  const prevState = useRef(fetcher.state);
+
+  useEffect(() => {
+    if (prevState.current !== "idle" && fetcher.state === "idle") {
+      revalidate();
+    }
+    prevState.current = fetcher.state;
+  }, [fetcher.state, revalidate]);
 
   /**
    * @description Creates a new sequence via the resource route.

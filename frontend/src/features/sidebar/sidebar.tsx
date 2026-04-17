@@ -35,6 +35,7 @@ export type ClipAnnotation = {
 export type NoteAnnotation = {
   id: string
   author: string
+  title: string
   content: string
   timestamp: string
 }
@@ -65,7 +66,17 @@ export type AnnotationSidebarProps = {
   /** @description Whether data is loading (shows skeletons). */
   isLoading?: boolean
   /** @description Video ID for annotation create payloads. */
-  videoId?: string
+  videoId: string
+  /** @description Study ID for annotation create payloads. */
+  studyId: string
+  /** @description Site ID for annotation create payloads. */
+  siteId: string
+  /**
+   * @description Called when the user clicks "Add to sequence" on a clip.
+   * When omitted, the button is hidden — callers should only pass this when
+   * a sequence is actively selected.
+   */
+  onAddClipToSequence?: (clipId: string) => void
 }
 
 /**
@@ -81,8 +92,11 @@ export function AnnotationSidebar({
   currentVideoTime,
   isLoading,
   videoId,
+  studyId,
+  siteId,
+  onAddClipToSequence,
 }: AnnotationSidebarProps) {
-  const mutations = useSidebarMutations(videoId ?? "", currentVideoTime ?? 0)
+  const mutations = useSidebarMutations(videoId, currentVideoTime ?? 0, studyId, siteId)
 
   const clips = propClips ?? []
   const notes = propNotes ?? []
@@ -132,6 +146,7 @@ export function AnnotationSidebar({
                   onJumpToTime={jumpTo}
                   onUpdateClip={mutations.updateClip}
                   onDeleteClip={mutations.deleteClip}
+                  onAddToSequence={onAddClipToSequence}
                 />
               </TabsContent>
 
@@ -139,6 +154,7 @@ export function AnnotationSidebar({
                 <NotesTab
                   notes={notes}
                   isLoading={loading}
+                  currentVideoTime={currentVideoTime ?? 0}
                   onJumpToTime={jumpTo}
                   onCreateNote={mutations.createNote}
                   onUpdateNote={mutations.updateNote}

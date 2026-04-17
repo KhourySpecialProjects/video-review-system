@@ -139,6 +139,19 @@ export async function activateInvite(input: ActivateInviteInput) {
       },
     });
 
+    // system admins get a global ADMIN permission with all scopes null
+    if (invitation.role === "SYSADMIN") {
+      await tx.userPermission.create({
+        data: {
+          userId,
+          studyId: null,
+          siteId: null,
+          videoId: null,
+          permissionLevel: "ADMIN",
+        },
+      });
+    }
+
     return { success: true, message: "Account created. Please sign in." };
   });
 }

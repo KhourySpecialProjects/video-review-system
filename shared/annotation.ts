@@ -13,12 +13,11 @@ export type AnnotationListItem = {
   studyId: string;
   siteId: string;
   type: AnnotationType;
-  /** @description Position in the video in seconds. */
-  timestampSeconds: number;
-  /** @description How long the annotation spans in seconds. */
-  durationSeconds: number;
+  /** @description Position in the video in seconds. Matches the Prisma column name. */
+  timestampS: number;
+  /** @description How long the annotation spans in seconds. Matches the Prisma column name. */
+  durationS: number;
   /** @description Type-specific JSON data (e.g. text, points, coordinates). */
   payload: Record<string, unknown>;
   createdAt: string;
-  updatedAt: string;
 };

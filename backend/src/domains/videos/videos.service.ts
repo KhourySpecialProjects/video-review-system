@@ -1,7 +1,7 @@
 import prisma from "../../lib/prisma.js";
 import type { Video } from "../../generated/prisma/client.js";
 import { AppError } from "../../middleware/errors.js";
-import type { CreateVideoInput, CompleteUploadInput, UpdateVideoInput, SearchVideosInput, VideoListItem } from "./videos.types.js";
+import type { CreateVideoInput, CompleteUploadInput, UpdateVideoInput, UpdateVideoMetadataInput, SearchVideosInput, VideoListItem } from "./videos.types.js";
 import {
   generatePresignedGetUrl,
   generatePresignedPartUrls,
@@ -215,6 +215,45 @@ type CreateVideoParams = CreateVideoInput & {
 };
 
 /**
+ * Resolves the study a new upload should be linked to. When `studyId` is
+ * provided, it must be attached to the uploader's site via SiteStudy;
+ * otherwise the site's auto-seeded "Miscellaneous" study is used.
+ *
+ * @param siteId - The uploader's home site id
+ * @param studyId - Optional study picked by the uploader
+ * @returns The resolved study id to write into VideoStudy
+ * @throws {AppError} 400 if `studyId` is not available at the site
+ * @throws {AppError} 500 if the site is missing its Miscellaneous study
+ */
+async function resolveUploadStudyId(
+  siteId: string,
+  studyId: string | undefined,
+): Promise<string> {
+  if (studyId) {
+    const link = await prisma.siteStudy.findFirst({
+      where: { studyId, siteId },
+      select: { studyId: true },
+    });
+    if (!link) {
+      throw AppError.badRequest("Study is not available at your site");
+    }
+    return studyId;
+  }
+
+  const misc = await prisma.study.findFirst({
+    where: {
+      name: "Miscellaneous",
+      siteStudies: { some: { siteId } },
+    },
+    select: { id: true },
+  });
+  if (!misc) {
+    throw new AppError("Site is missing a Miscellaneous study", 500);
+  }
+  return misc.id;
+}
+
+/**
  * Creates a video record and initiates an S3 multipart upload inside
  * a transaction. If S3 initiation fails, the video record is rolled back.
  *
@@ -249,6 +288,7 @@ export async function initiateVideoUpload({
   durationSeconds,
   takenAt,
   contentType,
+  studyId,
 }: CreateVideoParams): Promise<{
   video: Video;
   parts: { partNumber: number; url: string }[];
@@ -258,6 +298,15 @@ export async function initiateVideoUpload({
 }> {
   const totalParts = Math.ceil(fileSize / PART_SIZE);
   const expiresIn = 3600;
+
+  // Resolve the uploader's site and the effective study. Done before the
+  // transaction so S3 isn't initiated for an invalid study selection.
+  const uploader = await prisma.user.findUniqueOrThrow({
+    where: { id: uploadedByUserId },
+    select: { siteId: true },
+  });
+
+  const effectiveStudyId = await resolveUploadStudyId(uploader.siteId, studyId);
 
   // Transaction: create record → initiate S3 upload → update with s3 details
   // If any step fails the video record is rolled back
@@ -283,6 +332,16 @@ export async function initiateVideoUpload({
         privateNotes: videoDescription,
       },
     });
+
+    // Link the video to the selected (or defaulted) study at the uploader's site.
+    await tx.videoStudy.create({
+      data: {
+        studyId: effectiveStudyId,
+        siteId: uploader.siteId,
+        videoId: created.id,
+      },
+    });
+
     const s3Key = `uploads/${created.id}/${videoName}`;
     const s3UploadId = await initiateMultipartUpload(s3Key, contentType);
 
@@ -496,6 +555,31 @@ export async function updateVideo(id: string, data: UpdateVideoInput) {
     data,
   });
   return video;
+}
+
+/**
+ * Updates the caregiver-scoped title/description for a video. The metadata
+ * row is keyed by (videoId, caregiverUserId); Prisma throws P2025 if it
+ * does not exist, which the global errorHandler maps to 404.
+ *
+ * @param videoId - uuid of the video
+ * @param caregiverUserId - the authenticated user whose metadata row to update
+ * @param data - validated title and description
+ *
+ * @returns the updated metadata row
+ */
+export async function updateVideoMetadata(
+  videoId: string,
+  caregiverUserId: string,
+  data: UpdateVideoMetadataInput,
+) {
+  return prisma.caregiverVideoMetadata.update({
+    where: { videoId_caregiverUserId: { videoId, caregiverUserId } },
+    data: {
+      privateTitle: data.title,
+      privateNotes: data.description,
+    },
+  });
 }
 
 /**

@@ -1,5 +1,7 @@
-import { useState, useCallback } from "react";
-import type { ClipRange, ClipSelectionPhase, SelectionRegion, UseClipTimelineReturn } from "./types";
+import { useState, useCallback, useEffect, useRef } from "react";
+import type { ClipSelectionPhase, SelectionRegion, UseClipTimelineReturn } from "./types";
+import type { Clip } from "@shared/clip";
+import { useFetcher, useRevalidator } from "react-router";
 
 /** Number of time tick marks to render on the timeline. */
 export const TICK_COUNT = 8;
@@ -118,25 +120,25 @@ export function getActiveSelectionRegion(
 }
 
 /**
- * Converts a completed `ClipRange` to CSS `left`/`width` percentages
+ * Converts a completed `Clip` to CSS `left`/`width` percentages
  * for rendering on the timeline track.
  *
  * Normalises the start/end order so the region is always positioned correctly
  * regardless of which boundary is larger.
  *
- * @param clip - A completed clip with `startTime` and `endTime`.
+ * @param clip - A clip with `startTimeS` and `endTimeS`.
  * @param duration - Total video duration in seconds.
  * @returns A `SelectionRegion` with CSS `left`/`width` percentages.
  *
  * @example
  * ```ts
- * const region = clipToRegion({ startTime: 30, endTime: 90 }, 120);
+ * const region = clipToRegion({ startTimeS: 30, endTimeS: 90 }, 120);
  * // { left: "25%", width: "50%" }
  * ```
  */
-export function clipToRegion(clip: ClipRange, duration: number): SelectionRegion {
-    const start = Math.min(clip.startTime, clip.endTime);
-    const end = Math.max(clip.startTime, clip.endTime);
+export function clipToRegion(clip: Pick<Clip, "startTimeS" | "endTimeS">, duration: number): SelectionRegion {
+    const start = Math.min(clip.startTimeS, clip.endTimeS);
+    const end = Math.max(clip.startTimeS, clip.endTimeS);
     return {
         left: timeToPercent(start, duration),
         width: timeToPercent(end - start, duration),
@@ -144,37 +146,53 @@ export function clipToRegion(clip: ClipRange, duration: number): SelectionRegion
 }
 
 /**
- * Manages the state machine for clip creation on a timeline.
+ * Manages the clip selection state machine on a timeline.
  *
- * Supports creating multiple clips. Each two-click cycle adds a clip
- * to the accumulated array and returns to `"idle"` for the next one.
+ * Clips are loaded from the caller (via a route loader) and passed in as `clips`.
+ * When the user completes a two-click selection, the hook submits a create request
+ * to the `/clips` resource route via a fetcher — no local clip state is kept.
  *
  * State machine:
  * - `"idle"` → first click pins the start time → `"selecting"`
- * - `"selecting"` → second click completes the clip → back to `"idle"`
+ * - `"selecting"` → second click submits the clip → back to `"idle"`
  *
  * @param duration - Total video duration in seconds.
  * @param videoRef - Ref to the `<video>` element; its `currentTime` is
  *   updated on hover to scrub playback.
- * @param onClipCreated - Optional callback fired with each completed clip.
+ * @param clips - Clips loaded from the server, passed in by the caller.
+ * @param videoId - Source video UUID, included in the create payload.
+ * @param studyId - Study UUID, included in the create payload.
+ * @param siteId - Site UUID, included in the create payload.
  * @returns The hook state and track event handlers. See `UseClipTimelineReturn`.
  *
  * @example
  * ```ts
  * const videoRef = useRef<HTMLVideoElement>(null);
- * const { phase, clips, onTrackClick, onTrackMouseMove, onTrackMouseLeave } =
- *   useClipTimeline(120, videoRef, (clip) => console.log(clip));
+ * const { phase, onTrackClick, onTrackMouseMove, onTrackMouseLeave } =
+ *   useClipTimeline(120, videoRef, clips, videoId, studyId, siteId);
  * ```
  */
 export function useClipTimeline(
     duration: number,
     videoRef: React.RefObject<HTMLVideoElement | null>,
-    onClipCreated?: (clip: ClipRange) => void,
+    clips: Clip[],
+    videoId: string,
+    studyId: string,
+    siteId: string,
 ): UseClipTimelineReturn {
     const [phase, setPhase] = useState<ClipSelectionPhase>("idle");
     const [startTime, setStartTime] = useState<number | null>(null);
     const [hoverTime, setHoverTime] = useState<number | null>(null);
-    const [clips, setClips] = useState<ClipRange[]>([]);
+    const fetcher = useFetcher({ key: "clips" });
+    const { revalidate } = useRevalidator();
+    const prevFetcherState = useRef(fetcher.state);
+
+    useEffect(() => {
+        if (prevFetcherState.current !== "idle" && fetcher.state === "idle") {
+            revalidate();
+        }
+        prevFetcherState.current = fetcher.state;
+    }, [fetcher.state, revalidate]);
 
     const onTrackMouseMove = useCallback(
         (clientX: number, rect: DOMRect) => {
@@ -191,19 +209,6 @@ export function useClipTimeline(
         setHoverTime(null);
     }, []);
 
-    const removeClip = useCallback((index: number) => {
-        setClips((prev) => prev.filter((_, i) => i !== index));
-    }, []);
-
-    const addClip = useCallback((clip: ClipRange) => {
-        setClips((prev) => [...prev, clip]);
-        onClipCreated?.(clip);
-    }, [onClipCreated]);
-
-    const updateClip = useCallback((index: number, updates: Partial<ClipRange>) => {
-        setClips((prev) => prev.map((c, i) => i === index ? { ...c, ...updates } : c));
-    }, []);
-
     /** Nudge step for keyboard arrow keys, in seconds. */
     const KEYBOARD_STEP = 1;
     /** Large nudge step for Shift + arrow keys, in seconds. */
@@ -212,6 +217,9 @@ export function useClipTimeline(
     /**
      * Commits a time value as a start or end selection point,
      * following the same state-machine logic as `onTrackClick`.
+     * On completion, submits a create request to the `/clips` route.
+     *
+     * @param time - The time in seconds to commit.
      */
     const commitTime = useCallback(
         (time: number) => {
@@ -228,16 +236,25 @@ export function useClipTimeline(
             }
 
             if (phase === "selecting" && startTime !== null) {
-                const start = Math.min(startTime, time);
-                const end = Math.max(startTime, time);
-                const clip: ClipRange = { startTime: start, endTime: end };
-                setClips((prev) => [...prev, clip]);
+                const start = Math.round(Math.min(startTime, time));
+                const end = Math.round(Math.max(startTime, time));
+                const payload = {
+                    sourceVideoId: videoId,
+                    studyId,
+                    siteId,
+                    title: `Clip ${start.toFixed(1)}s–${end.toFixed(1)}s`,
+                    startTimeS: start,
+                    endTimeS: end,
+                };
+                const formData = new FormData();
+                formData.set("intent", "create");
+                formData.set("payload", JSON.stringify(payload));
+                fetcher.submit(formData, { method: "post", action: "/clips" });
                 setStartTime(null);
                 setPhase("idle");
-                onClipCreated?.(clip);
             }
         },
-        [phase, startTime, onClipCreated],
+        [phase, startTime, videoId, studyId, siteId, fetcher],
     );
 
     const onTrackClick = useCallback(
@@ -295,9 +312,6 @@ export function useClipTimeline(
         startTime,
         hoverTime,
         clips,
-        addClip,
-        updateClip,
-        removeClip,
         onTrackMouseMove,
         onTrackMouseLeave,
         onTrackClick,

@@ -26,6 +26,9 @@ import annotationsRouter from "./domains/annotations/annotations.router.js";
 import usersRouter from "./domains/users/users.router.js";
 import clipsRouter from "./domains/clips/clips.router.js";
 import sequencesRouter from "./domains/sequences/sequences.router.js";
+import reviewsRouter from "./domains/reviews/reviews.router.js";
+import sitesRouter from "./domains/sites/sites.router.js";
+import studiesRouter from "./domains/studies/studies.router.js";
 // import accountsRouter from "./domains/accounts/accounts.router";
 // import auditRouter from "./domains/audit/audit.router";
 
@@ -61,6 +64,9 @@ export function createApp() {
   app.use("/api/domain/users", usersRouter);
   app.use("/api/domain/clips", clipsRouter);
   app.use("/api/domain/sequences", sequencesRouter);
+  app.use("/api/domain/reviews", reviewsRouter);
+  app.use("/api/domain/sites", sitesRouter);
+  app.use("/api/domain/studies", studiesRouter);
   // app.use("/domain/accounts", accountsRouter);
   // app.use("/domain/audit", auditRouter);
 

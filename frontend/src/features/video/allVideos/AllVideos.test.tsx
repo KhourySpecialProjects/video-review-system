@@ -73,7 +73,7 @@ describe("AllVideos", () => {
 
     it("shows empty state when no videos", async () => {
         renderWithRouter({ searchPromise: Promise.resolve({ videos: [], total: 0, limit: 50, offset: 0 }), q: "" });
-        expect(await screen.findByText("No results.")).toBeInTheDocument();
+        expect((await screen.findAllByText("No videos found")).length).toBeGreaterThan(0);
     });
 
     it("renders the search input and filters button", async () => {

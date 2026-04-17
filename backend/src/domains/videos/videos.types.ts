@@ -22,6 +22,12 @@ export const createVideoSchema = z.object({
   contentType: z.enum(["video/mp4"], {
     message: "contentType must be video/mp4",
   }),
+  /**
+   * Optional study the uploader is assigning the video to. Must be linked
+   * to the uploader's site via SiteStudy. Omit to default to the site's
+   * auto-seeded "Miscellaneous" study.
+   */
+  studyId: z.uuid().optional(),
 });
 
 /**
@@ -100,8 +106,21 @@ export const updateS3KeySchema = z.object({
   s3Key: z.string().min(1, "s3Key is required"),
 });
 
+/**
+ * Validation schema for updating a caregiver's private title/description
+ * (stored on CaregiverVideoMetadata, not on Video itself).
+ *
+ * @field title - new private title, required
+ * @field description - new private notes, optional; empty string clears it
+ */
+export const updateVideoMetadataSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional().default(""),
+});
+
 // Inferred types from the validation schemas for use in the service layer
 export type CreateVideoInput = z.infer<typeof createVideoSchema>;
 export type CompleteUploadInput = z.infer<typeof completeUploadSchema>;
 export type UpdateVideoInput = z.infer<typeof updateVideoSchema>;
+export type UpdateVideoMetadataInput = z.infer<typeof updateVideoMetadataSchema>;
 export type SearchVideosInput = z.infer<typeof searchVideosSchema>;

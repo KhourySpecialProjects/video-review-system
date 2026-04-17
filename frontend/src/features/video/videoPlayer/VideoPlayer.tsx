@@ -22,6 +22,15 @@ type VideoPlayerProps = {
     drawToolbarSlot?: ReactNode;
     /** @description Slot for overlay content (e.g. annotation canvas), rendered above the video. */
     overlaySlot?: ReactNode;
+    /**
+     * @description When true, the container fills its parent in both
+     * dimensions (h-full w-full) instead of enforcing a 16:9 aspect ratio.
+     * The `<video>` keeps `object-contain` so its true aspect is preserved
+     * via letterboxing. Use this when the player lives inside a resizable
+     * panel that has its own height constraint — `aspect-video` would
+     * otherwise refuse to shrink when the panel gets shorter.
+     */
+    fill?: boolean;
 };
 
 /**
@@ -41,6 +50,7 @@ export function VideoPlayer({
     drawingEnabled,
     drawToolbarSlot,
     overlaySlot,
+    fill = false,
 }: VideoPlayerProps) {
     const [isPortrait, setIsPortrait] = useState(false);
     const internalState = useVideoPlayer();
@@ -65,15 +75,25 @@ export function VideoPlayer({
     } = externalState ?? internalState;
 
     const isPortraitVideo = aspectRatio !== null && aspectRatio < 1;
+    // Thumbnail only shows before first play — pausing mid-video keeps the
+    // frame visible so overlays (drawings, annotations) stay on top of it.
+    const showThumbnail = !isPlaying && currentTime === 0;
+
+    const outerClass = fill
+        ? "flex h-full w-full min-h-0 min-w-0 flex-col"
+        : "w-full";
+    const containerClass = fill
+        ? "group relative h-full w-full min-h-0 flex-1 overflow-hidden rounded-xl bg-black"
+        : `group relative w-full overflow-hidden rounded-xl bg-black ${
+              isPortraitVideo ? "aspect-9/16 md:aspect-video" : "aspect-video"
+          }`;
 
     return (
-        <div className="w-full">
+        <div className={outerClass}>
             {title && <h2 className="mb-2 text-lg font-semibold">{title}</h2>}
             <div
                 ref={containerRef}
-                className={`group relative w-full overflow-hidden rounded-xl bg-black ${
-                    isPortraitVideo ? "aspect-9/16 md:aspect-video" : "aspect-video"
-                }`}
+                className={containerClass}
                 onMouseMove={resetInactivityTimer}
                 onTouchStart={resetInactivityTimer}
             >
@@ -94,10 +114,12 @@ export function VideoPlayer({
                 <video
                     ref={videoRef}
                     src={src}
-                    className="relative size-full cursor-pointer object-contain"
+                    className={`relative size-full object-contain ${
+                        drawingEnabled ? "" : "cursor-pointer"
+                    }`}
                     playsInline
                     preload="metadata"
-                    onClick={togglePlay}
+                    onClick={drawingEnabled ? undefined : togglePlay}
                     onError={(e) => console.error("Video load error:", e.currentTarget.error)}
                     {...videoEventHandlers}
                 />
@@ -105,8 +127,8 @@ export function VideoPlayer({
                 {/* Overlay slot — annotation canvas, etc. */}
                 {overlaySlot}
 
-                {/* Thumbnail overlay — visible before playback */}
-                {!isPlaying && poster && (
+                {/* Thumbnail overlay — visible before playback, hidden while drawing so it doesn't cover the canvas */}
+                {showThumbnail && !drawingEnabled && poster && (
                     <ThumbnailOverlay
                         src={poster}
                         isPortrait={isPortrait}
@@ -114,8 +136,8 @@ export function VideoPlayer({
                     />
                 )}
 
-                {/* Center play button overlay */}
-                {!isPlaying && (
+                {/* Center play button overlay — hidden while drawing so the canvas isn't obscured */}
+                {showThumbnail && !drawingEnabled && (
                     <button
                         onClick={togglePlay}
                         className="absolute inset-0 flex cursor-pointer items-center justify-center bg-black/30 transition-opacity"

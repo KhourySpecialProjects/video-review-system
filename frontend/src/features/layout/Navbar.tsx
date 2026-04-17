@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { Sun, Moon, LogOut, Menu, X } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
+import { useLogout } from "@/hooks/use-logout";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useIncompleteUploads } from "./useIncompleteUploads";
@@ -15,6 +16,7 @@ import { Spinner } from "@/components/ui/spinner";
  */
 export function Navbar() {
     const { theme, toggleTheme } = useTheme();
+    const logout = useLogout();
     const [menuOpen, setMenuOpen] = useState(false);
     const { uploads, busy, isLoading, fileInputRef, onResume, onCancel, onFileChange } =
         useIncompleteUploads();
@@ -74,6 +76,7 @@ export function Navbar() {
                     variant="ghost"
                     size="icon"
                     className="hidden text-text-muted md:inline-flex"
+                    onClick={logout}
                     aria-label="Log out"
                 >
                     <LogOut className="size-4" />
@@ -123,6 +126,10 @@ export function Navbar() {
                             Tutorial
                         </Link>
                         <button
+                            onClick={() => {
+                                setMenuOpen(false);
+                                logout();
+                            }}
                             className="flex items-center rounded-md px-2.5 py-2 text-sm font-medium text-text-muted hover:bg-muted transition-all"
                             aria-label="Log out"
                         >

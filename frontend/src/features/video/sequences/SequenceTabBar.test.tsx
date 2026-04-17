@@ -24,6 +24,7 @@ const mockSequences: Sequence[] = [
     siteId: "site-1",
     title: "Highlight Reel",
     createdByUserId: "user-1",
+    createdByName: "Alice",
     createdAt: "2026-04-01T00:00:00Z",
     items: [],
   },
@@ -34,13 +35,18 @@ const mockSequences: Sequence[] = [
     siteId: "site-1",
     title: "Key Moments",
     createdByUserId: "user-1",
+    createdByName: "Alice",
     createdAt: "2026-04-02T00:00:00Z",
     items: [],
   },
 ];
 
 /**
- * @description Wraps the component in a router context for useFetcher.
+ * @description Wraps the component in a router context so useFetcher can
+ * resolve the /sequences resource route.
+ *
+ * @param ui - The React element under test
+ * @returns The rendered result
  */
 function renderWithRouter(ui: React.ReactElement) {
   const router = createMemoryRouter(
@@ -54,26 +60,27 @@ function renderWithRouter(ui: React.ReactElement) {
 }
 
 describe("SequenceTabBar", () => {
-  it("renders Full Video tab as default active tab", () => {
-    renderWithRouter(
-      <SequenceTabBar sequences={[]} {...baseProps} />,
-    );
+  it("shows 'Full Video' as the selected value when no sequence is active", () => {
+    renderWithRouter(<SequenceTabBar sequences={mockSequences} {...baseProps} />);
 
-    const tab = screen.getByText("Full Video");
-    expect(tab).toBeInTheDocument();
-    expect(tab.className).toContain("bg-primary");
+    const trigger = screen.getByRole("combobox", { name: "Select sequence" });
+    expect(trigger).toHaveTextContent("Full Video");
   });
 
-  it("renders sequence tabs from data", () => {
+  it("shows the active sequence's title when one is selected", () => {
     renderWithRouter(
-      <SequenceTabBar sequences={mockSequences} {...baseProps} />,
+      <SequenceTabBar
+        sequences={mockSequences}
+        {...baseProps}
+        activeSequenceId="seq-2"
+      />,
     );
 
-    expect(screen.getByText("Highlight Reel")).toBeInTheDocument();
-    expect(screen.getByText("Key Moments")).toBeInTheDocument();
+    const trigger = screen.getByRole("combobox", { name: "Select sequence" });
+    expect(trigger).toHaveTextContent("Key Moments");
   });
 
-  it("calls onSelect with sequence ID when a tab is clicked", async () => {
+  it("calls onSelect with the sequence ID when that option is chosen", async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
 
@@ -85,11 +92,13 @@ describe("SequenceTabBar", () => {
       />,
     );
 
-    await user.click(screen.getByText("Highlight Reel"));
+    await user.click(screen.getByRole("combobox", { name: "Select sequence" }));
+    await user.click(await screen.findByRole("option", { name: "Highlight Reel" }));
+
     expect(onSelect).toHaveBeenCalledWith("seq-1");
   });
 
-  it("calls onSelect with null when Full Video tab is clicked", async () => {
+  it("calls onSelect with null when 'Full Video' is chosen", async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
 
@@ -102,38 +111,20 @@ describe("SequenceTabBar", () => {
       />,
     );
 
-    await user.click(screen.getByText("Full Video"));
+    await user.click(screen.getByRole("combobox", { name: "Select sequence" }));
+    await user.click(await screen.findByRole("option", { name: "Full Video" }));
+
     expect(onSelect).toHaveBeenCalledWith(null);
   });
 
-  it("shows active styling on the selected sequence tab", () => {
-    renderWithRouter(
-      <SequenceTabBar
-        sequences={mockSequences}
-        {...baseProps}
-        activeSequenceId="seq-2"
-      />,
-    );
-
-    const activeTab = screen.getByText("Key Moments");
-    const inactiveTab = screen.getByText("Full Video");
-
-    expect(activeTab.className).toContain("bg-primary");
-    expect(inactiveTab.className).not.toContain("bg-primary text-primary-foreground");
-  });
-
   it("shows + button to create new sequence when not disabled", () => {
-    renderWithRouter(
-      <SequenceTabBar sequences={[]} {...baseProps} />,
-    );
+    renderWithRouter(<SequenceTabBar sequences={[]} {...baseProps} />);
 
     expect(screen.getByLabelText("Create new sequence")).toBeInTheDocument();
   });
 
   it("hides + button when disabled", () => {
-    renderWithRouter(
-      <SequenceTabBar sequences={[]} {...baseProps} disabled />,
-    );
+    renderWithRouter(<SequenceTabBar sequences={[]} {...baseProps} disabled />);
 
     expect(screen.queryByLabelText("Create new sequence")).not.toBeInTheDocument();
   });
@@ -141,9 +132,7 @@ describe("SequenceTabBar", () => {
   it("shows inline input when + button is clicked", async () => {
     const user = userEvent.setup();
 
-    renderWithRouter(
-      <SequenceTabBar sequences={[]} {...baseProps} />,
-    );
+    renderWithRouter(<SequenceTabBar sequences={[]} {...baseProps} />);
 
     await user.click(screen.getByLabelText("Create new sequence"));
     expect(screen.getByPlaceholderText("Sequence name…")).toBeInTheDocument();
@@ -162,9 +151,7 @@ describe("SequenceTabBar", () => {
   });
 
   it("does not show play button in full video mode", () => {
-    renderWithRouter(
-      <SequenceTabBar sequences={mockSequences} {...baseProps} />,
-    );
+    renderWithRouter(<SequenceTabBar sequences={mockSequences} {...baseProps} />);
 
     expect(screen.queryByLabelText("Play sequence")).not.toBeInTheDocument();
   });

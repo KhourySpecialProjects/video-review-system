@@ -44,9 +44,9 @@ export const createAnnotationSchema = z.object({
  * @field payload - updated JSON payload
  */
 export const updateAnnotationSchema = z.object({
-  timestampSeconds: z.number().int().min(0),
-  durationSeconds: z.number().int().positive(),
-  payload: z.record(z.string(), z.unknown()),
+  timestampSeconds: z.number().int().min(0).optional(),
+  durationSeconds: z.number().int().positive().optional(),
+  payload: z.record(z.string(), z.unknown()).optional(),
 });
 
 /**
@@ -67,11 +67,12 @@ export interface CreateAnnotationParams {
 
 /**
  * Service-layer params for updating an annotation.
+ * All fields optional — only supplied fields are updated.
  * Uses Prisma.JsonValue for payload to match the database column type.
  */
 export interface UpdateAnnotationParams {
-  timestampSeconds: number;
-  durationSeconds: number;
+  timestampSeconds?: number;
+  durationSeconds?: number;
   payload?: Prisma.InputJsonValue;
 }
 

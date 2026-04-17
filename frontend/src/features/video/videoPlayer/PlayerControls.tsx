@@ -86,6 +86,7 @@ export function PlayerControls({
                             variant="ghost"
                             size="icon-sm"
                             onClick={onTogglePlay}
+                            disabled={drawingEnabled}
                             aria-label={isPlaying ? "Pause" : "Play"}
                             className="text-white hover:text-primary hover:bg-white/10"
                         >

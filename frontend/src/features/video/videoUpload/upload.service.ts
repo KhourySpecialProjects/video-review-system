@@ -109,6 +109,7 @@ async function initiateUpload(metadata: {
   createdAt: string
   takenAt: string
   contentType: string
+  studyId?: string
 }): Promise<InitiateUploadResponse> {
   const res = await apiFetch("/videos/upload", {
     method: "POST",
@@ -186,6 +187,7 @@ export async function uploadVideo(
     durationSeconds: number
     createdAt: string
     takenAt: string
+    studyId?: string
   },
   onProgress?: (percent: number) => void,
   signal?: AbortSignal

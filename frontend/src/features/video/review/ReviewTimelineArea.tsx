@@ -1,11 +1,11 @@
-import { useState, useMemo } from "react";
-import { LayoutGroup } from "motion/react";
+import { useMemo } from "react";
 import { VideoTimeline, annotationsToMarkers } from "@/features/video/timeline/VideoTimeline";
 import { ClipTimeline } from "@/features/video/clips/ClipTimeline";
 import { useClipTimeline } from "@/features/video/clips/useClipTimeline";
 import { SequenceTabBar } from "@/features/video/sequences/SequenceTabBar";
-import { SequenceClipBar } from "@/features/video/sequences/SequenceClipBar";
+import { SequenceBar, sortSequenceClips } from "@/features/video/sequences/SequenceBar";
 import { useSequencePlayback } from "@/features/video/sequences/useSequencePlayback";
+import { useSequenceFetcher } from "@/features/video/sequences/useSequences";
 import type { Clip } from "@shared/clip";
 import type { Sequence } from "@shared/sequence";
 import type { Annotation } from "@/features/video/annotations/types";
@@ -16,6 +16,11 @@ type ReviewTimelineAreaProps = {
   annotations: Annotation[];
   clips: Clip[];
   sequences: Sequence[];
+  /** @description Currently selected sequence ID (null = full video). Lifted to
+   * the parent so the sidebar and this area share the same active sequence. */
+  activeSequenceId: string | null;
+  /** @description Called when the user selects a different sequence (or null). */
+  onActiveSequenceChange: (sequenceId: string | null) => void;
   videoRef: React.RefObject<HTMLVideoElement | null>;
   onSeek: (time: number) => void;
   videoId: string;
@@ -28,9 +33,13 @@ type ReviewTimelineAreaProps = {
 };
 
 /**
- * @description Timeline area with sequence tab bar, annotation timeline,
- * and clip timeline. Switching tabs filters visible clips and annotations
- * to those within the active sequence's time ranges.
+ * @description Timeline area with sequence selector, sequence clip bar,
+ * annotation timeline, and clip timeline. When a sequence is active, visible
+ * clips and annotations are filtered to that sequence's time ranges. Removing
+ * a clip from the sequence persists through the /sequences resource route.
+ *
+ * @param props - Component props
+ * @returns The timeline area element
  */
 export function ReviewTimelineArea({
   duration,
@@ -38,6 +47,8 @@ export function ReviewTimelineArea({
   annotations,
   clips,
   sequences,
+  activeSequenceId,
+  onActiveSequenceChange,
   videoRef,
   onSeek,
   videoId,
@@ -45,18 +56,17 @@ export function ReviewTimelineArea({
   siteId,
   canWrite,
 }: ReviewTimelineAreaProps) {
-  const [activeSequenceId, setActiveSequenceId] = useState<string | null>(null);
+  const sequenceFetcher = useSequenceFetcher();
 
   const activeSequence = useMemo(
     () => sequences.find((s) => s.id === activeSequenceId) ?? null,
     [sequences, activeSequenceId],
   );
 
-  /** @description Clips that belong to the active sequence, resolved from clip IDs. */
+  /** @description Clips that belong to the active sequence, sorted by start time. */
   const sequenceClips = useMemo(() => {
     if (!activeSequence) return clips;
-    const clipIds = new Set(activeSequence.items.map((item) => item.clipId));
-    return clips.filter((c) => clipIds.has(c.id));
+    return sortSequenceClips(activeSequence, clips);
   }, [activeSequence, clips]);
 
   /** @description Annotations filtered to the active sequence's clip time ranges. */
@@ -71,44 +81,49 @@ export function ReviewTimelineArea({
 
   const sequencePlayback = useSequencePlayback(sequenceClips, videoRef);
 
-  const timeline = useClipTimeline(duration, videoRef, (clip) => {
-    console.log("Clip created:", clip);
-  });
+  const timeline = useClipTimeline(duration, videoRef, clips, videoId, studyId, siteId);
+
+  /**
+   * @description Removes a clip from the active sequence via the resource route.
+   *
+   * @param clipId - The clip to remove
+   */
+  function handleRemoveClip(clipId: string) {
+    if (!activeSequence) return;
+    sequenceFetcher.removeClipFromSequence(activeSequence.id, clipId);
+  }
 
   return (
-    <LayoutGroup>
-      <div className="flex h-full flex-col gap-3 overflow-y-auto p-4">
-        <SequenceTabBar
-          sequences={sequences}
-          activeSequenceId={activeSequenceId}
-          onSelect={setActiveSequenceId}
-          isPlayingSequence={sequencePlayback.isPlayingSequence}
-          onPlaySequence={sequencePlayback.playSequence}
-          onStopSequence={sequencePlayback.stopSequence}
-          disabled={!canWrite}
-          videoId={videoId}
-          studyId={studyId}
-          siteId={siteId}
-        />
+    <div className="flex h-full flex-col gap-3 overflow-y-auto p-4">
+      <SequenceTabBar
+        sequences={sequences}
+        activeSequenceId={activeSequenceId}
+        onSelect={onActiveSequenceChange}
+        isPlayingSequence={sequencePlayback.isPlayingSequence}
+        onPlaySequence={sequencePlayback.playSequence}
+        onStopSequence={sequencePlayback.stopSequence}
+        disabled={!canWrite}
+        videoId={videoId}
+        studyId={studyId}
+        siteId={siteId}
+      />
 
-        {/* Sequence clip bar — shows ordered clips when a sequence is active */}
-        {activeSequence && (
-          <SequenceClipBar
-            clips={sequenceClips}
-            videoDuration={duration}
-            activeClipIndex={sequencePlayback.currentClipIndex}
-          />
-        )}
+      <SequenceBar
+        activeSequence={activeSequence}
+        clips={clips}
+        activeClipIndex={sequencePlayback.currentClipIndex}
+        onRemoveClip={handleRemoveClip}
+        onSeekToClip={sequencePlayback.seekToClip}
+      />
 
-        <VideoTimeline
-          duration={duration}
-          currentTime={currentTime}
-          markers={annotationsToMarkers(filteredAnnotations)}
-          onSeek={onSeek}
-        />
+      <VideoTimeline
+        duration={duration}
+        currentTime={currentTime}
+        markers={annotationsToMarkers(filteredAnnotations)}
+        onSeek={onSeek}
+      />
 
-        <ClipTimeline duration={duration} timeline={timeline} />
-      </div>
-    </LayoutGroup>
+      <ClipTimeline duration={duration} timeline={timeline} />
+    </div>
   );
 }

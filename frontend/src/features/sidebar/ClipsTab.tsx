@@ -1,7 +1,8 @@
-import { motion } from "motion/react"
+import { useRef } from "react"
 import { ClipCard } from "./ClipCard"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { ClipAnnotation } from "./sidebar"
+import { useClipMorph } from "@/features/video/sequences/clipMorphContext"
 
 type ClipsTabProps = {
   clips: ClipAnnotation[]
@@ -9,12 +10,22 @@ type ClipsTabProps = {
   onJumpToTime: (timeSeconds: number) => void
   onUpdateClip: (id: string, updates: { title?: string; startMs?: number; endMs?: number }) => void
   onDeleteClip: (id: string) => void
+  /**
+   * @description Called when the user clicks "Add to sequence" on a clip card.
+   * Omitted when no sequence is active — the button is hidden in that case so
+   * the user must first pick a sequence from the sequence bar.
+   */
+  onAddToSequence?: (clipId: string) => void
 }
 
 /**
- * @description Clips tab content for the annotation sidebar.
- * Each clip is wrapped in a motion.div with a layoutId for the
- * clip-to-sequence animation.
+ * @description Clips tab content for the annotation sidebar. Each clip is
+ * rendered in a ref-tracked wrapper so that on "Add to sequence" we can
+ * capture the clicked card's bounding rect and trigger a shared-layout
+ * morph to the SequenceBar.
+ *
+ * @param props - Component props
+ * @returns The clips tab content
  */
 export function ClipsTab({
   clips,
@@ -22,6 +33,7 @@ export function ClipsTab({
   onJumpToTime,
   onUpdateClip,
   onDeleteClip,
+  onAddToSequence,
 }: ClipsTabProps) {
   if (isLoading) return <SkeletonList />
 
@@ -36,23 +48,69 @@ export function ClipsTab({
   return (
     <>
       {clips.map((clip) => (
-        <motion.div
+        <ClipRow
           key={clip.id}
-          layoutId={`clip-${clip.id}`}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        >
-          <ClipCard
-            title={clip.title}
-            startMs={clip.startMs}
-            endMs={clip.endMs}
-            color={clip.themeColor}
-            onJumpStart={() => onJumpToTime(clip.startMs / 1000)}
-            onUpdateClip={(updates) => onUpdateClip(clip.id, updates)}
-            onDelete={() => onDeleteClip(clip.id)}
-          />
-        </motion.div>
+          clip={clip}
+          onJumpToTime={onJumpToTime}
+          onUpdateClip={onUpdateClip}
+          onDeleteClip={onDeleteClip}
+          onAddToSequence={onAddToSequence}
+        />
       ))}
     </>
+  )
+}
+
+type ClipRowProps = {
+  clip: ClipAnnotation
+  onJumpToTime: (timeSeconds: number) => void
+  onUpdateClip: (id: string, updates: { title?: string; startMs?: number; endMs?: number }) => void
+  onDeleteClip: (id: string) => void
+  onAddToSequence?: (clipId: string) => void
+}
+
+/**
+ * @description A single sidebar clip row. Keeps a ref to the wrapper so the
+ * "Add to sequence" click can capture the card's bounding rect and hand it
+ * to the morph provider as the animation source.
+ *
+ * @param props - Component props
+ * @returns The clip row element
+ */
+function ClipRow({
+  clip,
+  onJumpToTime,
+  onUpdateClip,
+  onDeleteClip,
+  onAddToSequence,
+}: ClipRowProps) {
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const { triggerMorph } = useClipMorph()
+
+  /**
+   * @description Captures the card's current position, fires the morph, then
+   * invokes the parent's add handler to persist via the /sequences route.
+   */
+  function handleAdd() {
+    if (!onAddToSequence) return
+    const rect = wrapperRef.current?.getBoundingClientRect()
+    if (rect) triggerMorph(clip.id, rect, clip.themeColor)
+    onAddToSequence(clip.id)
+  }
+
+  return (
+    <div ref={wrapperRef}>
+      <ClipCard
+        title={clip.title}
+        startMs={clip.startMs}
+        endMs={clip.endMs}
+        color={clip.themeColor}
+        onJumpStart={() => onJumpToTime(clip.startMs / 1000)}
+        onUpdateClip={(updates) => onUpdateClip(clip.id, updates)}
+        onDelete={() => onDeleteClip(clip.id)}
+        onAddToSequence={onAddToSequence ? handleAdd : undefined}
+      />
+    </div>
   )
 }
 

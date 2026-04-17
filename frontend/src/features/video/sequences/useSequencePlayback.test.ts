@@ -12,7 +12,9 @@ const makeClip = (startTimeS: number, endTimeS: number): Clip => ({
   startTimeS,
   endTimeS,
   createdByUserId: "user-1",
+  createdByName: "Test User",
   createdAt: "2026-04-01T00:00:00Z",
+  themeColor: "#3b82f6",
 });
 
 function createMockVideoRef() {
@@ -20,6 +22,8 @@ function createMockVideoRef() {
     currentTime: 0,
     play: vi.fn().mockResolvedValue(undefined),
     pause: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
   } as unknown as HTMLVideoElement;
 
   return { current: video };

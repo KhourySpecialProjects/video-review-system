@@ -15,4 +15,6 @@ export type Clip = {
   /** @description Display name of the user who created this clip. */
   createdByName: string;
   createdAt: string;
+  /** @description Accent color for the clip card. Stored in the clip's JSON payload. */
+  themeColor: string;
 };

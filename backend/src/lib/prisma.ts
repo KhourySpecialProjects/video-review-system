@@ -19,7 +19,7 @@ if (process.env.NODE_ENV == "production") {
   connectionString = process.env["RDS_SESSION_MANAGER_DATABASE_URL"]!;
 }
 
-console.log("Using database connection string:", connectionString.replace(/:[^:]+@/, ":***@"));
+console.log("Using database connection string:", connectionString);
 
 // create postgres connection pool
 const pool = new pg.Pool({

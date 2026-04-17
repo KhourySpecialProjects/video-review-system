@@ -19,7 +19,6 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
       "@shared-types": path.resolve(__dirname, "./types"),
       "@shared": path.resolve(__dirname, "../shared"),
-      "@shared-types": path.resolve(__dirname, "./types"), //
     },
   },
   server: {

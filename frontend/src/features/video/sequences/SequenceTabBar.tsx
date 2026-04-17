@@ -3,13 +3,24 @@ import { useFetcher } from "react-router";
 import { Plus, Play, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { Sequence } from "@shared/sequence";
+
+/** @description Sentinel value for the "Full Video" (no sequence) option. */
+const FULL_VIDEO_VALUE = "__full_video__";
 
 type SequenceTabBarProps = {
   sequences: Sequence[];
   /** @description ID of the active sequence, or null for full video view. */
   activeSequenceId: string | null;
-  /** @description Called when a tab is selected. Null = full video. */
+  /** @description Called when a sequence is selected. Null = full video. */
   onSelect: (sequenceId: string | null) => void;
   /** @description Whether sequence playback is active. */
   isPlayingSequence: boolean;
@@ -26,10 +37,13 @@ type SequenceTabBarProps = {
 };
 
 /**
- * @description Tab bar for switching between full video view and sequence views.
- * Shows "Full Video" as the default tab, a tab per sequence, and a "+ New" button
- * that reveals an inline title input. New sequences are created via useFetcher
- * submitting to the /sequences resource route.
+ * @description Selector for switching between full video view and sequence views.
+ * Uses a Shadcn Select to pick the active sequence, shows a play/stop control
+ * when a sequence is active, and exposes a "+" button to create a new sequence
+ * via useFetcher submitting to the /sequences resource route.
+ *
+ * @param props - Component props
+ * @returns The sequence tab bar element
  */
 export function SequenceTabBar({
   sequences,
@@ -66,38 +80,39 @@ export function SequenceTabBar({
     setIsCreating(false);
   }
 
+  /**
+   * @description Translates the Select's string value back into the parent's
+   * null-for-full-video contract.
+   *
+   * @param value - The raw value from the Select control
+   */
+  function handleSelect(value: string | null) {
+    onSelect(value === FULL_VIDEO_VALUE || value === null ? null : value);
+  }
+
+  const activeSequence = sequences.find((s) => s.id === activeSequenceId) ?? null;
+  const selectValue = activeSequenceId ?? FULL_VIDEO_VALUE;
+
   return (
-    <div className="flex items-center gap-1 overflow-x-auto pb-1">
-      {/* Full Video tab */}
-      <button
-        type="button"
-        onClick={() => onSelect(null)}
-        className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-          activeSequenceId === null
-            ? "bg-primary text-primary-foreground"
-            : "bg-muted text-muted-foreground hover:bg-muted/80"
-        }`}
-      >
-        Full Video
-      </button>
+    <div className="flex h-9 shrink-0 items-center gap-2">
+      <Select value={selectValue} onValueChange={handleSelect}>
+        <SelectTrigger size="sm" aria-label="Select sequence" className="min-w-40">
+          <SelectValue>
+            {activeSequence ? activeSequence.title : "Full Video"}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent alignItemWithTrigger={false} side="bottom">
+          <SelectGroup>
+            <SelectItem value={FULL_VIDEO_VALUE}>Full Video</SelectItem>
+            {sequences.map((seq) => (
+              <SelectItem key={seq.id} value={seq.id}>
+                {seq.title}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
 
-      {/* Sequence tabs */}
-      {sequences.map((seq) => (
-        <button
-          key={seq.id}
-          type="button"
-          onClick={() => onSelect(seq.id)}
-          className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-            activeSequenceId === seq.id
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground hover:bg-muted/80"
-          }`}
-        >
-          {seq.title}
-        </button>
-      ))}
-
-      {/* Play/Stop button for active sequence */}
       {activeSequenceId && (
         <Button
           variant="ghost"
@@ -114,7 +129,6 @@ export function SequenceTabBar({
         </Button>
       )}
 
-      {/* New sequence creation */}
       {!disabled && (
         <>
           {isCreating ? (

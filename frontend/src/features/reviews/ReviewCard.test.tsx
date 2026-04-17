@@ -6,6 +6,8 @@ import type { ReviewVideo } from "./types";
 
 const baseVideo: ReviewVideo = {
     id: "rv-001",
+    studyId: "study-123",
+    siteId: "site-456",
     reviewStatus: "not reviewed",
     studyName: "Cognition Study",
     siteName: "Boston General",
@@ -49,7 +51,7 @@ describe("ReviewCard", () => {
     it("links to the review page with the video id", () => {
         renderCard();
         const link = screen.getByRole("link");
-        expect(link).toHaveAttribute("href", "/review/rv-001");
+        expect(link).toHaveAttribute("href", "/review/rv-001/study-123/site-456");
     });
 
     it("renders the title when provided", () => {

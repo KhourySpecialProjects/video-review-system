@@ -1,68 +1,53 @@
 import { render, screen, fireEvent } from "@testing-library/react"
-import { describe, it, expect, beforeAll, vi } from "vitest"
-import { AnnotationSidebar } from "./sidebar"
+import { describe, it, expect } from "vitest"
+import { createMemoryRouter, RouterProvider } from "react-router"
+import { AnnotationSidebar, type AnnotationSidebarProps } from "./sidebar"
 import "@testing-library/jest-dom"
 
-beforeAll(() => {
-  Object.defineProperty(window, "matchMedia", {
-    writable: true,
-    value: vi.fn().mockImplementation((query) => ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addListener: vi.fn(), // Deprecated
-      removeListener: vi.fn(), // Deprecated
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
-  })
-})
+/**
+ * @description Renders AnnotationSidebar inside a memory data router.
+ * Stubs the `/clips` and `/annotations` resource routes that the
+ * sidebar's mutation fetchers submit to.
+ */
+const defaultIds = { videoId: "video-1", studyId: "study-1", siteId: "site-1" }
+
+function renderSidebar(props: Partial<AnnotationSidebarProps> = {}) {
+  const merged: AnnotationSidebarProps = { ...defaultIds, ...props }
+  const router = createMemoryRouter([
+    { path: "/", element: <AnnotationSidebar {...merged} /> },
+    { path: "/clips", loader: () => ({ clips: [] }), action: () => ({ ok: true }) },
+    { path: "/annotations", loader: () => ({ annotations: [] }), action: () => ({ ok: true }) },
+  ])
+  return render(<RouterProvider router={router} />)
+}
+
+const sampleClips = [
+  { id: "clip-1", title: "First clip", startMs: 0, endMs: 5000, themeColor: "#f00" },
+  { id: "clip-2", title: "Second clip", startMs: 6000, endMs: 12000, themeColor: "#0f0" },
+]
 
 describe("AnnotationSidebar", () => {
-  it("renders the sidebar with default clips tab active", () => {
-    // Render the Sidebar with its default setup which includes DUMMY_CLIPS
-    render(<AnnotationSidebar />)
-
-    // Verify all tabs exist
+  it("renders all three tabs", () => {
+    renderSidebar()
     expect(screen.getByRole("tab", { name: /clips/i })).toBeInTheDocument()
     expect(screen.getByRole("tab", { name: /notes/i })).toBeInTheDocument()
     expect(screen.getByRole("tab", { name: /draw/i })).toBeInTheDocument()
-
-    // Verify dummy clip placeholders are visible
-    expect(screen.getByText("Clip Card Placeholder - clip-1")).toBeInTheDocument()
-    expect(screen.getByText("Clip Card Placeholder - clip-2")).toBeInTheDocument()
   })
 
-  it("switches tabs and displays corresponding content", () => {
-    render(<AnnotationSidebar />)
-
-    // The 'clips' tab is active by default. Let's switch to 'notes'
-    const notesTab = screen.getByRole("tab", { name: /notes/i })
-    fireEvent.click(notesTab)
-
-    // Verify notes dummy placeholder is displayed
-    expect(screen.getByText("Note Card Placeholder - note-1")).toBeInTheDocument()
-
-    // Switch to 'draw'
-    const drawTab = screen.getByRole("tab", { name: /draw/i })
-    fireEvent.click(drawTab)
-
-    // Verify draw dummy placeholder is displayed
-    expect(screen.getByText("Draw Card Placeholder - draw-1")).toBeInTheDocument()
+  it("renders provided clips on the default clips tab", () => {
+    renderSidebar({ clips: sampleClips })
+    expect(screen.getByText("First clip")).toBeInTheDocument()
+    expect(screen.getByText("Second clip")).toBeInTheDocument()
   })
 
   it("renders empty states when no data is provided", () => {
-    render(<AnnotationSidebar clips={[]} notes={[]} drawings={[]} />)
+    renderSidebar({ clips: [], notes: [], drawings: [] })
 
-    // Verify empty state for clips
     expect(screen.getByText("No clips available.")).toBeInTheDocument()
 
-    // Switch to notes and verify empty state
     fireEvent.click(screen.getByRole("tab", { name: /notes/i }))
     expect(screen.getByText("No notes available.")).toBeInTheDocument()
 
-    // Switch to draw and verify empty state
     fireEvent.click(screen.getByRole("tab", { name: /draw/i }))
     expect(screen.getByText("No drawings available.")).toBeInTheDocument()
   })

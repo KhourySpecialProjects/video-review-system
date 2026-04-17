@@ -1,10 +1,13 @@
 import { Router } from "express";
 import * as annotationsService from "./annotations.service.js";
 import { AppError } from "../../middleware/errors.js";
+import { requireSession } from "../../middleware/auth.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import { createAnnotationSchema, updateAnnotationSchema } from "./annotations.types.js";
 
 const router = Router();
+
+router.use(requireSession);
 
 /**
  * GET /domain/annotations - lists annotations for a specific video with pagination.
@@ -64,12 +67,9 @@ router.post("/", async (req, res) => {
     throw AppError.badRequest(parsed.error.issues[0].message);
   }
 
-  // TODO: get real user ID from auth middleware (req.user.id)
-  const uploadedByUserId = "00000000-0000-0000-0000-000000000000";
-
   const annotation = await annotationsService.createAnnotation({
     videoId: parsed.data.videoId,
-    authorUserId: uploadedByUserId,
+    authorUserId: req.authSession.user.id,
     studyId: parsed.data.studyId,
     siteId: parsed.data.siteId,
     type: parsed.data.type,

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Clip } from "@shared/clip";
 
 type SequencePlaybackState = {
@@ -29,6 +29,8 @@ export function useSequencePlayback(
 
   const clipIndexRef = useRef(0);
   const isPlayingRef = useRef(false);
+  const clipsRef = useRef(clips);
+  clipsRef.current = clips;
 
   /**
    * @description Starts sequence playback from the first clip.
@@ -75,6 +77,7 @@ export function useSequencePlayback(
    * @description Called on each video timeupdate to check if the current
    * clip has ended. Only triggers a state update at clip boundaries
    * (not on every tick), so the cost is a single number comparison per frame.
+   * Reads clips from a ref so the callback identity is stable across renders.
    *
    * @param currentTime - The video's current playback time in seconds
    */
@@ -82,26 +85,38 @@ export function useSequencePlayback(
     (currentTime: number) => {
       if (!isPlayingRef.current) return;
 
-      const currentClip = clips[clipIndexRef.current];
+      const currentClips = clipsRef.current;
+      const currentClip = currentClips[clipIndexRef.current];
       if (!currentClip) return;
 
       if (currentTime >= currentClip.endTimeS) {
         const nextIndex = clipIndexRef.current + 1;
         const video = videoRef.current;
 
-        if (nextIndex < clips.length && video) {
+        if (nextIndex < currentClips.length && video) {
           clipIndexRef.current = nextIndex;
           setState({ isPlaying: true, currentClipIndex: nextIndex });
-          video.currentTime = clips[nextIndex].startTimeS;
+          video.currentTime = currentClips[nextIndex].startTimeS;
         } else {
           isPlayingRef.current = false;
-          setState({ isPlaying: false, currentClipIndex: clips.length - 1 });
+          setState({
+            isPlaying: false,
+            currentClipIndex: currentClips.length - 1,
+          });
           video?.pause();
         }
       }
     },
-    [clips, videoRef],
+    [videoRef],
   );
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const handleTimeUpdate = () => checkTimeUpdate(video.currentTime);
+    video.addEventListener("timeupdate", handleTimeUpdate);
+    return () => video.removeEventListener("timeupdate", handleTimeUpdate);
+  }, [videoRef, checkTimeUpdate]);
 
   return {
     isPlayingSequence: state.isPlaying,

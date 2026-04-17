@@ -71,6 +71,7 @@ export async function sendInviteEmail(
       <p>This link expires in 24 hours.</p>
     `,
   });
+  console.log(`[SES] Sent invitation email to ${email}`);
 }
 
 /**

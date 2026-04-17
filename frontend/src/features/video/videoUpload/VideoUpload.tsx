@@ -37,14 +37,23 @@ const titles: Record<UploadStep, string> = {
  * Flow: details → select file & upload → complete.
  */
 export function VideoUpload() {
-  const { state, dispatch, handleFileSelected, handlePause } = useVideoUpload()
+  const {
+    state,
+    dispatch,
+    studies,
+    studiesLoading,
+    effectiveStudyId,
+    openDialog,
+    handleFileSelected,
+    handlePause,
+  } = useVideoUpload()
   const { open, confirmationOpen, step, title, description, upload } = state
 
   return (
     <Dialog
       open={open}
       onOpenChange={(nextOpen) =>
-        dispatch({ type: nextOpen ? "OPEN" : "REQUEST_CLOSE" })
+        nextOpen ? openDialog() : dispatch({ type: "REQUEST_CLOSE" })
       }
     >
       <DialogTrigger
@@ -81,9 +90,15 @@ export function VideoUpload() {
             <DetailsStep
               title={title}
               description={description}
+              studyId={effectiveStudyId}
+              studies={studies}
+              studiesLoading={studiesLoading}
               onTitleChange={(v) => dispatch({ type: "SET_TITLE", title: v })}
               onDescriptionChange={(v) =>
                 dispatch({ type: "SET_DESCRIPTION", description: v })
+              }
+              onStudyIdChange={(v) =>
+                dispatch({ type: "SET_STUDY_ID", studyId: v })
               }
             />
             <DialogFooter>

@@ -1,6 +1,6 @@
 import pino from "pino";
 
-const isDev = process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "test";
+const isDev = process.env.NODE_ENV === "development";
 
 /**
  * Shared application logger powered by pino.

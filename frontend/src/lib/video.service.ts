@@ -20,6 +20,8 @@ export type VideoListResponse = {
 
 import type { VideoStreamResponse, VideoReviewResponse } from "@shared/video";
 import { fetchAnnotations } from "./annotation.service";
+import { fetchClips } from "./clip.service";
+import { fetchSequences } from "./sequence.service";
 
 /**
  * Fetches a paginated list of uploaded videos from the backend.
@@ -183,15 +185,19 @@ export async function videoViewLoader({ params, request }: LoaderFunctionArgs): 
 }
 
 /**
- * @description Data returned by the video review route loader.
- * Video + stream URL are resolved immediately; annotations, clips, and
- * sequences are deferred promises that stream in after initial render.
+ * @description Data returned by the video review route loader. The video
+ * stream URL and poster are awaited so the player paints immediately; the
+ * annotations/clips/sequences are returned as unresolved promises so the
+ * sidebar and timeline stream in via `<Await>` + `<Suspense>`. `studyId`
+ * and `siteId` come from the route path params.
  */
 export type VideoReviewLoaderData = {
     video: VideoReviewResponse["video"];
     videoUrl: string;
     imgUrl: string;
     expiresIn: number;
+    studyId: string;
+    siteId: string;
     permissionLevel: VideoReviewResponse["permissionLevel"];
     annotationsPromise: Promise<VideoReviewResponse["annotations"]>;
     clipsPromise: Promise<VideoReviewResponse["clips"]>;
@@ -199,41 +205,80 @@ export type VideoReviewLoaderData = {
 };
 
 /**
- * @description Video review route loader. Fetches video detail + stream URL
- * (blocking), then defers annotations, clips, and sequences for streaming.
+ * @description Video review route loader. Awaits only the stream URL so the
+ * video/poster can paint, and returns annotations/clips/sequences as
+ * unresolved promises for deferred streaming. All four requests fire in
+ * parallel so the secondary data is already in-flight by the time the
+ * player mounts.
  *
- * @param params - Route params containing videoId
+ * @param params - Route params containing videoId, studyId, siteId
  * @param request - The loader Request (forwarded for abort signal)
- * @returns Video stream data (blocking) + deferred annotation/clip/sequence promises
- * @throws {Response} 404 if the video does not exist
+ * @returns Video stream data plus deferred promises for annotations, clips, sequences
+ * @throws {Response} 404 if the video does not exist, 400 if route params are missing
  */
 export async function videoReviewLoader({ params, request }: LoaderFunctionArgs): Promise<VideoReviewLoaderData> {
-    const { videoId } = params;
-    const streamData = await fetchStreamUrl(videoId!, request);
+    const { videoId, studyId, siteId } = params;
+    if (!videoId || !studyId || !siteId) {
+        throw new Response("Missing review route params", { status: 400 });
+    }
+
+    const streamPromise = fetchStreamUrl(videoId, request);
+    const annotationsPromise = fetchAnnotations(videoId).then((r) => r.annotations);
+    const clipsPromise = fetchClips(videoId, studyId).then((r) => r.clips);
+    const sequencesPromise = fetchSequences(videoId, studyId).then((r) => r.sequences);
+
+    const streamData = await streamPromise;
 
     if (!streamData.video) {
         throw new Response("Video not found", { status: 404 });
     }
-
-    // Deferred — these stream in after the page shell renders
-    const annotationsPromise = fetchAnnotations(videoId!).then((res) => res.annotations);
-    const clipsPromise = apiFetch(`/clips?videoId=${videoId}&studyId=placeholder`)
-        .then((res) => res.ok ? res.json() : { clips: [] })
-        .then((data) => data.clips);
-    const sequencesPromise = apiFetch(`/sequences?videoId=${videoId}&studyId=placeholder`)
-        .then((res) => res.ok ? res.json() : { sequences: [] })
-        .then((data) => data.sequences);
 
     return {
         video: streamData.video,
         videoUrl: streamData.videoUrl,
         imgUrl: streamData.imgUrl,
         expiresIn: streamData.expiresIn,
+        studyId,
+        siteId,
         permissionLevel: "WRITE",
         annotationsPromise,
         clipsPromise,
         sequencesPromise,
     };
+}
+
+/**
+ * @description Revalidation gate for the review route. Skips the loader
+ * when neither the pathname nor search string has changed AND no form
+ * submission triggered the navigation — this prevents redundant stream
+ * URL fetches on purely cosmetic navigations. Mutation-driven revalidation
+ * (from `useRevalidator` or resource-route submissions) still re-runs
+ * the loader; since annotations/clips/sequences are deferred, that
+ * revalidation returns instantly and the Suspense boundaries stream the
+ * updated lists in.
+ *
+ * @param args - React Router `shouldRevalidate` args
+ * @returns Whether to re-run the review loader
+ */
+export function videoReviewShouldRevalidate({
+    formAction,
+    currentUrl,
+    nextUrl,
+    defaultShouldRevalidate,
+}: {
+    formAction?: string;
+    currentUrl: URL;
+    nextUrl: URL;
+    defaultShouldRevalidate: boolean;
+}): boolean {
+    if (
+        !formAction &&
+        currentUrl.pathname === nextUrl.pathname &&
+        currentUrl.search === nextUrl.search
+    ) {
+        return false;
+    }
+    return defaultShouldRevalidate;
 }
 
 /**
@@ -260,7 +305,7 @@ export async function videoReviewAction({ params, request }: ActionFunctionArgs)
                 });
                 return { fieldErrors: errors };
             }
-            const res = await apiFetch(`/videos/${params.videoId}`, {
+            const res = await apiFetch(`/videos/${params.videoId}/metadata`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -301,7 +346,7 @@ export async function videoViewAction({ params, request }: ActionFunctionArgs) {
         return { fieldErrors: errors };
     }
 
-    const res = await apiFetch(`/videos/${params.videoId}`, {
+    const res = await apiFetch(`/videos/${params.videoId}/metadata`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

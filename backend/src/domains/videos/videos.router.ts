@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
 import * as videosService from "./videos.service.js";
 import { AppError } from "../../middleware/errors.js";
 import { requireInternalAuth, requireSession } from "../../middleware/auth.js";
-import { createVideoSchema, completeUploadSchema, updateVideoSchema, searchVideosSchema, updateS3KeySchema } from "./videos.types.js";
+import { createVideoSchema, completeUploadSchema, updateVideoSchema, updateVideoMetadataSchema, searchVideosSchema, updateS3KeySchema } from "./videos.types.js";
 
 const router = Router();
 
@@ -227,6 +227,34 @@ router.put("/:id", async (req, res) => {
   // Prisma throws P2025 if not found — caught by errorHandler as 404
   const video = await videosService.updateVideo(req.params.id, parsed.data);
   res.json(video);
+});
+
+/**
+ * PUT /domain/videos/:id/metadata - update the current user's private
+ * title and description for a video. Title/description live on
+ * CaregiverVideoMetadata (per-user), not on the Video row itself.
+ *
+ * @param id - uuid of the video
+ *
+ * @body title - new private title (required)
+ * @body description - new private notes (optional)
+ *
+ * @returns 200 with the updated metadata row
+ * @returns 400 if request body fails validation
+ * @returns 404 if no metadata row exists for this (video, user)
+ */
+router.put("/:id/metadata", async (req, res) => {
+  const parsed = updateVideoMetadataSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw AppError.badRequest(parsed.error.issues[0].message);
+  }
+
+  const metadata = await videosService.updateVideoMetadata(
+    req.params.id,
+    req.authSession.user.id,
+    parsed.data,
+  );
+  res.json(metadata);
 });
 
 /**

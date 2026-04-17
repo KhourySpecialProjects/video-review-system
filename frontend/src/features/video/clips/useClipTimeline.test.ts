@@ -8,6 +8,7 @@ import {
     clipToRegion,
     useClipTimeline,
 } from "./useClipTimeline";
+import type { Clip } from "@shared/clip";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -26,6 +27,23 @@ function makeRect(width: number, left = 0): DOMRect {
         y: 0,
         toJSON: () => ({}),
     } as DOMRect;
+}
+
+/** Creates a minimal Clip for test use. */
+function makeClip(startTimeS: number, endTimeS: number): Clip {
+    return {
+        id: crypto.randomUUID(),
+        sourceVideoId: "video-1",
+        studyId: "study-1",
+        siteId: "site-1",
+        title: `Clip ${startTimeS}s–${endTimeS}s`,
+        startTimeS,
+        endTimeS,
+        createdByUserId: "user-1",
+        createdByName: "Test User",
+        createdAt: new Date().toISOString(),
+        themeColor: "#3b82f6",
+    };
 }
 
 // ---------------------------------------------------------------------------
@@ -163,13 +181,13 @@ describe("getActiveSelectionRegion", () => {
 
 describe("clipToRegion", () => {
     it("converts a clip to left/width percentages", () => {
-        const region = clipToRegion({ startTime: 30, endTime: 90 }, 120);
+        const region = clipToRegion({ startTimeS: 30, endTimeS: 90 }, 120);
         expect(region.left).toBe("25%");
         expect(region.width).toBe("50%");
     });
 
     it("handles a zero-length clip", () => {
-        const region = clipToRegion({ startTime: 60, endTime: 60 }, 120);
+        const region = clipToRegion({ startTimeS: 60, endTimeS: 60 }, 120);
         expect(region.left).toBe("50%");
         expect(region.width).toBe("0%");
     });
@@ -179,105 +197,89 @@ describe("clipToRegion", () => {
 // useClipTimeline
 // ---------------------------------------------------------------------------
 
+const mockFetcherSubmit = vi.fn();
+
+vi.mock("react-router", () => ({
+    useFetcher: () => ({ submit: mockFetcherSubmit }),
+}));
+
 describe("useClipTimeline", () => {
     const duration = 120;
     const rect = makeRect(100);
+    const noClips: Clip[] = [];
 
-    it("starts in idle phase with no times set and empty clips", () => {
-        const { result } = renderHook(() =>
-            useClipTimeline(duration, { current: null }),
+    function renderTimeline(clips = noClips) {
+        return renderHook(() =>
+            useClipTimeline(duration, { current: null }, clips, "video-1", "study-1", "site-1"),
         );
+    }
+
+    it("starts in idle phase with no times set", () => {
+        const { result } = renderTimeline();
         expect(result.current.phase).toBe("idle");
         expect(result.current.startTime).toBeNull();
         expect(result.current.hoverTime).toBeNull();
-        expect(result.current.clips).toEqual([]);
+    });
+
+    it("passes through clips from the caller", () => {
+        const clips = [makeClip(0, 30), makeClip(60, 90)];
+        const { result } = renderTimeline(clips);
+        expect(result.current.clips).toBe(clips);
     });
 
     it("sets startTime and moves to selecting on first click", () => {
-        const { result } = renderHook(() =>
-            useClipTimeline(duration, { current: null }),
-        );
+        const { result } = renderTimeline();
         act(() => result.current.onTrackClick(25, rect));
         expect(result.current.phase).toBe("selecting");
         expect(result.current.startTime).toBe(30);
     });
 
-    it("completes a clip on second click and returns to idle", () => {
-        const onClipCreated = vi.fn();
-        const { result } = renderHook(() =>
-            useClipTimeline(duration, { current: null }, onClipCreated),
-        );
+    it("submits a create request on second click and returns to idle", () => {
+        mockFetcherSubmit.mockClear();
+        const { result } = renderTimeline();
         act(() => result.current.onTrackClick(25, rect));
         act(() => result.current.onTrackClick(75, rect));
         expect(result.current.phase).toBe("idle");
         expect(result.current.startTime).toBeNull();
-        expect(result.current.clips).toEqual([{ startTime: 30, endTime: 90 }]);
+        expect(mockFetcherSubmit).toHaveBeenCalledOnce();
+        const [formData] = mockFetcherSubmit.mock.calls[0] as [FormData, unknown];
+        expect(formData.get("intent")).toBe("create");
+        const payload = JSON.parse(formData.get("payload") as string);
+        expect(payload.startTimeS).toBe(30);
+        expect(payload.endTimeS).toBe(90);
     });
 
-    it("calls onClipCreated with ordered start/end when clip is completed", () => {
-        const onClipCreated = vi.fn();
-        const { result } = renderHook(() =>
-            useClipTimeline(duration, { current: null }, onClipCreated),
-        );
-        act(() => result.current.onTrackClick(25, rect));
-        act(() => result.current.onTrackClick(75, rect));
-        expect(onClipCreated).toHaveBeenCalledOnce();
-        expect(onClipCreated).toHaveBeenCalledWith({ startTime: 30, endTime: 90 });
-    });
-
-    it("normalises a reversed selection so startTime < endTime", () => {
-        const onClipCreated = vi.fn();
-        const { result } = renderHook(() =>
-            useClipTimeline(duration, { current: null }, onClipCreated),
-        );
+    it("normalises a reversed selection so startTimeS < endTimeS", () => {
+        mockFetcherSubmit.mockClear();
+        const { result } = renderTimeline();
         act(() => result.current.onTrackClick(75, rect));
         act(() => result.current.onTrackClick(25, rect));
-        expect(result.current.clips[0]).toEqual({ startTime: 30, endTime: 90 });
-        expect(onClipCreated).toHaveBeenCalledWith({ startTime: 30, endTime: 90 });
+        const [formData] = mockFetcherSubmit.mock.calls[0] as [FormData, unknown];
+        const payload = JSON.parse(formData.get("payload") as string);
+        expect(payload.startTimeS).toBe(30);
+        expect(payload.endTimeS).toBe(90);
     });
 
     it("cancels selection when second click matches start time", () => {
-        const onClipCreated = vi.fn();
-        const { result } = renderHook(() =>
-            useClipTimeline(duration, { current: null }, onClipCreated),
-        );
+        mockFetcherSubmit.mockClear();
+        const { result } = renderTimeline();
         act(() => result.current.onTrackClick(25, rect));
         expect(result.current.phase).toBe("selecting");
 
         act(() => result.current.onTrackClick(25, rect));
         expect(result.current.phase).toBe("idle");
         expect(result.current.startTime).toBeNull();
-        expect(result.current.clips).toEqual([]);
-        expect(onClipCreated).not.toHaveBeenCalled();
-    });
-
-    it("accumulates multiple clips", () => {
-        const { result } = renderHook(() =>
-            useClipTimeline(duration, { current: null }),
-        );
-        // First clip: 0s–30s
-        act(() => result.current.onTrackClick(0, rect));
-        act(() => result.current.onTrackClick(25, rect));
-        // Second clip: 60s–90s
-        act(() => result.current.onTrackClick(50, rect));
-        act(() => result.current.onTrackClick(75, rect));
-        expect(result.current.clips).toHaveLength(2);
-        expect(result.current.clips[0]).toEqual({ startTime: 0, endTime: 30 });
-        expect(result.current.clips[1]).toEqual({ startTime: 60, endTime: 90 });
+        expect(mockFetcherSubmit).not.toHaveBeenCalled();
     });
 
     it("updates hoverTime on mousemove", () => {
-        const { result } = renderHook(() =>
-            useClipTimeline(duration, { current: null }),
-        );
+        const { result } = renderTimeline();
         act(() => result.current.onTrackMouseMove(50, rect));
         expect(result.current.hoverTime).toBe(60);
     });
 
     it("clears hoverTime on mouseleave", () => {
-        const { result } = renderHook(() =>
-            useClipTimeline(duration, { current: null }),
-        );
+        const { result } = renderTimeline();
         act(() => result.current.onTrackMouseMove(50, rect));
         act(() => result.current.onTrackMouseLeave());
         expect(result.current.hoverTime).toBeNull();
@@ -286,44 +288,16 @@ describe("useClipTimeline", () => {
     it("scrubs the video element on mousemove", () => {
         const videoEl = { currentTime: 0 } as HTMLVideoElement;
         const { result } = renderHook(() =>
-            useClipTimeline(duration, { current: videoEl }),
+            useClipTimeline(duration, { current: videoEl }, noClips, "video-1", "study-1", "site-1"),
         );
         act(() => result.current.onTrackMouseMove(50, rect));
         expect(videoEl.currentTime).toBe(60);
     });
 
     it("does not throw when videoRef is null on mousemove", () => {
-        const { result } = renderHook(() =>
-            useClipTimeline(duration, { current: null }),
-        );
+        const { result } = renderTimeline();
         expect(() =>
             act(() => result.current.onTrackMouseMove(50, rect)),
         ).not.toThrow();
-    });
-
-    it("removes a clip by index", () => {
-        const { result } = renderHook(() =>
-            useClipTimeline(duration, { current: null }),
-        );
-        act(() => result.current.onTrackClick(0, rect));
-        act(() => result.current.onTrackClick(25, rect));
-        act(() => result.current.onTrackClick(50, rect));
-        act(() => result.current.onTrackClick(75, rect));
-        expect(result.current.clips).toHaveLength(2);
-
-        act(() => result.current.removeClip(0));
-        expect(result.current.clips).toHaveLength(1);
-        expect(result.current.clips[0]).toEqual({ startTime: 60, endTime: 90 });
-    });
-
-    it("does nothing when removeClip index is out of bounds", () => {
-        const { result } = renderHook(() =>
-            useClipTimeline(duration, { current: null }),
-        );
-        act(() => result.current.onTrackClick(0, rect));
-        act(() => result.current.onTrackClick(25, rect));
-
-        act(() => result.current.removeClip(5));
-        expect(result.current.clips).toHaveLength(1);
     });
 });
