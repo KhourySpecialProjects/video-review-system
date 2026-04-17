@@ -1,9 +1,10 @@
-import { Video, CheckCircle } from "lucide-react"
+import { Video, CheckCircle, Pause } from "lucide-react"
 import {
   Progress,
   ProgressLabel,
   ProgressValue,
 } from "@/components/ui/progress"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { formatDuration } from "@/lib/format"
 import { DropZone } from "./DropZone"
@@ -14,15 +15,20 @@ type SelectStepProps = {
   onFileSelected: (file: File) => void
   /** @description Current upload status from the useVideoUpload hook */
   upload: UploadStatus
+  /** @description Called when the user wants to pause and resume later */
+  onPause?: () => void
 }
 
 /**
- * Presentational step for selecting a video file and displaying upload progress.
+ * @description Presentational step for selecting a video file and displaying
+ * upload progress. Includes a pause button to save progress and resume later.
  * All business logic (downscaling, uploading) is handled by the parent.
  *
- * @param props - @see SelectStepProps
+ * @param onFileSelected - Called when the user picks a file
+ * @param upload - Current upload status from the useVideoUpload hook
+ * @param onPause - Called when the user wants to pause and resume later
  */
-export function SelectStep({ onFileSelected, upload }: SelectStepProps) {
+export function SelectStep({ onFileSelected, upload, onPause }: SelectStepProps) {
   if (upload.status === "idle") {
     return <DropZone onFileSelected={onFileSelected} error={null} />
   }
@@ -32,6 +38,7 @@ export function SelectStep({ onFileSelected, upload }: SelectStepProps) {
   }
 
   const isComplete = upload.status === "complete"
+  const isUploading = upload.status === "uploading"
   const label = upload.status === "processing" ? "Processing video" : "Uploading video"
 
   return (
@@ -58,6 +65,18 @@ export function SelectStep({ onFileSelected, upload }: SelectStepProps) {
             <p className="mt-2 text-xs text-text-muted">
               ~{formatDuration(upload.eta)} remaining
             </p>
+          )}
+
+          {isUploading && onPause && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4 gap-2 text-text-muted"
+              onClick={onPause}
+            >
+              <Pause className="size-3.5" />
+              Upload Later
+            </Button>
           )}
         </>
       )}

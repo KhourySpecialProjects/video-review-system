@@ -45,18 +45,12 @@ async function toVideoListItem(
   }
 ): Promise<VideoListItem> {
   const meta = video.caregiverMetadata[0];
-  const fileName = video.s3Key.includes("/")
-    ? video.s3Key.split("/").pop()!
-    : video.s3Key;
-  const baseName = video.s3Key.substring(0, fileName.lastIndexOf("."))
-  // The 0's are added by media convert
-  const thumbKey = `processed/${baseName}_thumb.0000000.jpg`;
-  const imageUrl = await generatePresignedGetUrl(thumbKey, 3600);
+  const imgUrl = await generatePresignedGetUrl(`${video.s3Key}.jpg`, 3600);
 
   return {
     id: video.id,
-    title: meta?.privateTitle ?? fileName,
-    imageUrl,
+    title: meta?.privateTitle,
+    imgUrl,
     description: meta?.privateNotes ?? "",
     durationSeconds: video.durationSeconds,
     status: video.status,
@@ -191,7 +185,7 @@ export async function getVideoDetail(videoId: string, userId: string): Promise<V
  */
 export async function getVideoStreamUrl(
   videoId: string
-): Promise<{ video: Video; url: string; expiresIn: number }> {
+): Promise<{ video: Video; imgUrl: string; videoUrl: string; expiresIn: number }> {
   const video = await prisma.video.findUnique({
     where: { id: videoId },
   });
@@ -205,11 +199,14 @@ export async function getVideoStreamUrl(
   }
 
   const expiresIn = 3600;
-  const thumbKey = `${video.s3Key}.mp4`;
-  const url = await generatePresignedGetUrl(video.s3Key, expiresIn);
-  
+  const videoKey = `${video.s3Key}.mp4`;
+  const imageKey = `${video.s3Key}.jpg`;
+  const [videoUrl, imgUrl] = await Promise.all([
+    generatePresignedGetUrl(videoKey, expiresIn),
+    generatePresignedGetUrl(imageKey, expiresIn),
+  ]);
 
-  return { video, url, expiresIn };
+  return { video, videoUrl, imgUrl, expiresIn };
 }
 
 // Extends the validated input with the authenticated user's id

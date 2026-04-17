@@ -46,6 +46,9 @@
     /* dark shadow */
     0 6px 10px #00000015;
   /* soft shadow */
+  --shadow-inset: inset 0 1px 2px #ffffff50,
+    0 2px 4px #00000030,
+    0 4px 8px #00000015;
 }
 
 body.light {
@@ -64,6 +67,11 @@ body.light {
   --success: oklch(0.55 0.8 160);
   --success-dark: oklch(0.3 0.8 160);
   --info: oklch(0.5 0.05 260);
+  --shadow-inset:
+    inset 0 4px 6px rgba(0, 0, 0, 0.1),
+    inset 1px 0 3px -1px rgba(0, 0, 0, 0.04),
+    inset -1px 0 3px -1px rgba(0, 0, 0, 0.04),
+    inset 0 -2px 4px rgba(255, 255, 255, 0.05);
 }
 
 /* ─── shadcn token overrides ─────────────────────────────────────────────  */
@@ -198,6 +206,7 @@ body.light {
   --shadow-s: var(--shadow-s);
   --shadow-m: var(--shadow-m);
   --shadow-l: var(--shadow-l);
+  --shadow-inset: var(--shadow-inset);
 }
 
 @layer base {

@@ -54,6 +54,47 @@ export function extractVideoMetadata(
 }
 
 /**
+ * Captures a single frame from a video file at ~1 second and returns it
+ * as a JPEG data URL. Used as a temporary thumbnail while MediaConvert
+ * generates the real one.
+ *
+ * @param file - The video Blob (or File) to capture a frame from
+ * @returns A data:image/jpeg data URL of the captured frame
+ */
+export function captureVideoFrame(file: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video")
+    video.preload = "auto"
+    video.muted = true
+    video.playsInline = true
+
+    const url = URL.createObjectURL(file)
+    video.src = url
+
+    video.onloadedmetadata = () => {
+      // Seek to 1s or halfway if video is shorter than 1s
+      video.currentTime = Math.min(1, video.duration / 2)
+    }
+
+    video.onseeked = () => {
+      const canvas = document.createElement("canvas")
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      const ctx = canvas.getContext("2d")!
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.7)
+      URL.revokeObjectURL(url)
+      resolve(dataUrl)
+    }
+
+    video.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error("Could not capture video frame"))
+    }
+  })
+}
+
+/**
  * Initiates a multipart upload by creating a video record on the backend.
  *
  * @param metadata - Video metadata required by the backend
@@ -90,10 +131,11 @@ async function initiateUpload(metadata: {
  * @param body - The chunk of the file to upload
  * @returns The ETag header returned by S3
  */
-async function uploadPart(url: string, body: Blob): Promise<string> {
+async function uploadPart(url: string, body: Blob, signal?: AbortSignal): Promise<string> {
   const res = await fetch(url, {
     method: "PUT",
     body,
+    signal,
   })
 
   if (!res.ok) {
@@ -145,7 +187,8 @@ export async function uploadVideo(
     createdAt: string
     takenAt: string
   },
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number) => void,
+  signal?: AbortSignal
 ): Promise<string> {
   const { video, parts } = await initiateUpload({
     ...metadata,
@@ -161,7 +204,7 @@ export async function uploadVideo(
       const end = Math.min(start + PART_SIZE, file.size)
       const chunk = file.slice(start, end)
 
-      const etag = await uploadPart(url, chunk)
+      const etag = await uploadPart(url, chunk, signal)
 
       partProgress[partNumber - 1] = 1
       const totalDone = partProgress.reduce((sum, v) => sum + v, 0)

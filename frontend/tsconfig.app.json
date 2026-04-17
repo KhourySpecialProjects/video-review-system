@@ -22,6 +22,9 @@
       "@shared-types/*": [
         "./types/*"
       ],
+      "@shared/*": [
+        "../shared/*"
+      ],
     },
     "rootDirs": [
       ".",

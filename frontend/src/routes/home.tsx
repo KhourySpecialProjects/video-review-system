@@ -1,19 +1,27 @@
 import { Suspense } from "react";
 import { Await, Outlet, useMatches, useLoaderData, useNavigate, useLocation } from "react-router";
-import { WelcomeCard, WelcomeCardSkeleton } from "@/features/dashboard/WelcomeCard";
 import { TabBar, type TabValue } from "@/features/dashboard/TabBar";
 import { VideoCard, VideoCardSkeleton } from "@/features/video/videoCard/VideoCard";
 import { VideoUpload } from "@/features/video/videoUpload/VideoUpload";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { HomeLoaderData } from "@/lib/video.service";
 import type { VideoListResponse } from "@/lib/video.service";
 
 // ── Component ─────────────────────────────────────────────────────────────
 
+/**
+ * @description Dashboard home page showing a greeting, tabbed video views
+ * (recent grid + all videos DataTable), and an upload button.
+ */
 export default function Home() {
     const { videosPromise } = useLoaderData() as HomeLoaderData;
     const navigate = useNavigate();
     const location = useLocation();
     const activeTab: TabValue = location.pathname === "/search" ? "all" : "recent";
+
+    const matches = useMatches();
+    const rootMatch = matches.find(m => (m.data as any)?.user);
+    const userName = (rootMatch?.data as any)?.user?.name || "User";
 
     /**
      * @description Navigates to `/search` for the all-videos tab (triggers
@@ -23,17 +31,20 @@ export default function Home() {
         navigate(tab === "all" ? "/search" : "/");
     }
 
-    const matches = useMatches();
-    const rootMatch = matches.find(m => (m.data as any)?.user);
-    const userName = (rootMatch?.data as any)?.user?.name || "User";
-
     return (
         <div className="mx-auto flex w-full max-w-lg flex-col gap-6 lg:max-w-5xl">
             <Suspense fallback={<HomeSkeleton />}>
                 <Await resolve={videosPromise}>
                     {({ videos, total }: VideoListResponse) => (
                         <>
-                            <WelcomeCard videos={videos} userName={userName} />
+                            <div className="pt-2">
+                                <p className="text-sm font-medium uppercase tracking-wide text-text-muted">
+                                    Welcome back
+                                </p>
+                                <h1 className="text-2xl font-bold text-text">
+                                    {userName}
+                                </h1>
+                            </div>
 
                             <TabBar
                                 activeTab={activeTab}
@@ -62,10 +73,16 @@ export default function Home() {
     );
 }
 
+/**
+ * @description Loading skeleton for the home page while video data streams in.
+ */
 export function HomeSkeleton() {
     return (
         <>
-            <WelcomeCardSkeleton />
+            <div className="pt-2 space-y-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-7 w-40" />
+            </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {[1, 2, 3, 4, 5, 6].map((i) => (
                     <VideoCardSkeleton key={i} />

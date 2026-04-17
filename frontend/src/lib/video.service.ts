@@ -129,9 +129,10 @@ export type HomeLoaderData = {
 
 /**
  * @description Data returned by the search child route loader.
+ * searchPromise is deferred so the tab switch is instant.
  */
 export type SearchLoaderData = {
-    search: VideoListResponse;
+    searchPromise: Promise<VideoListResponse>;
     q: string;
 };
 
@@ -165,11 +166,10 @@ export function homeLoader({ request }: LoaderFunctionArgs): HomeLoaderData {
  * @param request - The loader Request with search params serialized from the Form
  * @returns Paginated search results
  */
-export async function searchLoader({ request }: LoaderFunctionArgs): Promise<SearchLoaderData> {
+export function searchLoader({ request }: LoaderFunctionArgs): SearchLoaderData {
     const url = new URL(request.url);
     const q = url.searchParams.get("q") ?? "";
-    const search = await searchVideos(request);
-    return { search, q };
+    return { searchPromise: searchVideos(request), q };
 }
 
 /**

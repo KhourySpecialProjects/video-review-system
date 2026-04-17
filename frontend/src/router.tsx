@@ -16,7 +16,7 @@ import { ResetPassword } from "./features/login/reset-password";
 import { clientAction as resetPasswordAction } from "./hooks/use-reset-password";
 import { authGuardLoader } from "./hooks/auth-guard";
 import { homeLoader, searchLoader, videoViewLoader, videoViewAction } from "./lib/video.service";
-;
+import { incompleteUploadsLoader, incompleteUploadsAction } from "./features/layout/incomplete-uploads.route";
 
 export const router = createBrowserRouter([
     {
@@ -54,6 +54,11 @@ export const router = createBrowserRouter([
                 },
             },
         ],
+    },
+    {
+        path: "/incomplete-uploads",
+        loader: incompleteUploadsLoader,
+        action: incompleteUploadsAction,
     },
     {
         path: "/signup/:token",

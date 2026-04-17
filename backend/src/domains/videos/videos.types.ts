@@ -89,23 +89,7 @@ export const searchVideosSchema = z.object({
   offset: z.coerce.number().int().nonnegative().optional().default(0),
 });
 
-/**
- * Shape returned by list/search endpoints — a frontend-friendly
- * projection that joins caregiver metadata and uploader info
- * onto the raw Video record.
- */
-export type VideoListItem = {
-  id: string;
-  title: string;
-  description: string;
-  imageUrl: string;
-  durationSeconds: number;
-  status: "UPLOADING" | "UPLOADED" | "FAILED";
-  fileSize: number;
-  createdAt: string;
-  takenAt: string | null;
-  uploadedBy: string;
-};
+export type { VideoListItem } from "@shared/video.js";
 
 /**
  * Validation schema for updating a video's S3 key (internal use only).

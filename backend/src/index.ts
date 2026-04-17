@@ -18,6 +18,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { auth } from "./lib/auth.js";
 import { notFoundHandler, errorHandler } from "./middleware/errors.js";
+import { requestLogger } from "./middleware/logging.js";
 
 import videosRouter from "./domains/videos/videos.router.js";
 import authRouter from "./domains/auth/auth.router.js";
@@ -34,6 +35,7 @@ export function createApp() {
   const app = express();
 
   // middleware
+  app.use(requestLogger);
   app.use(cors({
     origin: process.env.ALLOWED_ORIGIN?.split(",") || ["https://localhost:5173"],
     credentials: true,

@@ -1,12 +1,6 @@
-import { Form, useLoaderData, useNavigation } from "react-router";
-import type { SearchLoaderData } from "@/lib/video.service";
-import { formatDuration, formatDate, formatTime } from "@/lib/format";
-import {
-    Accordion,
-    AccordionContent,
-    AccordionItem,
-    AccordionTrigger,
-} from "@/components/ui/accordion";
+import { Suspense } from "react";
+import { Await, Form, useLoaderData, useNavigation, useSubmit } from "react-router";
+import type { SearchLoaderData, VideoListResponse } from "@/lib/video.service";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -16,74 +10,58 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-    CalendarDays,
-    Clock3,
-    Search,
-    Filter,
-    X,
-    CirclePlay,
-    Loader2,
-} from "lucide-react";
-import { Link, useSubmit } from "react-router";
+import { Spinner } from "@/components/ui/spinner";
+import { CalendarDays, Search, Filter, X } from "lucide-react";
 import { useState } from "react";
+import { DataTable } from "./DataTable";
+import { columns } from "./columns";
+import { MobileVideoList } from "./MobileVideoList";
 
 let debounceTimer: ReturnType<typeof setTimeout>;
 
 /**
- * @description All-videos panel with server-side search and date filtering.
- * Uses a GET `<Form>` to serialize search inputs into URL params, which
- * triggers the route loader to re-run and return filtered results via
- * `useLoaderData()`.
+ * @description All-videos panel with server-side search, date filtering,
+ * and a DataTable for display. Uses a GET `<Form>` to serialize search
+ * inputs into URL params, triggering the route loader to re-run.
+ * The search promise is deferred so tab switches are instant.
  */
 export function AllVideos() {
-    const { search, q } = useLoaderData() as SearchLoaderData;
+    const { searchPromise, q } = useLoaderData() as SearchLoaderData;
     const navigation = useNavigation();
     const submit = useSubmit();
     const isSearching = navigation.state === "loading";
-
-    const { videos, total } = search;
     const [showFilters, setShowFilters] = useState(false);
 
     return (
         <div className="flex flex-col gap-4">
             <Form method="get" className="flex flex-col gap-4">
-                {/* Search & Filter bar */}
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-text-muted" />
-                        <Input
-                            name="q"
-                            placeholder="Search by title or description..."
-                            defaultValue={q}
-                            onChange={(e) => {
-                                const form = e.currentTarget.form;
-                                clearTimeout(debounceTimer);
-                                debounceTimer = setTimeout(() => submit(form), 300);
-                            }}
-                            className="pl-10 bg-bg-dark border-border text-text placeholder:text-text-muted"
-                        />
-                    </div>
-                    <div className="flex gap-2">
-                        <Button
-                            type="submit"
-                            size="sm"
-                            className="gap-2"
-                        >
-                            <Search className="size-4" />
-                            Search
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowFilters(!showFilters)}
-                            className="gap-2 border-border text-text"
-                        >
-                            <Filter className="size-4" />
-                            Filters
-                        </Button>
-                    </div>
+                {/* Search bar */}
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-bg-light p-2 shadow-[inset_0_2px_6px_rgba(0,0,0,0.1)]">
+                    <Search className="ml-2 size-4 shrink-0 text-text-muted" />
+                    <Input
+                        name="q"
+                        placeholder="Search by title or description..."
+                        defaultValue={q}
+                        onChange={(e) => {
+                            const form = e.currentTarget.form;
+                            clearTimeout(debounceTimer);
+                            debounceTimer = setTimeout(() => submit(form), 300);
+                        }}
+                        className="border-0 bg-transparent shadow-none text-text placeholder:text-text-muted focus-visible:ring-0"
+                    />
+                    <Button type="submit" size="sm" className="shrink-0">
+                        Search
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowFilters(!showFilters)}
+                        className="shrink-0 gap-1.5 text-text-muted"
+                    >
+                        <Filter className="size-4" />
+                        Filters
+                    </Button>
                 </div>
 
                 {/* Filter panel */}
@@ -107,88 +85,53 @@ export function AllVideos() {
                 )}
             </Form>
 
-            {/* Results count */}
-            <div className="flex items-center gap-2 text-sm text-text-muted">
-                {isSearching && <Loader2 className="size-4 animate-spin" />}
-                <span>
-                    {total} video{total !== 1 ? "s" : ""} found
-                </span>
-            </div>
-
-            {/* Accordion list */}
-            {videos.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-bg-light py-12 text-center">
-                    <Search className="mb-3 size-10 text-text-muted" />
-                    <p className="text-lg font-medium text-text">No videos found</p>
-                    <p className="text-sm text-text-muted">
-                        Try adjusting your search or filter criteria
-                    </p>
-                </div>
-            ) : (
-                <Accordion className="space-y-2">
-                    {videos.map((video) => (
-                        <AccordionItem
-                            key={video.id}
-                            className="rounded-xl border border-border bg-bg-light px-4 data-open:shadow-m"
-                        >
-                            <AccordionTrigger className="py-4 hover:no-underline">
-                                <div className="flex flex-1 items-center gap-3 text-left">
-                                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-black">
-                                        <CirclePlay className="size-5 text-primary" />
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                        <p className="truncate font-semibold text-text">
-                                            {video.title}
-                                        </p>
-                                        <p className="truncate text-xs text-text-muted">
-                                            {formatDuration(video.durationSeconds)} • {formatDate(video.createdAt)}
-                                        </p>
-                                    </div>
-                                    <span className={`shrink-0 text-xs font-semibold ${video.status === "UPLOADED" ? "text-success" : video.status === "FAILED" ? "text-destructive" : "text-warning"}`}>
-                                        {video.status === "UPLOADED" ? "Uploaded" : video.status === "FAILED" ? "Failed" : "Uploading"}
-                                    </span>
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                                <div className="flex flex-col gap-3 pb-2">
-                                    <p className="text-sm text-text-muted">
-                                        {video.description}
-                                    </p>
-                                    <div className="flex flex-wrap items-center gap-4 text-xs text-text-muted">
-                                        <span className="flex items-center gap-1.5">
-                                            <CalendarDays className="size-3.5" />
-                                            Uploaded: {formatDate(video.createdAt)}
-                                        </span>
-                                        {video.takenAt && (
-                                            <>
-                                                <span className="flex items-center gap-1.5">
-                                                    <CalendarDays className="size-3.5" />
-                                                    Filmed: {formatDate(video.takenAt)}
-                                                </span>
-                                                <span className="flex items-center gap-1.5">
-                                                    <Clock3 className="size-3.5" />
-                                                    {formatTime(video.takenAt)}
-                                                </span>
-                                            </>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-2 text-xs text-text-muted">
-                                        Uploaded by: <span className="font-medium text-text">{video.uploadedBy}</span>
-                                    </div>
-                                    <Link
-                                        to={`/videos/${video.id}`}
-                                        className="mt-1 inline-flex w-fit items-center gap-2 rounded-md border border-border px-2.5 h-8 text-sm font-medium text-text hover:bg-muted transition-all"
-                                    >
-                                        <CirclePlay className="size-4" />
-                                        Watch Video
-                                    </Link>
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                    ))}
-                </Accordion>
-            )}
+            {/* Deferred results */}
+            <Suspense fallback={<AllVideosResultsSkeleton />}>
+                <Await resolve={searchPromise}>
+                    {({ videos, total }: VideoListResponse) => (
+                        <>
+                            <div className="flex items-center gap-2 text-sm text-text-muted">
+                                {isSearching && <Spinner />}
+                                <span>
+                                    {total} video{total !== 1 ? "s" : ""} found
+                                </span>
+                            </div>
+                            {/* Desktop: DataTable, Mobile: card list */}
+                            <div className="hidden md:block">
+                                <DataTable columns={columns} data={videos} />
+                            </div>
+                            <div className="md:hidden">
+                                <MobileVideoList videos={videos} />
+                            </div>
+                        </>
+                    )}
+                </Await>
+            </Suspense>
         </div>
+    );
+}
+
+/**
+ * @description Inline skeleton shown while the deferred search promise resolves.
+ */
+function AllVideosResultsSkeleton() {
+    return (
+        <>
+            <Skeleton className="h-4 w-24" />
+            <div className="overflow-hidden rounded-xl border border-border">
+                {[1, 2, 3, 4].map((i) => (
+                    <div
+                        key={i}
+                        className="flex items-center gap-4 border-b border-border p-3"
+                    >
+                        <Skeleton className="h-4 w-2/5" />
+                        <Skeleton className="hidden h-4 w-12 md:block" />
+                        <Skeleton className="hidden h-4 w-20 md:block" />
+                        <Skeleton className="h-5 w-16 rounded-full" />
+                    </div>
+                ))}
+            </div>
+        </>
     );
 }
 
@@ -262,18 +205,16 @@ export function AllVideosSkeleton() {
                 <Skeleton className="h-10 w-24" />
             </div>
             <Skeleton className="h-4 w-24" />
-            <div className="space-y-2">
+            <div className="overflow-hidden rounded-xl border border-border">
                 {[1, 2, 3, 4].map((i) => (
                     <div
                         key={i}
-                        className="flex items-center gap-3 rounded-xl border border-border bg-bg-light p-4"
+                        className="flex items-center gap-4 border-b border-border p-3"
                     >
-                        <Skeleton className="size-10 rounded-lg" />
-                        <div className="flex-1 space-y-1.5">
-                            <Skeleton className="h-4 w-3/5" />
-                            <Skeleton className="h-3 w-2/5" />
-                        </div>
-                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-4 w-2/5" />
+                        <Skeleton className="h-4 w-12" />
+                        <Skeleton className="h-4 w-20" />
+                        <Skeleton className="h-5 w-16 rounded-full" />
                     </div>
                 ))}
             </div>

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Prisma } from "../../generated/prisma/index.js";
+import type { AnnotationType } from "@shared/annotation.js";
 
 /**
  * Zod schemas for annotation request validation.
@@ -57,7 +58,7 @@ export interface CreateAnnotationParams {
   authorUserId: string;
   studyId: string;
   siteId: string;
-  type: "text_comment" | "drawing_box" | "drawing_circle" | "freehand_drawing" | "tag";
+  type: AnnotationType;
   timestampSeconds: number;
   durationSeconds: number;
   payload?: Prisma.InputJsonValue;

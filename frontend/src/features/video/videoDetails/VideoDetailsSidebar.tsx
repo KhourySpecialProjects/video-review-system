@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Form, useActionData } from "react-router";
+import { Form, useActionData, useSearchParams } from "react-router";
 import type { Video } from "@/lib/types";
 import { formatDate, formatTime } from "@/lib/format";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,8 @@ export function VideoDetailsSidebar({
     video,
     isSaving = false,
 }: VideoDetailsSidebarProps) {
-    const [isEditing, setIsEditing] = useState(false);
+    const [searchParams] = useSearchParams();
+    const [isEditing, setIsEditing] = useState(searchParams.get("edit") === "true");
     const actionData = useActionData() as { fieldErrors?: Record<string, string> } | undefined;
 
     return (

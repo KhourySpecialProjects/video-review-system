@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Link } from "react-router";
 import type { Video } from "@/lib/types";
 import { formatDuration, formatDate, formatTime } from "@/lib/format";
+import { getThumbnail } from "@/lib/thumbnailCache";
 import { CalendarDays, Clock3, CirclePlay } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,16 +12,38 @@ interface VideoCardProps {
 }
 
 export function VideoCard({ video }: VideoCardProps) {
+    const [isPortrait, setIsPortrait] = useState(false);
+
     return (
         <Link to={`/videos/${video.id}`} className="block">
             <Card className="group overflow-hidden border-border bg-bg-light transition-shadow hover:shadow-l p-0 gap-2">
                 {/* Thumbnail */}
-                <div className="relative flex items-center justify-center aspect-video w-full bg-black">
+                <div className="relative flex items-center justify-center w-full overflow-hidden bg-black aspect-video">
+                    {isPortrait && (
+                        <img
+                            src={getThumbnail(video.id) ?? video.imgUrl}
+                            alt=""
+                            aria-hidden="true"
+                            className="absolute inset-0 size-full object-cover blur-xl scale-110"
+                            crossOrigin="anonymous"
+                        />
+                    )}
                     <img
-                        src="/placeholder-thumbnail.jpg"
+                        src={getThumbnail(video.id) ?? video.imgUrl}
                         alt={video.title}
-                        className="size-full object-cover"
+                        className={isPortrait ? "h-full w-3/4 object-cover relative mx-auto" : "size-full object-cover"}
                         loading="lazy"
+                        crossOrigin="anonymous"
+                        onLoad={(e) => {
+                            const img = e.currentTarget;
+                            setIsPortrait(img.naturalHeight > img.naturalWidth);
+                        }}
+                        onError={(e) => {
+                            const cached = getThumbnail(video.id);
+                            if (cached && e.currentTarget.src !== cached) {
+                                e.currentTarget.src = cached;
+                            }
+                        }}
                     />
 
                     <div className="absolute">

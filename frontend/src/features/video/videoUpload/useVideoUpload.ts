@@ -1,7 +1,8 @@
 import { useReducer, useRef } from "react"
 import { useRevalidator } from "react-router"
-import { convert } from "../downscaler/convert"
-import { uploadVideo, extractVideoMetadata } from "./upload.service"
+import { uploadVideo, extractVideoMetadata, captureVideoFrame } from "./upload.service"
+import { setThumbnail } from "@/lib/thumbnailCache"
+import { toast } from "sonner"
 
 export type UploadStep = "details" | "select" | "complete"
 
@@ -135,10 +136,17 @@ function getEstimatedUploadSpeed(): number {
  *
  * @returns State values, dispatch, fetcher, and file handler for VideoUpload
  */
+/**
+ * @description Encapsulates all state and business logic for the multi-step video upload flow.
+ * Steps: details → select (with progress + ETA) → complete.
+ *
+ * @returns State values, dispatch, file handler, and pause handler for VideoUpload
+ */
 export function useVideoUpload() {
   const [state, dispatch] = useReducer(reducer, initialState)
   const uploadStartTime = useRef(0)
   const totalBytes = useRef(0)
+  const abortController = useRef<AbortController | null>(null)
   const { revalidate } = useRevalidator()
 
   /**
@@ -173,26 +181,29 @@ export function useVideoUpload() {
    *
    * @param file - The raw File selected by the user
    */
+  /**
+   * @description Handles file selection from the SelectStep. Extracts metadata,
+   * captures a thumbnail frame, and orchestrates the full S3 multipart upload.
+   *
+   * @param file - The raw File selected by the user
+   */
   async function handleFileSelected(file: File) {
-    dispatch({ type: "PROCESSING_STARTED", fileName: file.name })
     totalBytes.current = file.size
     uploadStartTime.current = Date.now()
+    abortController.current = new AbortController()
 
     try {
-      const processed = await convert(file, {
-        onProgress: (progress) => {
-          dispatch({ type: "PROCESSING_PROGRESS", progress, eta: computeEta(progress) })
-        },
-      })
+      const [meta, frameDataUrl] = await Promise.all([
+        extractVideoMetadata(file),
+        captureVideoFrame(file).catch(() => null),
+      ])
 
-      const meta = await extractVideoMetadata(processed)
-
-      totalBytes.current = processed.size
+      totalBytes.current = file.size
       uploadStartTime.current = Date.now()
       dispatch({ type: "UPLOAD_STARTED", fileName: file.name })
 
-      await uploadVideo(
-        processed,
+      const videoId = await uploadVideo(
+        file,
         {
           videoTitle: state.title,
           videoDescription: state.description || undefined,
@@ -203,18 +214,45 @@ export function useVideoUpload() {
         },
         (pct) => {
           dispatch({ type: "UPLOAD_PROGRESS", progress: pct, eta: computeEta(pct) })
-        }
+        },
+        abortController.current?.signal
       )
+
+      if (frameDataUrl) {
+        setThumbnail(videoId, frameDataUrl)
+      }
 
       revalidate()
       dispatch({ type: "UPLOAD_COMPLETE" })
+      toast.success("Upload complete", {
+        description: "Your video has been uploaded successfully.",
+      })
     } catch (err) {
+      // Ignore abort errors — the user intentionally paused
+      if (err instanceof DOMException && err.name === "AbortError") return
       dispatch({
         type: "UPLOAD_FAILED",
         error: err instanceof Error ? err.message : "Upload failed",
       })
+      toast.error("Upload failed", {
+        description: err instanceof Error ? err.message : "Something went wrong.",
+      })
     }
   }
 
-  return { state, dispatch, handleFileSelected }
+  /**
+   * @description Pauses the current upload by aborting in-flight requests and
+   * resetting the dialog. Already-uploaded S3 parts are preserved server-side,
+   * so the upload can be resumed from the hamburger menu later.
+   */
+  function handlePause() {
+    abortController.current?.abort()
+    abortController.current = null
+    dispatch({ type: "RESET" })
+    toast.info("Upload paused", {
+      description: "Your progress is saved. Resume anytime from the menu.",
+    })
+  }
+
+  return { state, dispatch, handleFileSelected, handlePause }
 }

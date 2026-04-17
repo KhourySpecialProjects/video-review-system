@@ -1,13 +1,14 @@
 FROM node:22-alpine AS builder
 
-WORKDIR /app
+WORKDIR /repo/backend
 
-COPY package.json package-lock.json* ./
+COPY backend/package.json backend/package-lock.json* ./
 RUN npm ci
 
-COPY tsconfig.json ./
-COPY prisma ./prisma
-COPY src ./src
+COPY backend/tsconfig.json ./
+COPY backend/prisma ./prisma
+COPY backend/src ./src
+COPY shared ../shared
 
 RUN npx prisma generate
 RUN npm run build
@@ -16,12 +17,12 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
+COPY --from=builder /repo/backend/package.json /repo/backend/package-lock.json* ./
 RUN npm ci --omit=dev
 
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/src/generated/prisma ./dist/generated/prisma
-COPY prisma ./prisma
+COPY --from=builder /repo/backend/dist/backend/src ./dist
+COPY --from=builder /repo/backend/src/generated/prisma ./dist/generated/prisma
+COPY --from=builder /repo/backend/prisma ./prisma
 
 EXPOSE 8080
 

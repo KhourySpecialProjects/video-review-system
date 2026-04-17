@@ -11,6 +11,7 @@ const mockVideo: Video = {
     id: "vid-001",
     title: "Test Video",
     description: "A test video description",
+    imgUrl: "/placeholder-thumbnail.jpg",
     durationSeconds: 72,
     fileSize: 1024 * 1024,
     createdAt: "2026-02-10T08:00:00Z",

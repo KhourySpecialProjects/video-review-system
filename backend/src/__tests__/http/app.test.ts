@@ -28,6 +28,11 @@ vi.mock("../../lib/auth.js", () => ({
   auth: appMocks.auth,
 }));
 
+vi.mock("../../lib/logger.js", async () => {
+  const pino = await import("pino");
+  return { logger: pino.default({ level: "silent" }) };
+});
+
 vi.mock("../../domains/videos/videos.router.js", () => ({
   default: (req: any, res: any, next: any) => {
     if (req.method === "GET" && req.path === "/") {

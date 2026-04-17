@@ -10,6 +10,7 @@ export const MOCK_VIDEOS: Video[] = [
         title: "Eating Breakfast",
         description:
             "He ate breakfast for about 30 minutes and then decides to watch tv",
+        imgUrl: "/placeholder-thumbnail.jpg",
         durationSeconds: 72,
         fileSize: 1024 * 1024,
         createdAt: "2026-02-10T08:00:00Z",
@@ -22,6 +23,7 @@ export const MOCK_VIDEOS: Video[] = [
         title: "Morning Walk",
         description:
             "Went for a 20-minute walk around the neighborhood. Seemed cheerful and engaged with neighbors.",
+        imgUrl: "/placeholder-thumbnail.jpg",
         durationSeconds: 145,
         fileSize: 2 * 1024 * 1024,
         createdAt: "2026-02-09T10:30:00Z",
@@ -34,6 +36,7 @@ export const MOCK_VIDEOS: Video[] = [
         title: "Afternoon Nap",
         description:
             "Rested in the living room for about 45 minutes. Woke up and asked for water.",
+        imgUrl: "/placeholder-thumbnail.jpg",
         durationSeconds: 210,
         fileSize: 3 * 1024 * 1024,
         createdAt: "2026-02-08T15:00:00Z",
@@ -46,6 +49,7 @@ export const MOCK_VIDEOS: Video[] = [
         title: "Physical Therapy Session",
         description:
             "Completed a full physical therapy session with the therapist. Showed improvement in range of motion.",
+        imgUrl: "/placeholder-thumbnail.jpg",
         durationSeconds: 356,
         fileSize: 5 * 1024 * 1024,
         createdAt: "2026-02-07T11:00:00Z",
@@ -58,6 +62,7 @@ export const MOCK_VIDEOS: Video[] = [
         title: "Watching TV",
         description:
             "Spent an hour watching a favorite cooking show. Was very engaged and commented on the recipes.",
+        imgUrl: "/placeholder-thumbnail.jpg",
         durationSeconds: 180,
         fileSize: 2.5 * 1024 * 1024,
         createdAt: "2026-02-06T19:00:00Z",
@@ -70,6 +75,7 @@ export const MOCK_VIDEOS: Video[] = [
         title: "Garden Visit",
         description:
             "Visited the garden and helped water the plants. Enjoyed being outdoors for about 25 minutes.",
+        imgUrl: "/placeholder-thumbnail.jpg",
         durationSeconds: 95,
         fileSize: 1.5 * 1024 * 1024,
         createdAt: "2026-02-05T16:00:00Z",

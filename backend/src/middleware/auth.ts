@@ -25,7 +25,7 @@ export async function requireSession(req: Request, _res: Response, next: NextFun
     headers: fromNodeHeaders(req.headers),
   });
 
-  if (!session) throw AppError.unauthorized();
+  if (!session) throw AppError.unauthorized("No valid session");
 
   req.authSession = session;
   next();
@@ -42,7 +42,7 @@ export async function requireInternalAuth(req: Request, _res: Response, next: Ne
   const internalSecret = req.headers["x-internal-secret"];
 
   if (!internalSecret || internalSecret !== process.env.INTERNAL_SECRET_HEADER) {
-    throw AppError.unauthorized();
+    throw AppError.unauthorized("Invalid internal secret");
   }
 
   next();

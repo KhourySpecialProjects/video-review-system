@@ -37,7 +37,7 @@ const titles: Record<UploadStep, string> = {
  * Flow: details → select file & upload → complete.
  */
 export function VideoUpload() {
-  const { state, dispatch, handleFileSelected } = useVideoUpload()
+  const { state, dispatch, handleFileSelected, handlePause } = useVideoUpload()
   const { open, confirmationOpen, step, title, description, upload } = state
 
   return (
@@ -103,6 +103,7 @@ export function VideoUpload() {
           <SelectStep
             onFileSelected={handleFileSelected}
             upload={upload}
+            onPause={handlePause}
           />
         )}
 
@@ -144,8 +145,8 @@ export function VideoUpload() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action will close the video upload dialog and you will lose
-              all progress.
+              If an upload is in progress, your progress is saved. You can
+              resume it later from the menu bar.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
