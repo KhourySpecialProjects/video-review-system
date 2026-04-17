@@ -18,13 +18,8 @@ export type VideoListResponse = {
     offset: number;
 };
 
-/**
- * Response shape from the backend stream endpoint.
- */
-export type StreamResponse = {
-    url: string;
-    expiresIn: number;
-};
+import type { VideoStreamResponse, VideoReviewResponse } from "@shared/video";
+import { fetchAnnotations } from "./annotation.service";
 
 /**
  * Fetches a paginated list of uploaded videos from the backend.
@@ -109,7 +104,7 @@ export async function fetchVideoById(
 export async function fetchStreamUrl(
     videoId: string,
     request: Request,
-): Promise<StreamResponse> {
+): Promise<VideoStreamResponse> {
     const res = await apiFetch(`/videos/${videoId}/stream`, {
         signal: request.signal,
     });
@@ -139,10 +134,7 @@ export type SearchLoaderData = {
 /**
  * @description Data returned by the video-view route loader.
  */
-export type VideoViewLoaderData = {
-    video: Video;
-    stream: StreamResponse;
-};
+export type VideoViewLoaderData = VideoStreamResponse;
 
 // ── Route loaders ────────────────────────────────────────────────────────
 
@@ -183,14 +175,105 @@ export function searchLoader({ request }: LoaderFunctionArgs): SearchLoaderData 
  */
 export async function videoViewLoader({ params, request }: LoaderFunctionArgs): Promise<VideoViewLoaderData> {
     const { videoId } = params;
-    const [video, stream] = await Promise.all([
-        fetchVideoById(videoId!, request),
-        fetchStreamUrl(videoId!, request),
-    ]);
-    if (!video) {
+    const data = await fetchStreamUrl(videoId!, request);
+    if (!data.video) {
         throw new Response("Video not found", { status: 404 });
     }
-    return { video, stream };
+    return data;
+}
+
+/**
+ * @description Data returned by the video review route loader.
+ * Video + stream URL are resolved immediately; annotations, clips, and
+ * sequences are deferred promises that stream in after initial render.
+ */
+export type VideoReviewLoaderData = {
+    video: VideoReviewResponse["video"];
+    videoUrl: string;
+    imgUrl: string;
+    expiresIn: number;
+    permissionLevel: VideoReviewResponse["permissionLevel"];
+    annotationsPromise: Promise<VideoReviewResponse["annotations"]>;
+    clipsPromise: Promise<VideoReviewResponse["clips"]>;
+    sequencesPromise: Promise<VideoReviewResponse["sequences"]>;
+};
+
+/**
+ * @description Video review route loader. Fetches video detail + stream URL
+ * (blocking), then defers annotations, clips, and sequences for streaming.
+ *
+ * @param params - Route params containing videoId
+ * @param request - The loader Request (forwarded for abort signal)
+ * @returns Video stream data (blocking) + deferred annotation/clip/sequence promises
+ * @throws {Response} 404 if the video does not exist
+ */
+export async function videoReviewLoader({ params, request }: LoaderFunctionArgs): Promise<VideoReviewLoaderData> {
+    const { videoId } = params;
+    const streamData = await fetchStreamUrl(videoId!, request);
+
+    if (!streamData.video) {
+        throw new Response("Video not found", { status: 404 });
+    }
+
+    // Deferred — these stream in after the page shell renders
+    const annotationsPromise = fetchAnnotations(videoId!).then((res) => res.annotations);
+    const clipsPromise = apiFetch(`/clips?videoId=${videoId}&studyId=placeholder`)
+        .then((res) => res.ok ? res.json() : { clips: [] })
+        .then((data) => data.clips);
+    const sequencesPromise = apiFetch(`/sequences?videoId=${videoId}&studyId=placeholder`)
+        .then((res) => res.ok ? res.json() : { sequences: [] })
+        .then((data) => data.sequences);
+
+    return {
+        video: streamData.video,
+        videoUrl: streamData.videoUrl,
+        imgUrl: streamData.imgUrl,
+        expiresIn: streamData.expiresIn,
+        permissionLevel: "WRITE",
+        annotationsPromise,
+        clipsPromise,
+        sequencesPromise,
+    };
+}
+
+/**
+ * @description Video review route action. Handles mutations for the review
+ * page using intent-based routing via a hidden form field.
+ *
+ * @param params - Route params containing videoId
+ * @param request - The action Request with form data
+ * @returns Result based on the intent
+ */
+export async function videoReviewAction({ params, request }: ActionFunctionArgs) {
+    const formData = await request.formData();
+    const intent = formData.get("intent") as string;
+
+    switch (intent) {
+        case "updateVideo": {
+            const result = editVideoSchema.safeParse(Object.fromEntries(formData));
+            if (!result.success) {
+                const errors: Record<string, string> = {};
+                result.error.issues.forEach((issue) => {
+                    if (issue.path[0]) {
+                        errors[issue.path[0].toString()] = issue.message;
+                    }
+                });
+                return { fieldErrors: errors };
+            }
+            const res = await apiFetch(`/videos/${params.videoId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title: result.data.title,
+                    description: result.data.description,
+                }),
+            });
+            if (!res.ok) throw new Error("Failed to update video");
+            return { success: true };
+        }
+        default:
+            throw new Error(`Unknown intent: ${intent}`);
+    }
 }
 
 // ── Route actions ────────────────────────────────────────────────────────

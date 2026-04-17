@@ -32,3 +32,30 @@ export const createClipSchema = z
 
 /** Input type for creating a clip, inferred from createClipSchema */
 export type CreateClipInput = z.infer<typeof createClipSchema>;
+
+/**
+ * Validation schema for updating an existing video clip.
+ * All fields are optional — only include what needs to change.
+ *
+ * @field title - updated descriptive name
+ * @field startTimeS - updated start time in seconds
+ * @field endTimeS - updated end time in seconds
+ */
+export const updateClipSchema = z
+  .object({
+    title: z.string().min(1, "Title is required").optional(),
+    startTimeS: z.number().int().nonnegative("Start time must be non-negative").optional(),
+    endTimeS: z.number().int().positive("End time must be positive").optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.startTimeS !== undefined && data.endTimeS !== undefined) {
+        return data.endTimeS > data.startTimeS;
+      }
+      return true;
+    },
+    { message: "End time must be after start time", path: ["endTimeS"] },
+  );
+
+/** Input type for updating a clip, inferred from updateClipSchema */
+export type UpdateClipInput = z.infer<typeof updateClipSchema>;

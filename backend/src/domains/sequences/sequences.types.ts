@@ -51,6 +51,18 @@ export const reorderSequenceSchema = z.object({
     .min(1, "At least one item is required"),
 });
 
+/**
+ * Validation schema for updating a sequence's title.
+ *
+ * @field title - updated descriptive name for the sequence
+ */
+export const updateSequenceSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+});
+
+/** Input type for updating a sequence, inferred from updateSequenceSchema */
+export type UpdateSequenceInput = z.infer<typeof updateSequenceSchema>;
+
 /** Input type for creating a sequence, inferred from createSequenceSchema */
 export type CreateSequenceInput = z.infer<typeof createSequenceSchema>;
 

@@ -2,12 +2,34 @@ import { Router } from "express";
 import * as clipsService from "./clips.service.js";
 import { AppError } from "../../middleware/errors.js";
 import { requireSession } from "../../middleware/auth.js";
-import { createClipSchema } from "./clips.types.js";
+import { createClipSchema, updateClipSchema } from "./clips.types.js";
 
 const router = Router();
 
 // All clip routes require session authentication
 router.use(requireSession);
+
+/**
+ * GET /domain/clips - list clips for a source video within a study
+ *
+ * @query videoId - uuid of the source video
+ * @query studyId - uuid of the study to scope clips to
+ *
+ * @returns 200 with { clips: VideoClip[] }
+ * @returns 400 if videoId or studyId is missing
+ */
+router.get("/", async (req, res) => {
+  const { videoId, studyId } = req.query;
+  if (!videoId || !studyId) {
+    throw AppError.badRequest("videoId and studyId query params are required");
+  }
+
+  const clips = await clipsService.listClipsByVideo(
+    videoId as string,
+    studyId as string,
+  );
+  res.json({ clips });
+});
 
 /**
  * POST /domain/clips - create a video clip from a source video
@@ -34,6 +56,28 @@ router.post("/", async (req, res) => {
 
   const clip = await clipsService.createClip(parsed.data, req.authSession.user.id);
   res.status(201).json(clip);
+});
+
+/**
+ * PUT /domain/clips/:id - update a video clip's title or time range
+ *
+ * @param id - uuid of the clip to update
+ * @body title - updated descriptive name (optional)
+ * @body startTimeS - updated start time in seconds (optional)
+ * @body endTimeS - updated end time in seconds (optional)
+ *
+ * @returns 200 with the updated clip
+ * @returns 400 if validation fails
+ * @returns 404 if no clip with that id exists
+ */
+router.put("/:id", async (req, res) => {
+  const parsed = updateClipSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw AppError.badRequest(parsed.error.issues[0].message);
+  }
+
+  const clip = await clipsService.updateClip(req.params.id, parsed.data);
+  res.json(clip);
 });
 
 /**

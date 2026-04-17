@@ -18,6 +18,8 @@ export interface DrawingCardProps {
     timestamp: number;
     /** How long (seconds) the annotation stays visible */
     duration: number;
+    /** Optional data URL thumbnail showing the drawing on the video frame */
+    thumbnailUrl?: string;
     /** Callback fired to navigate the video to the drawing's timestamp */
     onJumpStart: (timestamp: number) => void;
     /** Callback fired to update the duration of the drawing */
@@ -49,6 +51,7 @@ export function DrawingCard({
     color,
     timestamp,
     duration,
+    thumbnailUrl,
     onJumpStart,
     onEditDuration,
     onDelete,
@@ -116,6 +119,13 @@ export function DrawingCard({
             onCancelEdit={handleCancelEdit}
             content={
                 <div className="flex flex-col gap-3 text-sm">
+                    {thumbnailUrl && (
+                        <img
+                            src={thumbnailUrl}
+                            alt={`${label} at ${displayTime}`}
+                            className="w-full rounded-sm border border-border object-cover"
+                        />
+                    )}
                     <div className="flex items-center text-muted-foreground gap-2">
                         <Badge variant="secondary" className="font-mono">
                             <Clock className="w-3 h-3 mr-1" />

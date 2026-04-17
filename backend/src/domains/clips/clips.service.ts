@@ -2,6 +2,7 @@ import prisma from "../../lib/prisma.js";
 import { AppError } from "../../middleware/errors.js";
 import type {
   CreateClipInput,
+  UpdateClipInput,
 } from "./clips.types.js";
 
 // ────────────────────────────────────────────────────────────
@@ -51,6 +52,21 @@ export async function createClip(input: CreateClipInput, createdByUserId: string
 }
 
 /**
+ * Lists all clips for a given source video within a study.
+ *
+ * @param videoId - uuid of the source video
+ * @param studyId - uuid of the study to scope clips to
+ * @returns array of clip records ordered by startTimeS ascending
+ */
+export async function listClipsByVideo(videoId: string, studyId: string) {
+  return prisma.videoClip.findMany({
+    where: { sourceVideoId: videoId, studyId },
+    orderBy: { startTimeS: "asc" },
+    include: { createdBy: { select: { name: true } } },
+  });
+}
+
+/**
  * Retrieves a single video clip by its ID.
  *
  * @param clipId - uuid of the clip
@@ -69,6 +85,28 @@ export async function getClip(clipId: string) {
   }
 
   return clip;
+}
+
+/**
+ * Updates an existing video clip's title or time range.
+ *
+ * @param clipId - uuid of the clip to update
+ * @param input - fields to update (title, startTimeS, endTimeS)
+ * @returns the updated clip record
+ * @throws {AppError} 404 if no clip with that id exists
+ */
+export async function updateClip(clipId: string, input: UpdateClipInput) {
+  const clip = await prisma.videoClip.findUnique({ where: { id: clipId } });
+  if (!clip) throw AppError.notFound("Clip not found");
+
+  return prisma.videoClip.update({
+    where: { id: clipId },
+    data: {
+      ...(input.title !== undefined && { title: input.title }),
+      ...(input.startTimeS !== undefined && { startTimeS: input.startTimeS }),
+      ...(input.endTimeS !== undefined && { endTimeS: input.endTimeS }),
+    },
+  });
 }
 
 /**

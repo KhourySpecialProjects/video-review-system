@@ -24,7 +24,8 @@ import videosRouter from "./domains/videos/videos.router.js";
 import authRouter from "./domains/auth/auth.router.js";
 import annotationsRouter from "./domains/annotations/annotations.router.js";
 import usersRouter from "./domains/users/users.router.js";
-// import clipsRouter from "./domains/clips/clips.router";
+import clipsRouter from "./domains/clips/clips.router.js";
+import sequencesRouter from "./domains/sequences/sequences.router.js";
 // import accountsRouter from "./domains/accounts/accounts.router";
 // import auditRouter from "./domains/audit/audit.router";
 
@@ -54,11 +55,12 @@ export function createApp() {
   });
 
   // domain routes
-  app.use("/domain/videos", videosRouter);
-  app.use("/domain/auth", authRouter);
-  app.use("/domain/annotations", annotationsRouter);
-  app.use("/domain/users", usersRouter);
-  // app.use("/domain/clips", clipsRouter);
+  app.use("/api/domain/videos", videosRouter);
+  app.use("/api/domain/auth", authRouter);
+  app.use("/api/domain/annotations", annotationsRouter);
+  app.use("/api/domain/users", usersRouter);
+  app.use("/api/domain/clips", clipsRouter);
+  app.use("/api/domain/sequences", sequencesRouter);
   // app.use("/domain/accounts", accountsRouter);
   // app.use("/domain/audit", auditRouter);
 

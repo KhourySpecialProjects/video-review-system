@@ -1,180 +1,194 @@
-import { CirclePlay, Pause, Maximize, Volume2, VolumeX } from "lucide-react";
-import { formatDuration } from "@/lib/format";
+import { useState } from "react";
+import type { ReactNode } from "react";
+import { CirclePlay } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Slider } from "@/components/ui/slider";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import { useVideoPlayer } from "@/hooks/useVideoPlayer";
+import { PlayerControls } from "./PlayerControls";
 
-const SPEEDS = [0.5, 1.0, 1.5, 2.0];
+type VideoPlayerState = ReturnType<typeof useVideoPlayer>;
 
-interface VideoPlayerProps {
+type VideoPlayerProps = {
     src?: string;
     duration: number;
     poster?: string;
     title?: string;
-}
+    /** @description Pre-created player state from useVideoPlayer. When provided, the component uses this instead of creating its own. */
+    playerState?: VideoPlayerState;
+    /** @description Callback to toggle drawing mode. Passed through to PlayerControls. */
+    onDrawToggle?: () => void;
+    /** @description Whether drawing mode is active. Passed through to PlayerControls. */
+    drawingEnabled?: boolean;
+    /** @description Slot for the annotation toolbar, rendered inside the video container. */
+    drawToolbarSlot?: ReactNode;
+    /** @description Slot for overlay content (e.g. annotation canvas), rendered above the video. */
+    overlaySlot?: ReactNode;
+};
 
-export function VideoPlayer({ src, duration, poster, title }: VideoPlayerProps) {
+/**
+ * @description Custom HTML5 video player with overlay play button and a
+ * bottom control bar. Controls auto-hide after 3 seconds of inactivity
+ * during playback and reappear on mouse/touch activity. Portrait videos
+ * display with a blurred thumbnail background, and on mobile the container
+ * uses the video's native aspect ratio instead of forcing 16:9.
+ */
+export function VideoPlayer({
+    src,
+    duration,
+    poster,
+    title,
+    playerState: externalState,
+    onDrawToggle,
+    drawingEnabled,
+    drawToolbarSlot,
+    overlaySlot,
+}: VideoPlayerProps) {
+    const [isPortrait, setIsPortrait] = useState(false);
+    const internalState = useVideoPlayer();
     const {
         videoRef,
+        containerRef,
         isPlaying,
         currentTime,
         isMuted,
         showControls,
-        setShowControls,
+        resetInactivityTimer,
+        videoEventHandlers,
         togglePlay,
         toggleMute,
         toggleFullscreen,
+        handleSeek,
         speed,
         setSpeed,
         volume,
         setVolume,
-    } = useVideoPlayer();
+        aspectRatio,
+    } = externalState ?? internalState;
+
+    const isPortraitVideo = aspectRatio !== null && aspectRatio < 1;
 
     return (
         <div className="w-full">
             {title && <h2 className="mb-2 text-lg font-semibold">{title}</h2>}
             <div
-                className="group relative w-full overflow-hidden rounded-xl bg-black"
-                onMouseEnter={() => setShowControls(true)}
-                onMouseLeave={() => !isPlaying && setShowControls(true)}
-            >
-            <video
-                ref={videoRef}
-                src={src}
-                poster={poster || undefined}
-                className="aspect-video w-full object-contain"
-                playsInline
-                preload="metadata"
-                crossOrigin="anonymous"
-            />
-
-            {/* Center play button overlay */}
-            {!isPlaying && (
-                <button
-                    onClick={togglePlay}
-                    className="absolute inset-0 flex cursor-pointer items-center justify-center bg-black/30 transition-opacity"
-                    aria-label="Play video"
-                >
-                    <CirclePlay className="size-20 text-primary opacity-90 transition-transform hover:scale-110" />
-                </button>
-            )}
-
-            {/* Bottom controls bar */}
-            <div
-                className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-4 pb-3 pt-8 transition-opacity ${
-                    showControls || !isPlaying ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                ref={containerRef}
+                className={`group relative w-full overflow-hidden rounded-xl bg-black ${
+                    isPortraitVideo ? "aspect-9/16 md:aspect-video" : "aspect-video"
                 }`}
+                onMouseMove={resetInactivityTimer}
+                onTouchStart={resetInactivityTimer}
             >
-                {/* Progress slider */}
-                <div className="group/scrubber relative mb-2">
-                    <div
-                        className="pointer-events-none absolute bottom-full z-10 -translate-x-1/2 -translate-y-1 opacity-0 transition-opacity group-hover/scrubber:opacity-100"
-                        style={{ left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
-                    >
-                        <div className="rounded bg-foreground px-1.5 py-0.5 text-xs text-background whitespace-nowrap">
-                            {formatDuration(Math.floor(currentTime))}
-                        </div>
-                    </div>
-                    <Slider
-                        min={0}
-                        max={duration}
-                        step={0.1}
-                        value={currentTime}
-                        onValueChange={(value) => {
-                            if (videoRef.current) {
-                                videoRef.current.currentTime = Array.isArray(value) ? value[0] : value;
-                            }
-                        }}
-                        aria-label="Seek video"
+                {/* Blurred background for portrait videos — persists during playback */}
+                {isPortrait && poster && (
+                    <img
+                        src={poster}
+                        alt=""
+                        aria-hidden="true"
+                        crossOrigin="anonymous"
+                        className="absolute inset-0 size-full object-cover blur-xl scale-110"
                     />
-                </div>
+                )}
 
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        {/* Play/Pause */}
-                        <button
-                            onClick={togglePlay}
-                            className="cursor-pointer text-white transition-colors hover:text-primary"
-                            aria-label={isPlaying ? "Pause" : "Play"}
-                        >
-                            {isPlaying ? (
-                                <Pause className="size-5" />
-                            ) : (
-                                <CirclePlay className="size-5" />
-                            )}
-                        </button>
+                {/* Draw toolbar slot — slides in from top when drawing is toggled */}
+                {drawToolbarSlot}
 
-                        {/* Volume */}
-                        <div className="flex items-center gap-1.5">
-                            <button
-                                onClick={toggleMute}
-                                className="cursor-pointer text-white transition-colors hover:text-primary"
-                                aria-label={isMuted ? "Unmute" : "Mute"}
-                            >
-                                {isMuted ? (
-                                    <VolumeX className="size-5" />
-                                ) : (
-                                    <Volume2 className="size-5" />
-                                )}
-                            </button>
-                            <Slider
-                                min={0}
-                                max={1}
-                                step={0.01}
-                                value={volume}
-                                onValueChange={(value) => {
-                                    const v = Array.isArray(value) ? value[0] : value;
-                                    setVolume(v);
-                                }}
-                                aria-label="Volume"
-                                className="w-20"
-                            />
-                        </div>
+                <video
+                    ref={videoRef}
+                    src={src}
+                    className="relative size-full cursor-pointer object-contain"
+                    playsInline
+                    preload="metadata"
+                    onClick={togglePlay}
+                    onError={(e) => console.error("Video load error:", e.currentTarget.error)}
+                    {...videoEventHandlers}
+                />
 
-                        {/* Time */}
-                        <span className="text-xs font-medium text-white">
-                            {formatDuration(Math.floor(currentTime))} / {formatDuration(duration)}
-                        </span>
-                    </div>
+                {/* Overlay slot — annotation canvas, etc. */}
+                {overlaySlot}
 
-                    <div className="flex items-center gap-2">
-                        {/* Speed selector */}
-                        <Select value={String(speed)} onValueChange={(v) => setSpeed(Number(v))}>
-                            <SelectTrigger className="h-7 w-20 cursor-pointer border-white/20 bg-white/10 text-xs text-white hover:bg-white/20">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {SPEEDS.map((s) => (
-                                    <SelectItem key={s} value={String(s)}>
-                                        {s}x
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                {/* Thumbnail overlay — visible before playback */}
+                {!isPlaying && poster && (
+                    <ThumbnailOverlay
+                        src={poster}
+                        isPortrait={isPortrait}
+                        onPortraitDetected={setIsPortrait}
+                    />
+                )}
 
-                        {/* Fullscreen */}
-                        <button
-                            onClick={toggleFullscreen}
-                            className="cursor-pointer text-white transition-colors hover:text-primary"
-                            aria-label="Toggle fullscreen"
-                        >
-                            <Maximize className="size-5" />
-                        </button>
-                    </div>
-                </div>
+                {/* Center play button overlay */}
+                {!isPlaying && (
+                    <button
+                        onClick={togglePlay}
+                        className="absolute inset-0 flex cursor-pointer items-center justify-center bg-black/30 transition-opacity"
+                        aria-label="Play video"
+                    >
+                        <CirclePlay className="size-16 text-primary opacity-90 transition-transform hover:scale-110 md:size-20" />
+                    </button>
+                )}
+
+                <PlayerControls
+                    currentTime={currentTime}
+                    duration={duration}
+                    isPlaying={isPlaying}
+                    isMuted={isMuted}
+                    volume={volume}
+                    speed={speed}
+                    visible={showControls}
+                    onTogglePlay={togglePlay}
+                    onToggleMute={toggleMute}
+                    onToggleFullscreen={toggleFullscreen}
+                    onSeek={handleSeek}
+                    onVolumeChange={setVolume}
+                    onSpeedChange={setSpeed}
+                    onDrawToggle={onDrawToggle}
+                    drawingEnabled={drawingEnabled}
+                />
             </div>
-</div>
         </div>
     );
 }
 
+/**
+ * @description Thumbnail overlay shown before playback. Detects portrait
+ * orientation and reports it to the parent via onPortraitDetected so the
+ * blurred background can persist during video playback.
+ */
+function ThumbnailOverlay({
+    src,
+    isPortrait,
+    onPortraitDetected,
+}: {
+    src: string;
+    isPortrait: boolean;
+    onPortraitDetected: (portrait: boolean) => void;
+}) {
+    return (
+        <div className="absolute inset-0 flex items-center justify-center">
+            {isPortrait && (
+                <img
+                    src={src}
+                    alt=""
+                    aria-hidden="true"
+                    crossOrigin="anonymous"
+                    className="absolute inset-0 size-full object-cover blur-xl scale-110"
+                />
+            )}
+            <img
+                src={src}
+                alt=""
+                crossOrigin="anonymous"
+                className={isPortrait ? "relative h-full object-contain" : "size-full object-cover"}
+                onLoad={(e) => {
+                    const img = e.currentTarget;
+                    onPortraitDetected(img.naturalHeight > img.naturalWidth);
+                }}
+            />
+        </div>
+    );
+}
+
+/**
+ * @description Skeleton placeholder for the video player while loading.
+ */
 export function VideoPlayerSkeleton() {
     return <Skeleton className="aspect-video w-full rounded-xl" />;
 }

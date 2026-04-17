@@ -357,8 +357,9 @@ model StitchedSequence {
   studyId         String  @map("study_id") @db.Uuid
   siteId          String  @map("site_id") @db.Uuid
   videoId         String  @map("video_id") @db.Uuid
-  createdByUserId String  @map("created_by_user_id")
+  createdByUserId String   @map("created_by_user_id")
   title           String
+  createdAt       DateTime @default(now()) @map("created_at")
 
   study         Study          @relation(fields: [studyId], references: [id], onDelete: Cascade)
   site          Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)

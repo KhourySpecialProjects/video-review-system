@@ -1,4 +1,5 @@
 import { useNavigation, Link, useLoaderData } from "react-router";
+import { motion } from "motion/react";
 import type { VideoViewLoaderData } from "@/lib/video.service";
 import { VideoPlayer, VideoPlayerSkeleton } from "@/features/video/videoPlayer/VideoPlayer";
 import {
@@ -9,8 +10,13 @@ import { ArrowLeft } from "lucide-react";
 
 // ── Component ─────────────────────────────────────────────────────────────
 
+/**
+ * @description Video detail page. Displays the video player with a sidebar
+ * for editing title/description. The player area uses a shared motion
+ * layoutId for a portal-style transition from the video card thumbnail.
+ */
 export default function VideoView() {
-    const { video, stream } = useLoaderData() as VideoViewLoaderData;
+    const { video, videoUrl, imgUrl } = useLoaderData() as VideoViewLoaderData;
     const navigation = useNavigation();
 
     const isSaving = navigation.state === "submitting" || navigation.state === "loading";
@@ -28,10 +34,17 @@ export default function VideoView() {
 
             {/* Player + Sidebar layout */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_380px]">
-                <VideoPlayer
-                    src={stream.url}
-                    duration={video.durationSeconds}
-                />
+                <motion.div
+                    layoutId={`video-${video.id}`}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    className="overflow-hidden rounded-xl"
+                >
+                    <VideoPlayer
+                        src={videoUrl}
+                        duration={video.durationSeconds}
+                        poster={imgUrl}
+                    />
+                </motion.div>
                 <VideoDetailsSidebar
                     video={video}
                     isSaving={isSaving}
@@ -41,6 +54,9 @@ export default function VideoView() {
     );
 }
 
+/**
+ * @description Skeleton placeholder for the video view page while loading.
+ */
 export function VideoViewSkeleton() {
     return (
         <div className="flex flex-col gap-6">

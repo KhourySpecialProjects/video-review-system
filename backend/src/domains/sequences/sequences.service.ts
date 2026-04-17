@@ -4,6 +4,7 @@ import type {
   CreateSequenceInput,
   AddClipToSequenceInput,
   ReorderSequenceInput,
+  UpdateSequenceInput,
 } from "./sequences.types.js";
 
 // ────────────────────────────────────────────────────────────
@@ -44,6 +45,27 @@ export async function createSequence(input: CreateSequenceInput, createdByUserId
 }
 
 /**
+ * Lists all sequences for a given video within a study, including ordered items.
+ *
+ * @param videoId - uuid of the source video
+ * @param studyId - uuid of the study to scope sequences to
+ * @returns array of sequence records with their items ordered by playOrder
+ */
+export async function listSequencesByVideo(videoId: string, studyId: string) {
+  return prisma.stitchedSequence.findMany({
+    where: { videoId, studyId },
+    orderBy: { createdAt: "asc" },
+    include: {
+      createdBy: { select: { name: true } },
+      sequenceItems: {
+        orderBy: { playOrder: "asc" },
+        include: { clip: true },
+      },
+    },
+  });
+}
+
+/**
  * Retrieves a sequence by its ID, including its ordered clips.
  *
  * @param sequenceId - uuid of the sequence
@@ -70,6 +92,31 @@ export async function getSequence(sequenceId: string) {
   }
 
   return sequence;
+}
+
+/**
+ * Updates a sequence's title.
+ *
+ * @param sequenceId - uuid of the sequence to update
+ * @param input - fields to update (title)
+ * @returns the updated sequence with its items
+ * @throws {AppError} 404 if no sequence with that id exists
+ */
+export async function updateSequence(sequenceId: string, input: UpdateSequenceInput) {
+  const sequence = await prisma.stitchedSequence.findUnique({
+    where: { id: sequenceId },
+  });
+
+  if (!sequence) {
+    throw AppError.notFound("Sequence not found");
+  }
+
+  await prisma.stitchedSequence.update({
+    where: { id: sequenceId },
+    data: { title: input.title },
+  });
+
+  return getSequence(sequenceId);
 }
 
 /**

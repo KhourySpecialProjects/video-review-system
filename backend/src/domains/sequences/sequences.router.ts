@@ -6,12 +6,35 @@ import {
   createSequenceSchema,
   addClipToSequenceSchema,
   reorderSequenceSchema,
+  updateSequenceSchema,
 } from "./sequences.types.js";
 
 const router = Router();
 
 // All sequence routes require session authentication
 router.use(requireSession);
+
+/**
+ * GET /domain/sequences - list sequences for a video within a study
+ *
+ * @query videoId - uuid of the source video
+ * @query studyId - uuid of the study to scope sequences to
+ *
+ * @returns 200 with { sequences } including ordered items with clip details
+ * @returns 400 if videoId or studyId is missing
+ */
+router.get("/", async (req, res) => {
+  const { videoId, studyId } = req.query;
+  if (!videoId || !studyId) {
+    throw AppError.badRequest("videoId and studyId query params are required");
+  }
+
+  const sequences = await sequencesService.listSequencesByVideo(
+    videoId as string,
+    studyId as string,
+  );
+  res.json({ sequences });
+});
 
 /**
  * POST /domain/sequences - create a new stitched sequence
@@ -61,6 +84,26 @@ router.post("/:id", async (req, res) => {
 
   const item = await sequencesService.addClipToSequence(req.params.id, parsed.data);
   res.status(201).json(item);
+});
+
+/**
+ * PATCH /domain/sequences/:id - update a sequence's title
+ *
+ * @param id - uuid of the sequence
+ * @body title - updated descriptive name
+ *
+ * @returns 200 with the updated sequence including items
+ * @returns 400 if validation fails
+ * @returns 404 if sequence not found
+ */
+router.patch("/:id", async (req, res) => {
+  const parsed = updateSequenceSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw AppError.badRequest(parsed.error.issues[0].message);
+  }
+
+  const sequence = await sequencesService.updateSequence(req.params.id, parsed.data);
+  res.json(sequence);
 });
 
 /**

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
+import { motion } from "motion/react";
 import type { Video } from "@/lib/types";
 import { formatDuration, formatDate, formatTime } from "@/lib/format";
 import { getThumbnail } from "@/lib/thumbnailCache";
@@ -7,18 +8,23 @@ import { CalendarDays, Clock3, CirclePlay } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
-interface VideoCardProps {
-    video: Video;
-}
-
-export function VideoCard({ video }: VideoCardProps) {
+/**
+ * @description Card component for a video in the grid. Displays a thumbnail,
+ * title, description, and date info. The thumbnail wrapper uses a motion
+ * layoutId for a shared element transition to the video player page.
+ */
+export function VideoCard({ video }: { video: Video }) {
     const [isPortrait, setIsPortrait] = useState(false);
 
     return (
         <Link to={`/videos/${video.id}`} className="block">
             <Card className="group overflow-hidden border-border bg-bg-light transition-shadow hover:shadow-l p-0 gap-2">
                 {/* Thumbnail */}
-                <div className="relative flex items-center justify-center w-full overflow-hidden bg-black aspect-video">
+                <motion.div
+                    layoutId={`video-${video.id}`}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    className="relative flex items-center justify-center w-full overflow-hidden bg-black aspect-video"
+                >
                     {isPortrait && (
                         <img
                             src={getThumbnail(video.id) ?? video.imgUrl}
@@ -55,7 +61,7 @@ export function VideoCard({ video }: VideoCardProps) {
                             {formatDuration(video.durationSeconds)}
                         </span>
                     </div>
-                </div>
+                </motion.div>
 
                 {/* Info */}
                 <div className="flex flex-col gap-1.5 px-3 py-2.5 md:gap-2 md:px-4 md:py-3">
