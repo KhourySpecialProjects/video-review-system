@@ -2,7 +2,6 @@ import prisma from "../../lib/prisma.js";
 import type { Video } from "../../generated/prisma/client.js";
 import { AppError } from "../../middleware/errors.js";
 import type { Prisma } from "../../generated/prisma/client.js";
-import type { AuthenticatedUser } from "../../middleware/auth.js";
 import type { CreateVideoInput, CompleteUploadInput, UpdateVideoInput, SearchVideosInput, VideoListItem } from "./videos.types.js";
 import {
   generatePresignedGetUrl,
@@ -71,96 +70,83 @@ async function toVideoListItem(
 
 /**
  * Retrieves a paginated list of uploaded videos, ordered by most recent first.
- * Joins caregiver metadata (title/notes) and uploader name via Prisma include
- * (resolved as batched subqueries — 3 SQL statements total, not N+1).
  *
- * @param options.userId - The authenticated user's ID for scoping metadata
+ * Access control is handled by the caller (router), which builds an
+ * accessFilter from the user's permission rows via buildVideoAccessFilter.
+ * This function simply merges that filter into its where clause.
+ *
  * @param options.limit - max number of videos to return (default: 20)
  * @param options.offset - number of videos to skip (default: 0)
+ * @param options.accessFilter - Prisma where clause from buildVideoAccessFilter
+ * @param options.userId - The authenticated user's ID for scoping caregiver metadata
  *
  * @returns videos array and total count for pagination
  */
 export async function listVideos({
-    limit = 20, 
-    offset = 0,
-    user,
-  }: {
-    limit?: number;
-    offset?: number;
-    user: AuthenticatedUser; // pass the authenticated user for access control
-  }) {
+  limit = 20,
+  offset = 0,
+  accessFilter,
+  userId,
+}: {
+  limit?: number;
+  offset?: number;
+  accessFilter: Record<string, any>;
+  userId: string;
+}) {
+  const where: Prisma.VideoWhereInput = {
+    status: "UPLOADED",
+    ...accessFilter,
+  };
 
-  // Build a where clause based on the user's role
-  let where: Prisma.VideoWhereInput = { status: "UPLOADED" as const };
-
-  switch (user.role) {
-    case "SYSADMIN":
-      // No filter — sees everything
-      break;
-
-    case "SITE_COORDINATOR":
-      // Videos in studies linked to their site
-      where = {
-        videoStudies: {
-          some: { siteId: user.siteId },
-        },
-      };
-      break;
-
-    case "CLINICAL_REVIEWER":
-      // Videos in studies they're enrolled in, within their site
-      where = {
-        videoStudies: {
-          some: {
-            siteId: user.siteId,
-            study: {
-              caregiverPatients: {
-                some: { userId: user.id },
-              },
-            },
-          },
-        },
-      };
-      break;
-
-    case "CAREGIVER":
-      // Only their own videos
-      where = {
-        uploadedByUserId: user.id,
-      };
-      break;
-  }
-
-  // creates efficient query for videos and total with one call
   const [videos, total] = await Promise.all([
     prisma.video.findMany({
       where,
       orderBy: { createdAt: "desc" },
       skip: offset,
       take: limit,
-      include: videoInclude(user.id),
+      include: videoInclude(userId),
     }),
     prisma.video.count({ where }),
   ]);
 
-  return { videos: await Promise.all(videos.map(toVideoListItem)), total, limit, offset };
+  return {
+    videos: await Promise.all(videos.map(toVideoListItem)),
+    total,
+    limit,
+    offset,
+  };
 }
 
 /**
  * Searches and filters uploaded videos with optional text search and date ranges.
- * Uses a single Prisma query with relation filters — Prisma translates the
- * caregiverMetadata `some` clause into an EXISTS subquery, avoiding N+1.
- * Total count uses the same WHERE clause in a parallel query (2 SQL statements).
  *
- * @param params - Search filters, pagination, and the authenticated user's ID
+ * Access control is handled by the caller via accessFilter, same as listVideos.
+ *
+ * @param params - Search filters, pagination, and access filter
  * @returns Matching videos and total count
  */
 export async function searchVideos(
-  params: SearchVideosInput & { userId: string }
+  params: SearchVideosInput & {
+    accessFilter: Record<string, any>;
+    userId: string;
+  }
 ) {
-  const { q, uploadedAfter, uploadedBefore, filmedAfter, filmedBefore, limit, offset, userId } = params;
+  const {
+    q,
+    uploadedAfter,
+    uploadedBefore,
+    filmedAfter,
+    filmedBefore,
+    limit,
+    offset,
+    accessFilter,
+    userId,
+  } = params;
 
-  const where: any = { status: "UPLOADED" as const };
+  const where: any = {
+    status: "UPLOADED",
+    ...accessFilter,
+  };
 
   if (uploadedAfter || uploadedBefore) {
     where.createdAt = {};
@@ -196,7 +182,12 @@ export async function searchVideos(
     prisma.video.count({ where }),
   ]);
 
-  return { videos: await Promise.all(videos.map(toVideoListItem)), total, limit, offset };
+  return {
+    videos: await Promise.all(videos.map(toVideoListItem)),
+    total,
+    limit,
+    offset,
+  };
 }
 
 /**

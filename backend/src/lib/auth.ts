@@ -188,6 +188,7 @@ export async function checkPermission(
   contexts: ResourceContext[]
 ): Promise<boolean> {
   if (role === "CAREGIVER") return false;
+  if (role === "SYSADMIN") return true; // SYSADMIN bypasses all checks
   if (contexts.length === 0) return false;
  
   const qualifyingLevels = levelsAtOrAbove(requiredLevel);
@@ -247,6 +248,7 @@ export async function getHighestPermission(
   contexts: ResourceContext[]
 ): Promise<permission_level | null> {
   if (role === "CAREGIVER") return null;
+  if (role === "SYSADMIN") return "ADMIN"; // SYSADMIN has the highest permission level
   if (contexts.length === 0) return null;
  
   const contextFilters = contexts.map((ctx) => ({
@@ -532,4 +534,58 @@ export function createBodyContextResolver() {
       videoId: req.body.videoId ?? null,
     },
   ];
+}
+
+/**
+ * Creates the default permission row for a newly created user based on
+ * their role. Called during user onboarding (signup or invitation acceptance).
+ *
+ * Default grants:
+ *   - SYSADMIN → global ADMIN (all NULLs)
+ *   - SITE_COORDINATOR → ADMIN scoped to their home site
+ *   - CLINICAL_REVIEWER → no default row (permissions assigned by admin)
+ *   - CAREGIVER → no default row (access is ownership-based, not permission-based)
+ *
+ * @param userId - The newly created user's ID
+ * @param role   - The user's assigned role
+ * @param siteId - The user's home site ID
+ */
+export async function seedDefaultPermission(
+  userId: string,
+  role: user_role,
+  siteId: string
+): Promise<void> {
+  switch (role) {
+    case "SYSADMIN":
+      await prisma.userPermission.create({
+        data: {
+          userId,
+          siteId: null,
+          studyId: null,
+          videoId: null,
+          permissionLevel: "ADMIN",
+        },
+      });
+      break;
+
+    case "SITE_COORDINATOR":
+      await prisma.userPermission.create({
+        data: {
+          userId,
+          siteId,
+          studyId: null,
+          videoId: null,
+          permissionLevel: "ADMIN",
+        },
+      });
+      break;
+
+    case "CLINICAL_REVIEWER":
+      // No default — admin assigns specific study/site grants
+      break;
+
+    case "CAREGIVER":
+      // No default — access is purely ownership-based
+      break;
+  }
 }

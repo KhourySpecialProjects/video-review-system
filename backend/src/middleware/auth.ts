@@ -123,8 +123,17 @@ export function requirePermission(
   return async (req: Request, _res: Response, next: NextFunction) => {
     const { id: userId, role } = req.authSession.user;
 
+    // Validate role is a known user_role
+    const validRoles: user_role[] = ["CAREGIVER", "CLINICAL_REVIEWER", "SITE_COORDINATOR", "SYSADMIN"];
+    if (!validRoles.includes(role as user_role)) {
+      throw AppError.forbidden("Invalid user role");
+    }
+
     if (role === "CAREGIVER") {
-      if (caregiverCheck && (await caregiverCheck(req))) return next();
+      if (caregiverCheck) {
+        const allowed = await caregiverCheck(req);
+        if (allowed) return next();
+      }
       throw AppError.forbidden();
     }
 
