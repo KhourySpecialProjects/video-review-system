@@ -29,6 +29,10 @@ export const auth = betterAuth({
         type: "string",
         input: false,
       },
+      siteId: {
+        type: "string",
+        input: false,
+      },
     },
   },
 

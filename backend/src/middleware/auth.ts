@@ -44,7 +44,7 @@ declare global {
 }
 
 // ────────────────────────────────────────────────────────────
-// Layer 1: authenticate
+// Authentication
 // ────────────────────────────────────────────────────────────
 
 /**
@@ -85,7 +85,7 @@ export async function requireInternalAuth(req: Request, _res: Response, next: Ne
 }
 
 // ────────────────────────────────────────────────────────────
-// Role gate
+// Authorization Role Gate
 // ────────────────────────────────────────────────────────────
 
 /**
