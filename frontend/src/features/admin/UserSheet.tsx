@@ -95,8 +95,6 @@ export function UserSheet({ open, onOpenChange, user }: UserSheetProps) {
     // TODO: wire to backend API
     function handleSubmit() {
         if (!validate()) return;
-        const payload = { firstName, lastName, email, role, site };
-        console.log(isEdit ? "Update user:" : "Create user:", payload);
         toast.success(isEdit ? "User updated successfully." : "User created successfully.");
         onOpenChange(false);
     }
@@ -159,7 +157,10 @@ export function UserSheet({ open, onOpenChange, user }: UserSheetProps) {
                         <Label>Role</Label>
                         <Select
                             value={role}
-                            onValueChange={(v) => setRole(v as UserRole)}
+                            onValueChange={(v) => {
+                                setRole(v as UserRole);
+                                if (v !== "Site Coordinator") setSite("");
+                            }}
                         >
                             <SelectTrigger>
                                 <SelectValue placeholder="Select a role" />

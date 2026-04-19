@@ -197,6 +197,8 @@ export function AdminTable({ defaultTab = "users", isLoading = false }: AdminTab
                                             key={u.id}
                                             className="cursor-pointer"
                                             onClick={() => openEditSheet(u)}
+                                            tabIndex={0}
+                                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') openEditSheet(u); }}
                                         >
                                             <TableCell>{u.firstName}</TableCell>
                                             <TableCell>{u.lastName}</TableCell>

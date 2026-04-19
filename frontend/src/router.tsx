@@ -54,6 +54,10 @@ export const router = createBrowserRouter([
                     return { tutorialPromise: fetchTutorial() };
                 },
             },
+            {
+                path: "admin",
+                element: <SystemAdminDashboard />,
+            },
         ],
     },
     {
@@ -77,8 +81,5 @@ export const router = createBrowserRouter([
         element: <ResetPassword />,
         action: resetPasswordAction,
     },
-    {
-        path: "/admin",
-        element: <SystemAdminDashboard />,
-    },
+
 ]);
