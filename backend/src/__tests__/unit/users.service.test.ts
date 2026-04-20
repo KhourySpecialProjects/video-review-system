@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
+    $transaction: vi.fn(),
     user: {
       findMany: vi.fn(),
       count: vi.fn(),
@@ -16,6 +17,9 @@ const { prismaMock } = vi.hoisted(() => ({
     },
     site: {
       findMany: vi.fn(),
+    },
+    auditLog: {
+      create: vi.fn(),
     },
     study: {
       findUnique: vi.fn(),
@@ -42,11 +46,16 @@ import {
   getManageableSiteIds,
   listUsers,
   resolvePermissionScopeAccess,
+  updateUserStatus,
 } from "../../domains/users/users.service.js";
 
 describe("users.service", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    prismaMock.$transaction.mockImplementation(
+      async (callback: (client: typeof prismaMock) => Promise<unknown>) =>
+        callback(prismaMock),
+    );
   });
 
   describe("getManageableSiteIds", () => {
@@ -238,6 +247,74 @@ describe("users.service", () => {
           videoId: "44444444-4444-4444-8444-444444444444",
         }),
       ).rejects.toThrow("Invalid permission scope");
+    });
+  });
+
+  describe("updateUserStatus", () => {
+    it("updates the user and writes an audit row in the same transaction", async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: "user-1",
+        siteId: "11111111-1111-1111-8111-111111111111",
+        isDeactivated: false,
+      });
+      prismaMock.user.update.mockResolvedValue({
+        id: "user-1",
+        siteId: "11111111-1111-1111-8111-111111111111",
+        isDeactivated: true,
+      });
+      prismaMock.auditLog.create.mockResolvedValue({
+        id: "audit-1",
+      });
+
+      const result = await updateUserStatus(
+        "user-1",
+        { isDeactivated: true },
+        {
+          actorUserId: "actor-1",
+          ipAddress: "203.0.113.10",
+        },
+      );
+
+      expect(result).toEqual({
+        id: "user-1",
+        isDeactivated: true,
+      });
+      expect(prismaMock.$transaction).toHaveBeenCalledOnce();
+      expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
+        where: { id: "user-1" },
+        select: {
+          id: true,
+          siteId: true,
+          isDeactivated: true,
+        },
+      });
+      expect(prismaMock.user.update).toHaveBeenCalledWith({
+        where: { id: "user-1" },
+        data: {
+          isDeactivated: true,
+        },
+        select: {
+          id: true,
+          siteId: true,
+          isDeactivated: true,
+        },
+      });
+      expect(prismaMock.auditLog.create).toHaveBeenCalledWith({
+        data: {
+          actorUserId: "actor-1",
+          actionType: "UPDATE",
+          entityType: "USER",
+          entityId: "user-1",
+          siteId: "11111111-1111-1111-8111-111111111111",
+          oldValues: {
+            isDeactivated: false,
+          },
+          newValues: {
+            isDeactivated: true,
+          },
+          ipAddress: "203.0.113.10",
+        },
+      });
     });
   });
 });

@@ -910,9 +910,15 @@ describe("users.router", () => {
       id: "user-1",
       isDeactivated: true,
     });
-    expect(usersServiceMock.updateUserStatus).toHaveBeenCalledWith("user-1", {
-      isDeactivated: true,
-    });
+    expect(usersServiceMock.updateUserStatus).toHaveBeenCalledWith(
+      "user-1",
+      {
+        isDeactivated: true,
+      },
+      expect.objectContaining({
+        actorUserId: "actor-1",
+      }),
+    );
   });
 
   it("PATCH /domain/users/:userId/status allows a same-site coordinator", async () => {
