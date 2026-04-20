@@ -318,7 +318,7 @@ export function AdminTable({ defaultTab = "users", isLoading = false }: AdminTab
 
             <UserSheet
                 open={sheetOpen}
-                onOpenChange={setSheetOpen}
+                onOpenChange={(open) => { setSheetOpen(open); if (!open) setSelectedUser(undefined); }}
                 user={selectedUser}
             />
         </>
