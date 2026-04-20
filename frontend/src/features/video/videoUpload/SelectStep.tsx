@@ -1,4 +1,4 @@
-import { Video, CheckCircle, Pause } from "lucide-react"
+import { Video, Pause } from "lucide-react"
 import {
   Progress,
   ProgressLabel,
@@ -37,14 +37,13 @@ export function SelectStep({ onFileSelected, upload, onPause }: SelectStepProps)
     return <DropZone onFileSelected={onFileSelected} error={upload.error} />
   }
 
-  const isComplete = upload.status === "complete"
   const isUploading = upload.status === "uploading"
   const label = upload.status === "processing" ? "Processing video" : "Uploading video"
 
   return (
     <section aria-label="Upload progress" aria-live="polite">
       <p className="text-xs font-semibold uppercase tracking-widest text-text-muted mb-3">
-        {isComplete ? "Upload complete" : label}
+        {label}
       </p>
 
       <Card className="mb-4">
@@ -54,38 +53,27 @@ export function SelectStep({ onFileSelected, upload, onPause }: SelectStepProps)
         </CardContent>
       </Card>
 
-      {!isComplete && (
-        <>
-          <Progress value={upload.progress} className="w-full max-w-sm">
-            <ProgressLabel className="text-text">{label}</ProgressLabel>
-            <ProgressValue />
-          </Progress>
+      <Progress value={upload.progress} className="w-full max-w-sm">
+        <ProgressLabel className="text-text">{label}</ProgressLabel>
+        <ProgressValue />
+      </Progress>
 
-          {upload.eta > 0 && (
-            <p className="mt-2 text-xs text-text-muted">
-              ~{formatDuration(upload.eta)} remaining
-            </p>
-          )}
-
-          {isUploading && onPause && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-4 gap-2 text-text-muted"
-              onClick={onPause}
-            >
-              <Pause className="size-3.5" />
-              Upload Later
-            </Button>
-          )}
-        </>
+      {upload.eta > 0 && (
+        <p className="mt-2 text-xs text-text-muted">
+          ~{formatDuration(upload.eta)} remaining
+        </p>
       )}
 
-      {isComplete && (
-        <p className="flex items-center gap-2 mt-4 text-sm font-semibold text-success">
-          <CheckCircle className="size-4 shrink-0" strokeWidth={1.75} />
-          Video uploaded successfully
-        </p>
+      {isUploading && onPause && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-4 gap-2 text-text-muted"
+          onClick={onPause}
+        >
+          <Pause className="size-3.5" />
+          Upload Later
+        </Button>
       )}
     </section>
   )

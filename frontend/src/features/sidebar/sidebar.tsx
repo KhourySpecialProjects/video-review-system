@@ -1,4 +1,5 @@
-import * as React from "react"
+import { useState, type CSSProperties } from "react"
+import { motion } from "motion/react"
 import {
   Sidebar,
   SidebarContent,
@@ -16,7 +17,7 @@ const SIDEBAR_PROVIDER_STYLE = {
   "--sidebar-width": "100%",
   width: "100%",
   height: "100%",
-} as React.CSSProperties
+} as CSSProperties
 
 /**
  * @description Properties of a clip displayed in the sidebar.
@@ -24,9 +25,11 @@ const SIDEBAR_PROVIDER_STYLE = {
 export type ClipAnnotation = {
   id: string
   title: string
-  startMs: number
-  endMs: number
+  startTimeS: number
+  endTimeS: number
   themeColor: string
+  /** @description Display name of the user who created this clip. */
+  createdBy: string
 }
 
 /**
@@ -34,7 +37,8 @@ export type ClipAnnotation = {
  */
 export type NoteAnnotation = {
   id: string
-  author: string
+  /** @description Display name of the user who authored this note. */
+  createdBy: string
   title: string
   content: string
   timestamp: string
@@ -50,6 +54,8 @@ export type DrawAnnotation = {
   timestamp: number
   duration: number
   thumbnailUrl?: string
+  /** @description Display name of the user who created this drawing. */
+  createdBy: string
 }
 
 /**
@@ -105,6 +111,8 @@ export function AnnotationSidebar({
 
   const jumpTo = onJumpToTime ?? (() => {})
 
+  const [activeTab, setActiveTab] = useState("clips")
+
   return (
     <SidebarProvider
       defaultOpen={true}
@@ -112,28 +120,28 @@ export function AnnotationSidebar({
       style={SIDEBAR_PROVIDER_STYLE}
     >
       <Sidebar side="right" collapsible="none" className="border-l border-border bg-background w-full h-full">
-        <Tabs defaultValue="clips" className="flex flex-col h-full w-full overflow-hidden">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full w-full overflow-hidden">
           <SidebarHeader className="p-4 pb-3 border-b border-border bg-background">
             <h2 className="font-semibold text-lg mb-2 text-foreground">Annotations</h2>
             <TabsList className="w-full grid grid-cols-3 bg-muted p-1 rounded-lg h-11">
-              <TabsTrigger
-                value="clips"
-                className="cursor-pointer rounded-md data-active:bg-background data-active:text-foreground data-active:shadow-sm text-muted-foreground h-full font-medium transition-all border border-transparent data-active:border-border"
-              >
-                Clips
-              </TabsTrigger>
-              <TabsTrigger
-                value="notes"
-                className="cursor-pointer rounded-md data-active:bg-background data-active:text-foreground data-active:shadow-sm text-muted-foreground h-full font-medium transition-all border border-transparent data-active:border-border"
-              >
-                Notes
-              </TabsTrigger>
-              <TabsTrigger
-                value="draw"
-                className="cursor-pointer rounded-md data-active:bg-background data-active:text-foreground data-active:shadow-sm text-muted-foreground h-full font-medium transition-all border border-transparent data-active:border-border"
-              >
-                Draw
-              </TabsTrigger>
+              {(["clips", "notes", "draw"] as const).map((value) => (
+                <TabsTrigger
+                  key={value}
+                  value={value}
+                  className="relative cursor-pointer rounded-md data-active:text-foreground text-muted-foreground h-full font-medium transition-colors bg-transparent shadow-none border-0"
+                >
+                  {activeTab === value && (
+                    <motion.div
+                      layoutId="sidebar-tab-indicator"
+                      className="absolute inset-0 rounded-md bg-background border border-border shadow-sm"
+                      transition={{ type: "spring", stiffness: 420, damping: 36 }}
+                    />
+                  )}
+                  <span className="relative z-10">
+                    {value === "clips" ? "Clips" : value === "notes" ? "Notes" : "Draw"}
+                  </span>
+                </TabsTrigger>
+              ))}
             </TabsList>
           </SidebarHeader>
 
@@ -141,6 +149,7 @@ export function AnnotationSidebar({
             <div className="p-4">
               <TabsContent value="clips" className="m-0 flex flex-col gap-4 focus-visible:outline-none">
                 <ClipsTab
+                  key={activeTab === "clips" ? "clips-active" : "clips-idle"}
                   clips={clips}
                   isLoading={loading}
                   onJumpToTime={jumpTo}

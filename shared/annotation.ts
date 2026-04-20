@@ -10,6 +10,8 @@ export type AnnotationListItem = {
   id: string;
   videoId: string;
   authorUserId: string;
+  /** @description Display name of the user who authored this annotation. */
+  authorName: string;
   studyId: string;
   siteId: string;
   type: AnnotationType;

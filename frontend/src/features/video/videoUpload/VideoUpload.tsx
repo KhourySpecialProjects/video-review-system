@@ -18,18 +18,15 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog"
 import { Separator } from "@/components/ui/separator"
-import { toast } from "sonner"
 import { Download, CircleCheckBig, ArrowRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { SelectStep } from "./SelectStep"
 import { DetailsStep } from "./DetailsStep"
-import { CompletedStep } from "./CompletedStep"
 import { useVideoUpload, type UploadStep } from "./useVideoUpload"
 
 const titles: Record<UploadStep, string> = {
   details: "Add Details",
   select: "Upload Video",
-  complete: "",
 }
 
 /**
@@ -122,32 +119,6 @@ export function VideoUpload() {
           />
         )}
 
-        {step === "complete" && (
-          <>
-            <CompletedStep />
-            <DialogFooter>
-              <Button
-                className="w-full"
-                onClick={() => {
-                  dispatch({ type: "RESET" })
-                  toast.success("Video uploaded successfully", {
-                    description:
-                      "You have 10 minutes to undo the video upload in case you uploaded the wrong video",
-                    action: {
-                      label: "Undo",
-                      onClick: () => {
-                        console.log("Video has been deleted")
-                        toast.dismiss()
-                      },
-                    },
-                  })
-                }}
-              >
-                Done
-              </Button>
-            </DialogFooter>
-          </>
-        )}
       </DialogContent>
 
       <AlertDialog

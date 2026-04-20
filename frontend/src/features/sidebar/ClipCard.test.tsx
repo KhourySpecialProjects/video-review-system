@@ -25,12 +25,12 @@ describe("ClipCard", () => {
 
   /**
    * Returns a default set of props for rendering a ClipCard.
-   * startMs=80000 (1:20), endMs=125000 (2:05), duration=45000 (0:45).
+   * startTimeS=80 (1:20), endTimeS=125 (2:05), duration=45s (0:45).
    */
   const defaultProps = () => ({
     title: "Seizure",
-    startMs: 80000, // 1:20
-    endMs: 125000, // 2:05
+    startTimeS: 80, // 1:20
+    endTimeS: 125, // 2:05
     onJumpStart,
     onEdit,
     onDelete,

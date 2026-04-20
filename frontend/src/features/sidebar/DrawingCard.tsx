@@ -26,6 +26,8 @@ export interface DrawingCardProps {
     onEditDuration: (id: string, newDuration: number) => void;
     /** Callback fired when the user deletes the drawing */
     onDelete: (id: string) => void;
+    /** Display name of the user who created this drawing. Shown at the bottom of the card. */
+    createdBy?: string;
 }
 
 const toolIcons: Record<DrawingToolType, React.ElementType> = {
@@ -55,6 +57,7 @@ export function DrawingCard({
     onJumpStart,
     onEditDuration,
     onDelete,
+    createdBy,
 }: DrawingCardProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [editedDuration, setEditedDuration] = useState(String(duration));
@@ -117,6 +120,7 @@ export function DrawingCard({
             isEditing={isEditing}
             onSave={handleSave}
             onCancelEdit={handleCancelEdit}
+            createdBy={createdBy}
             content={
                 <div className="flex flex-col gap-3 text-sm">
                     {thumbnailUrl && (

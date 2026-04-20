@@ -1,18 +1,19 @@
 import { useReducer, useRef } from "react"
-import { useFetcher, useRevalidator } from "react-router"
+import { useFetcher } from "react-router"
+import { useQueryClient } from "@tanstack/react-query"
 import type { UserStudyOption } from "@shared/study"
 import { uploadVideo, extractVideoMetadata, captureVideoFrame } from "./upload.service"
 import type { myStudiesLoader } from "./studies.route"
 import { setThumbnail } from "@/lib/thumbnailCache"
+import { homeKeys } from "@/lib/queryClient"
 import { toast } from "sonner"
 
-export type UploadStep = "details" | "select" | "complete"
+export type UploadStep = "details" | "select"
 
 export type UploadStatus =
   | { status: "idle" }
   | { status: "processing"; fileName: string; progress: number; eta: number }
   | { status: "uploading"; fileName: string; progress: number; eta: number }
-  | { status: "complete"; fileName: string }
   | { status: "error"; error: string }
 
 export type VideoUploadState = {
@@ -114,14 +115,8 @@ function reducer(state: VideoUploadState, action: Action): VideoUploadState {
         ...state,
         upload: { ...state.upload, progress: action.progress, eta: action.eta },
       }
-    case "UPLOAD_COMPLETE": {
-      const fileName = "fileName" in state.upload ? state.upload.fileName : ""
-      return {
-        ...state,
-        step: "complete",
-        upload: { status: "complete", fileName },
-      }
-    }
+    case "UPLOAD_COMPLETE":
+      return { ...initialState }
     case "UPLOAD_FAILED":
       return {
         ...state,
@@ -168,7 +163,7 @@ export function useVideoUpload() {
   const uploadStartTime = useRef(0)
   const totalBytes = useRef(0)
   const abortController = useRef<AbortController | null>(null)
-  const { revalidate } = useRevalidator()
+  const queryClient = useQueryClient()
 
   const studies = studiesFetcher.data ?? []
   const studiesLoading = studiesFetcher.state === "loading"
@@ -251,7 +246,7 @@ export function useVideoUpload() {
         setThumbnail(videoId, frameDataUrl)
       }
 
-      revalidate()
+      queryClient.invalidateQueries({ queryKey: homeKeys.all })
       dispatch({ type: "UPLOAD_COMPLETE" })
       toast.success("Upload complete", {
         description: "Your video has been uploaded successfully.",

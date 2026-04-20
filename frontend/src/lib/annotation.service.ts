@@ -2,6 +2,41 @@ import type { AnnotationListItem } from "@shared/annotation";
 import { apiFetch } from "./api";
 
 /**
+ * @description Raw annotation shape returned by the backend. Prisma nests
+ * the author's name under `author`, whereas our shared type flattens it to
+ * `authorName`. This type captures the on-the-wire shape so we can normalize
+ * it in one place.
+ */
+type RawAnnotation = Omit<AnnotationListItem, "authorName"> & {
+  author?: { name?: string | null } | null;
+  authorName?: string | null;
+};
+
+/**
+ * @description Normalizes an annotation record from the backend into the
+ * shared AnnotationListItem shape: flattens author.name to authorName.
+ * Tolerates either naming so older or already-normalized responses both work.
+ *
+ * @param raw - The raw annotation record from the API
+ * @returns An AnnotationListItem matching the shared type
+ */
+function normalizeAnnotation(raw: RawAnnotation): AnnotationListItem {
+  return {
+    id: raw.id,
+    videoId: raw.videoId,
+    authorUserId: raw.authorUserId,
+    authorName: raw.authorName ?? raw.author?.name ?? "",
+    studyId: raw.studyId,
+    siteId: raw.siteId,
+    type: raw.type,
+    timestampS: raw.timestampS,
+    durationS: raw.durationS,
+    payload: raw.payload,
+    createdAt: raw.createdAt,
+  };
+}
+
+/**
  * @description Response shape from the annotations list endpoint.
  */
 export type AnnotationListResponse = {
@@ -53,7 +88,18 @@ export async function fetchAnnotations(
   });
   const res = await apiFetch(`/annotations?${params}`);
   if (!res.ok) throw new Error("Failed to fetch annotations");
-  return res.json();
+  const data = (await res.json()) as {
+    annotations: RawAnnotation[];
+    total: number;
+    limit: number;
+    offset: number;
+  };
+  return {
+    annotations: (data.annotations ?? []).map(normalizeAnnotation),
+    total: data.total,
+    limit: data.limit,
+    offset: data.offset,
+  };
 }
 
 /**
@@ -70,7 +116,7 @@ export async function createAnnotation(
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error("Failed to create annotation");
-  return res.json();
+  return normalizeAnnotation((await res.json()) as RawAnnotation);
 }
 
 /**
@@ -89,7 +135,7 @@ export async function updateAnnotation(
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error("Failed to update annotation");
-  return res.json();
+  return normalizeAnnotation((await res.json()) as RawAnnotation);
 }
 
 /**

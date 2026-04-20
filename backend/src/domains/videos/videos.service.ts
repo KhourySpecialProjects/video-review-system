@@ -42,10 +42,13 @@ async function toVideoListItem(
   video: Video & {
     caregiverMetadata: { privateTitle: string; privateNotes: string | null }[];
     uploadedBy: { name: string };
-  }
+  },
+  { includeImgUrl = true }: { includeImgUrl?: boolean } = {},
 ): Promise<VideoListItem> {
   const meta = video.caregiverMetadata[0];
-  const imgUrl = await generatePresignedGetUrl(`${video.s3Key}.jpg`, 3600);
+  const imgUrl = includeImgUrl
+    ? await generatePresignedGetUrl(`${video.s3Key}.jpg`, 3600)
+    : "";
 
   return {
     id: video.id,
@@ -94,7 +97,12 @@ export async function listVideos({
     prisma.video.count({ where }),
   ]);
 
-  return { videos: await Promise.all(videos.map(toVideoListItem)), total, limit, offset };
+  return {
+    videos: await Promise.all(videos.map((v) => toVideoListItem(v))),
+    total,
+    limit,
+    offset,
+  };
 }
 
 /**
@@ -147,7 +155,12 @@ export async function searchVideos(
     prisma.video.count({ where }),
   ]);
 
-  return { videos: await Promise.all(videos.map(toVideoListItem)), total, limit, offset };
+  return {
+    videos: await Promise.all(videos.map((v) => toVideoListItem(v, { includeImgUrl: false }))),
+    total,
+    limit,
+    offset,
+  };
 }
 
 /**
@@ -184,10 +197,12 @@ export async function getVideoDetail(videoId: string, userId: string): Promise<V
  * @throws {AppError} 409 if the video status is not UPLOADED
  */
 export async function getVideoStreamUrl(
-  videoId: string
-): Promise<{ video: Video; imgUrl: string; videoUrl: string; expiresIn: number }> {
+  videoId: string,
+  userId: string,
+): Promise<{ video: VideoListItem; imgUrl: string; videoUrl: string; expiresIn: number }> {
   const video = await prisma.video.findUnique({
     where: { id: videoId },
+    include: videoInclude(userId),
   });
 
   if (!video) {
@@ -201,12 +216,13 @@ export async function getVideoStreamUrl(
   const expiresIn = 3600;
   const videoKey = `${video.s3Key}.mp4`;
   const imageKey = `${video.s3Key}.jpg`;
-  const [videoUrl, imgUrl] = await Promise.all([
+  const [videoUrl, imgUrl, videoListItem] = await Promise.all([
     generatePresignedGetUrl(videoKey, expiresIn),
     generatePresignedGetUrl(imageKey, expiresIn),
+    toVideoListItem(video),
   ]);
 
-  return { video, videoUrl, imgUrl, expiresIn };
+  return { video: videoListItem, videoUrl, imgUrl, expiresIn };
 }
 
 // Extends the validated input with the authenticated user's id

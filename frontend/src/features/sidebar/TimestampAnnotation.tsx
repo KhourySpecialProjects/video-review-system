@@ -33,6 +33,8 @@ export interface TimestampAnnotationProps {
     startInEditing?: boolean
     /** Callback fired when the user cancels editing (Escape or blur on a never-saved draft). */
     onCancel?: () => void
+    /** Display name of the user who authored this note. Shown at the bottom of the card. */
+    createdBy?: string
 }
 
 /**
@@ -49,6 +51,7 @@ export function TimestampAnnotation({
     onDelete,
     startInEditing = false,
     onCancel,
+    createdBy,
 }: TimestampAnnotationProps) {
     const [isEditing, setIsEditing] = useState(startInEditing)
     const [savedTitle, setSavedTitle] = useState(title)
@@ -161,6 +164,7 @@ export function TimestampAnnotation({
             isEditing={isEditing}
             onSave={handleSave}
             onCancelEdit={handleCancelEdit}
+            createdBy={createdBy}
             content={
                 isEditing ? (
                     <Textarea

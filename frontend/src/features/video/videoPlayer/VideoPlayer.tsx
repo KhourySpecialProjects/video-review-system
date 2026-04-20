@@ -103,8 +103,7 @@ export function VideoPlayer({
                         src={poster}
                         alt=""
                         aria-hidden="true"
-                        crossOrigin="anonymous"
-                        className="absolute inset-0 size-full object-cover blur-xl scale-110"
+                                                className="absolute inset-0 size-full object-cover blur-xl scale-110"
                     />
                 )}
 
@@ -190,15 +189,13 @@ function ThumbnailOverlay({
                     src={src}
                     alt=""
                     aria-hidden="true"
-                    crossOrigin="anonymous"
-                    className="absolute inset-0 size-full object-cover blur-xl scale-110"
+                                        className="absolute inset-0 size-full object-cover blur-xl scale-110"
                 />
             )}
             <img
                 src={src}
                 alt=""
-                crossOrigin="anonymous"
-                className={isPortrait ? "relative h-full object-contain" : "size-full object-cover"}
+                                className={isPortrait ? "relative h-full object-contain" : "size-full object-cover"}
                 onLoad={(e) => {
                     const img = e.currentTarget;
                     onPortraitDetected(img.naturalHeight > img.naturalWidth);

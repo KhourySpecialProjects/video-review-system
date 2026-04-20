@@ -1,5 +1,4 @@
 import { useRef, useCallback, useEffect } from "react";
-import { useSubmit } from "react-router";
 import {
     InputGroup,
     InputGroupAddon,
@@ -10,18 +9,21 @@ import { Search } from "lucide-react";
 const DEBOUNCE_MS = 300;
 
 type SearchInputProps = {
-    /** @param defaultValue - Initial value for the search field */
-    defaultValue: string;
+    /** @param value - Current search value from URL filters */
+    value: string;
+    /** @param onChange - Callback invoked with the debounced search value */
+    onChange: (value: string) => void;
 };
 
 /**
  * @description Search input for filtering reviews by video title.
- * Debounces keystrokes before submitting the parent form so that
- * each character typed does not trigger a separate loader request.
+ * Debounces keystrokes before invoking `onChange` so that each character
+ * typed does not trigger a separate loader request. Stays in sync with the
+ * external `value` prop (e.g. when filters are cleared via navigation).
  */
-export function SearchInput({ defaultValue }: SearchInputProps) {
-    const submit = useSubmit();
+export function SearchInput({ value, onChange }: SearchInputProps) {
     const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         return () => {
@@ -29,21 +31,23 @@ export function SearchInput({ defaultValue }: SearchInputProps) {
         };
     }, []);
 
-    /**
-     * @description Stops the event from bubbling to the form's onChange,
-     * then debounces submission of the parent form.
-     * @param event - The change event from the input
-     */
+    // Mirror external value changes (e.g. "Clear all filters" or back/forward
+    // navigation) into the uncontrolled input without disturbing the user
+    // while they are actively typing.
+    useEffect(() => {
+        if (inputRef.current && inputRef.current.value !== value) {
+            inputRef.current.value = value;
+        }
+    }, [value]);
+
     const handleChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         event.stopPropagation();
-        const form = event.currentTarget.form;
-        if (!form) return;
-
+        const next = event.currentTarget.value;
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         timeoutRef.current = setTimeout(() => {
-            submit(form);
+            onChange(next);
         }, DEBOUNCE_MS);
-    }, [submit]);
+    }, [onChange]);
 
     return (
         <InputGroup className="lg:max-w-xs">
@@ -51,9 +55,10 @@ export function SearchInput({ defaultValue }: SearchInputProps) {
                 <Search />
             </InputGroupAddon>
             <InputGroupInput
+                ref={inputRef}
                 name="search"
                 placeholder="Search by title..."
-                defaultValue={defaultValue}
+                defaultValue={value}
                 onChange={handleChange}
             />
         </InputGroup>

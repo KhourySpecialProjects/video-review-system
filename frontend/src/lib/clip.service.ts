@@ -2,6 +2,41 @@ import type { Clip } from "@shared/clip";
 import { apiFetch } from "./api";
 
 /**
+ * @description Raw clip shape returned by the backend. Prisma nests the
+ * creator's name under `createdBy`, whereas our shared type flattens it to
+ * `createdByName`. This type captures the on-the-wire shape so we can
+ * normalize it in one place.
+ */
+type RawClip = Omit<Clip, "createdByName"> & {
+  createdBy?: { name?: string | null } | null;
+  createdByName?: string | null;
+};
+
+/**
+ * @description Normalizes a clip record from the backend into the shared
+ * Clip shape: flattens createdBy.name to createdByName. Tolerates either
+ * naming so older or already-normalized responses both work.
+ *
+ * @param raw - The raw clip record from the API
+ * @returns A Clip matching the shared type
+ */
+function normalizeClip(raw: RawClip): Clip {
+  return {
+    id: raw.id,
+    sourceVideoId: raw.sourceVideoId,
+    studyId: raw.studyId,
+    siteId: raw.siteId,
+    title: raw.title,
+    startTimeS: raw.startTimeS,
+    endTimeS: raw.endTimeS,
+    createdByUserId: raw.createdByUserId,
+    createdByName: raw.createdByName ?? raw.createdBy?.name ?? "",
+    createdAt: raw.createdAt,
+    themeColor: raw.themeColor,
+  };
+}
+
+/**
  * @description Payload for creating a new clip.
  */
 export type CreateClipPayload = {
@@ -33,7 +68,8 @@ export async function fetchClips(
   const params = new URLSearchParams({ videoId, studyId });
   const res = await apiFetch(`/clips?${params}`);
   if (!res.ok) throw new Error("Failed to fetch clips");
-  return res.json();
+  const data = (await res.json()) as { clips: RawClip[] };
+  return { clips: (data.clips ?? []).map(normalizeClip) };
 }
 
 /**
@@ -48,7 +84,7 @@ export async function createClip(data: CreateClipPayload): Promise<Clip> {
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error("Failed to create clip");
-  return res.json();
+  return normalizeClip((await res.json()) as RawClip);
 }
 
 /**
@@ -76,7 +112,7 @@ export async function updateClip(
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error("Failed to update clip");
-  return res.json();
+  return normalizeClip((await res.json()) as RawClip);
 }
 
 /**

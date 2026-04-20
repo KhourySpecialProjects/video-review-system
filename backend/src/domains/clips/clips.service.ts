@@ -46,6 +46,7 @@ export async function createClip(input: CreateClipInput, createdByUserId: string
       startTimeS: input.startTimeS,
       endTimeS: input.endTimeS,
     },
+    include: { createdBy: { select: { name: true } } },
   });
 
   return clip;
@@ -78,6 +79,7 @@ export async function listClipsByVideo(videoId: string, studyId: string) {
 export async function getClip(clipId: string) {
   const clip = await prisma.videoClip.findUnique({
     where: { id: clipId },
+    include: { createdBy: { select: { name: true } } },
   });
 
   if (!clip) {
@@ -106,6 +108,7 @@ export async function updateClip(clipId: string, input: UpdateClipInput) {
       ...(input.startTimeS !== undefined && { startTimeS: input.startTimeS }),
       ...(input.endTimeS !== undefined && { endTimeS: input.endTimeS }),
     },
+    include: { createdBy: { select: { name: true } } },
   });
 }
 

@@ -13,25 +13,16 @@ type SiteSelectProps = {
     value: string | null;
     /** @param sites - Available site options */
     sites: SiteOption[];
+    /** @param onChange - Fires with the new site name, or null when "All" is selected */
+    onChange: (value: string | null) => void;
 };
 
 /**
  * @description Select dropdown for filtering reviews by site (hospital).
- * Uses the base-ui Select `name` prop for form serialization.
- * Submission is handled by the parent Form's onChange.
  */
-export function SiteSelect({ value, sites }: SiteSelectProps) {
-    const items = [
-        { label: "All sites", value: null },
-        ...sites.map((s) => ({ label: s.name, value: s.name })),
-    ];
-
+export function SiteSelect({ value, sites, onChange }: SiteSelectProps) {
     return (
-        <Select
-            name="site"
-            items={items}
-            value={value}
-        >
+        <Select value={value} onValueChange={onChange}>
             <SelectTrigger>
                 <SelectValue>
                     {(selected: string | null) => selected ?? "All sites"}

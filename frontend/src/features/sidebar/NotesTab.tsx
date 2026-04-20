@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Plus } from "lucide-react"
 import { TimestampAnnotation, type NoteEditPayload } from "./TimestampAnnotation"
 import type { NoteAnnotation } from "./sidebar"
+import { AnimatedList, AnimatedRow } from "./AnimatedList"
 
 type NotesTabProps = {
   notes: NoteAnnotation[]
@@ -95,34 +96,41 @@ export function NotesTab({
         New Note
       </Button>
 
-      {draft && (
-        <TimestampAnnotation
-          timestamp={formatTimestamp(draft.timestampSecs)}
-          title=""
-          comment=""
-          startInEditing
-          onNavigate={(ts) => onJumpToTime(parseTimestamp(ts))}
-          onEdit={handleDraftSave}
-          onCancel={handleDraftCancel}
-          onDelete={handleDraftCancel}
-        />
-      )}
+      <AnimatedList>
+        {draft && (
+          <AnimatedRow key="draft" layoutId="note-draft">
+            <TimestampAnnotation
+              timestamp={formatTimestamp(draft.timestampSecs)}
+              title=""
+              comment=""
+              startInEditing
+              onNavigate={(ts) => onJumpToTime(parseTimestamp(ts))}
+              onEdit={handleDraftSave}
+              onCancel={handleDraftCancel}
+              onDelete={handleDraftCancel}
+            />
+          </AnimatedRow>
+        )}
+
+        {!isLoading &&
+          notes.map((note, i) => (
+            <AnimatedRow key={note.id} layoutId={`note-${note.id}`} index={i}>
+              <TimestampAnnotation
+                timestamp={note.timestamp}
+                title={note.title}
+                comment={note.content}
+                onNavigate={(ts) => onJumpToTime(parseTimestamp(ts))}
+                onEdit={(payload) => onUpdateNote(note.id, payload)}
+                onDelete={() => onDeleteNote(note.id)}
+                createdBy={note.createdBy}
+              />
+            </AnimatedRow>
+          ))}
+      </AnimatedList>
 
       {isLoading ? (
         <SkeletonList />
-      ) : notes.length > 0 ? (
-        notes.map((note) => (
-          <TimestampAnnotation
-            key={note.id}
-            timestamp={note.timestamp}
-            title={note.title}
-            comment={note.content}
-            onNavigate={(ts) => onJumpToTime(parseTimestamp(ts))}
-            onEdit={(payload) => onUpdateNote(note.id, payload)}
-            onDelete={() => onDeleteNote(note.id)}
-          />
-        ))
-      ) : !draft ? (
+      ) : notes.length === 0 && !draft ? (
         <p className="text-sm text-muted-foreground text-center py-8">
           No notes available.
         </p>

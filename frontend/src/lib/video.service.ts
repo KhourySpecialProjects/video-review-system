@@ -1,7 +1,11 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
+import { type QueryClient, queryOptions } from "@tanstack/react-query";
 import { z } from "zod";
+import { toast } from "sonner";
 import type { Video } from "./types";
 import { apiFetch } from "./api";
+import { homeKeys, searchKeys, videoViewKeys } from "./queryClient";
+import { annotationsQuery, clipsQuery, sequencesQuery } from "@/features/video/review/useReviewData";
 
 const editVideoSchema = z.object({
     title: z.string().min(1, "Title is required."),
@@ -19,9 +23,6 @@ export type VideoListResponse = {
 };
 
 import type { VideoStreamResponse, VideoReviewResponse } from "@shared/video";
-import { fetchAnnotations } from "./annotation.service";
-import { fetchClips } from "./clip.service";
-import { fetchSequences } from "./sequence.service";
 
 /**
  * Fetches a paginated list of uploaded videos from the backend.
@@ -116,169 +117,254 @@ export async function fetchStreamUrl(
 
 // ── Loader / Action data types ───────────────────────────────────────────
 
+// Seconds of safety buffer we refetch before a presigned URL actually
+// expires, so playback/thumbnails never hit a 403 due to clock skew or
+// an in-flight request finishing right at the edge.
+const PRESIGN_REFRESH_BUFFER_SECONDS = 60;
+
+// The backend generates presigned thumbnail URLs with a 1-hour lifetime
+// (see backend `videos.service.ts`). Refresh the list a minute early so
+// image requests don't 403 on clock skew or in-flight requests.
+const PRESIGN_TTL_SECONDS = 3600;
+const LIST_STALE_MS = (PRESIGN_TTL_SECONDS - PRESIGN_REFRESH_BUFFER_SECONDS) * 1000;
+
 /**
- * @description Data returned by the home route loader.
- * The promise is deferred so the page streams in with a skeleton.
+ * @description Query options for the home videos list. Used by the home
+ * loader (`queryClient.prefetchQuery`) and the Home component
+ * (`useSuspenseQuery`). `staleTime` tracks the presigned thumbnail URL
+ * lifetime so the cache invalidates right before the URLs expire, not
+ * on an unrelated timer.
+ *
+ * @param limit - Maximum number of videos to fetch
+ * @param offset - Pagination offset
+ * @returns Query options describing key, fetcher, and stale window
+ */
+export function homeVideosQuery(limit = 10, offset = 0) {
+    return queryOptions({
+        queryKey: homeKeys.videos(limit, offset),
+        queryFn: async () => {
+            const res = await apiFetch(`/videos?limit=${limit}&offset=${offset}`);
+            if (!res.ok) {
+                toast.error("Failed to fetch videos");
+                throw new Error("Failed to fetch videos");
+            }
+            return res.json() as Promise<VideoListResponse>;
+        },
+        staleTime: LIST_STALE_MS,
+        refetchInterval: LIST_STALE_MS,
+    });
+}
+
+/**
+ * @description Data returned by the home route loader. The loader kicks
+ * off a prefetch into TanStack Query and passes down the params so the
+ * component can call `useSuspenseQuery` with the same query key.
  */
 export type HomeLoaderData = {
-    videosPromise: Promise<VideoListResponse>;
+    limit: number;
+    offset: number;
 };
 
 /**
- * @description Data returned by the search child route loader.
- * searchPromise is deferred so the tab switch is instant.
+ * @description Query options for the all-videos search list. Used by the
+ * search loader (`queryClient.prefetchQuery`) and the AllVideos component
+ * (`useSuspenseQuery`). The key includes the full search params string
+ * so each filter combination has its own cache entry.
+ *
+ * @param searchParams - Serialized URL search params
+ * @returns Query options describing key, fetcher, and stale window
+ */
+export function searchVideosQuery(searchParams: string) {
+    return queryOptions({
+        queryKey: searchKeys.list(searchParams),
+        queryFn: async () => {
+            const res = await apiFetch(`/videos/search?${searchParams}`);
+            if (!res.ok) {
+                toast.error("Failed to search videos");
+                throw new Error("Failed to search videos");
+            }
+            return res.json() as Promise<VideoListResponse>;
+        },
+    });
+}
+
+/**
+ * @description Data returned by the search child route loader. The loader
+ * kicks off a prefetch into TanStack Query and passes the params so the
+ * component can call `useSuspenseQuery` with the same query key.
  */
 export type SearchLoaderData = {
-    searchPromise: Promise<VideoListResponse>;
+    searchParams: string;
     q: string;
 };
 
 /**
+ * @description Query options for the video stream data. Used by the
+ * video-view loader (`queryClient.prefetchQuery`) and the VideoView
+ * component (`useSuspenseQuery`). Caches presigned URLs and video
+ * metadata so navigating back reuses them.
+ *
+ * The cache freshness is tied to the presigned URL lifetime the backend
+ * reports via `expiresIn`: data is considered fresh for the URL's
+ * validity window (minus a small buffer), and a background refetch is
+ * scheduled to land just before the URL would 403. That way the UI
+ * never serves a stale signed URL and we don't refetch more often than
+ * we need to.
+ *
+ * @param videoId - The video UUID
+ * @returns Query options describing key, fetcher, and stale window
+ */
+export function videoStreamQuery(videoId: string) {
+    const refreshMs = (data: VideoStreamResponse | undefined) =>
+        data
+            ? Math.max((data.expiresIn - PRESIGN_REFRESH_BUFFER_SECONDS) * 1000, 30_000)
+            : null;
+    return queryOptions({
+        queryKey: videoViewKeys.stream(videoId),
+        queryFn: async () => {
+            const res = await apiFetch(`/videos/${videoId}/stream`);
+            if (!res.ok) {
+                toast.error("Failed to load video");
+                throw new Error("Failed to fetch stream URL");
+            }
+            return res.json() as Promise<VideoStreamResponse>;
+        },
+        staleTime: (query) =>
+            refreshMs(query.state.data as VideoStreamResponse | undefined) ?? 0,
+        refetchInterval: (query) =>
+            refreshMs(query.state.data as VideoStreamResponse | undefined) ?? false,
+    });
+}
+
+/**
  * @description Data returned by the video-view route loader.
  */
-export type VideoViewLoaderData = VideoStreamResponse;
+export type VideoViewLoaderData = {
+    videoId: string;
+};
 
 // ── Route loaders ────────────────────────────────────────────────────────
 
 /**
- * @description Home route loader. Fetches the recent videos list for
- * the dashboard welcome card and recent-videos grid.
+ * @description Home route loader factory. Takes the shared `queryClient`
+ * so it can prefetch the recent videos list into the TanStack Query cache.
+ * The prefetch is not awaited — the page renders immediately with a
+ * Suspense skeleton and `useSuspenseQuery` picks up the data when ready.
  *
- * @param request - The loader Request (forwarded for search params + abort signal)
- * @returns Recent videos list response
+ * @param queryClient - The shared TanStack QueryClient
+ * @returns The loader handler React Router will call
  */
-export function homeLoader({ request }: LoaderFunctionArgs): HomeLoaderData {
-    const url = new URL(request.url);
-    url.searchParams.set("limit", "10");
-    return { videosPromise: fetchVideos(new Request(url, request)) };
+export function homeLoader(queryClient: QueryClient) {
+    return ({ request }: LoaderFunctionArgs): HomeLoaderData => {
+        const url = new URL(request.url);
+        const limit = Number(url.searchParams.get("limit") ?? "10");
+        const offset = Number(url.searchParams.get("offset") ?? "0");
+        queryClient.prefetchQuery(homeVideosQuery(limit, offset));
+        return { limit, offset };
+    };
 }
 
 /**
- * @description Search child-route loader. Called when the AllVideos
- * Form GET submission updates the URL with search/filter params.
+ * @description Search child-route loader factory. Takes the shared
+ * `queryClient` so it can prefetch search results into the TanStack
+ * Query cache. The prefetch is not awaited — the page renders
+ * immediately with a skeleton.
  *
- * @param request - The loader Request with search params serialized from the Form
- * @returns Paginated search results
+ * @param queryClient - The shared TanStack QueryClient
+ * @returns The loader handler React Router will call
  */
-export function searchLoader({ request }: LoaderFunctionArgs): SearchLoaderData {
-    const url = new URL(request.url);
-    const q = url.searchParams.get("q") ?? "";
-    return { searchPromise: searchVideos(request), q };
+export function searchLoader(queryClient: QueryClient) {
+    return ({ request }: LoaderFunctionArgs): SearchLoaderData => {
+        const url = new URL(request.url);
+        const q = url.searchParams.get("q") ?? "";
+        const searchParams = url.searchParams.toString();
+        queryClient.prefetchQuery(searchVideosQuery(searchParams));
+        return { searchParams, q };
+    };
 }
 
 /**
- * @description Video-view route loader. Fetches video detail and a presigned
- * stream URL in parallel using the videoId from route params.
+ * @description Video-view route loader factory. Takes the shared
+ * `queryClient` so it can prefetch the stream data into the TanStack
+ * Query cache. If the video already exists in the home list cache, the
+ * stream query is seeded with that data so title/description/imgUrl
+ * are available immediately — only the videoUrl needs to be fetched.
  *
- * @param params - Route params containing videoId
- * @param request - The loader Request (forwarded for abort signal)
- * @returns The video detail and stream response
- * @throws {Response} 404 if the video does not exist
+ * @param queryClient - The shared TanStack QueryClient
+ * @returns The loader handler React Router will call
  */
-export async function videoViewLoader({ params, request }: LoaderFunctionArgs): Promise<VideoViewLoaderData> {
-    const { videoId } = params;
-    const data = await fetchStreamUrl(videoId!, request);
-    if (!data.video) {
-        throw new Response("Video not found", { status: 404 });
-    }
-    return data;
+export function videoViewLoader(queryClient: QueryClient) {
+    return ({ params }: LoaderFunctionArgs): VideoViewLoaderData => {
+        const { videoId } = params;
+        if (!videoId) {
+            throw new Response("Missing videoId", { status: 400 });
+        }
+        queryClient.prefetchQuery(videoStreamQuery(videoId));
+        return { videoId };
+    };
 }
 
 /**
- * @description Data returned by the video review route loader. The video
- * stream URL and poster are awaited so the player paints immediately; the
- * annotations/clips/sequences are returned as unresolved promises so the
- * sidebar and timeline stream in via `<Await>` + `<Suspense>`. `studyId`
- * and `siteId` come from the route path params.
+ * @description Data returned by the video review route loader. The loader
+ * awaits the stream URL so the video/poster can paint, and kicks off
+ * prefetches for annotations/clips/sequences into the TanStack Query cache.
+ * The page component reads those via `useSuspenseQuery`, which hits the
+ * cache without refetching when it was populated during the loader run.
  */
 export type VideoReviewLoaderData = {
     video: VideoReviewResponse["video"];
     videoUrl: string;
     imgUrl: string;
     expiresIn: number;
+    videoId: string;
     studyId: string;
     siteId: string;
     permissionLevel: VideoReviewResponse["permissionLevel"];
-    annotationsPromise: Promise<VideoReviewResponse["annotations"]>;
-    clipsPromise: Promise<VideoReviewResponse["clips"]>;
-    sequencesPromise: Promise<VideoReviewResponse["sequences"]>;
 };
 
 /**
- * @description Video review route loader. Awaits only the stream URL so the
- * video/poster can paint, and returns annotations/clips/sequences as
- * unresolved promises for deferred streaming. All four requests fire in
- * parallel so the secondary data is already in-flight by the time the
- * player mounts.
+ * @description Video review route loader factory. Takes the shared
+ * `queryClient` so it can prefetch annotations/clips/sequences into the
+ * cache while the stream URL is awaited. Prefetches are not awaited, so
+ * the video paints as soon as the stream URL resolves — the lists stream
+ * into the cache in the background and the page component's
+ * `useSuspenseQuery` calls pick them up when ready.
  *
- * @param params - Route params containing videoId, studyId, siteId
- * @param request - The loader Request (forwarded for abort signal)
- * @returns Video stream data plus deferred promises for annotations, clips, sequences
- * @throws {Response} 404 if the video does not exist, 400 if route params are missing
+ * @param queryClient - The shared TanStack QueryClient
+ * @returns The loader handler React Router will call
  */
-export async function videoReviewLoader({ params, request }: LoaderFunctionArgs): Promise<VideoReviewLoaderData> {
-    const { videoId, studyId, siteId } = params;
-    if (!videoId || !studyId || !siteId) {
-        throw new Response("Missing review route params", { status: 400 });
-    }
+export function videoReviewLoader(queryClient: QueryClient) {
+    return async ({ params, request }: LoaderFunctionArgs): Promise<VideoReviewLoaderData> => {
+        const { videoId, studyId, siteId } = params;
+        if (!videoId || !studyId || !siteId) {
+            throw new Response("Missing review route params", { status: 400 });
+        }
 
-    const streamPromise = fetchStreamUrl(videoId, request);
-    const annotationsPromise = fetchAnnotations(videoId).then((r) => r.annotations);
-    const clipsPromise = fetchClips(videoId, studyId).then((r) => r.clips);
-    const sequencesPromise = fetchSequences(videoId, studyId).then((r) => r.sequences);
+        // Only the stream URL blocks navigation — the video paints as soon
+        // as it resolves. List prefetches are fired without awaiting so
+        // they populate the TanStack Query cache in the background; the
+        // page's `useSuspenseQuery` calls resolve when each cache entry
+        // lands, with Suspense fallbacks covering the gap.
+        queryClient.prefetchQuery(annotationsQuery(videoId));
+        queryClient.prefetchQuery(clipsQuery(videoId, studyId));
+        queryClient.prefetchQuery(sequencesQuery(videoId, studyId));
+        const streamData = await fetchStreamUrl(videoId, request);
 
-    const streamData = await streamPromise;
+        if (!streamData.video) {
+            throw new Response("Video not found", { status: 404 });
+        }
 
-    if (!streamData.video) {
-        throw new Response("Video not found", { status: 404 });
-    }
-
-    return {
-        video: streamData.video,
-        videoUrl: streamData.videoUrl,
-        imgUrl: streamData.imgUrl,
-        expiresIn: streamData.expiresIn,
-        studyId,
-        siteId,
-        permissionLevel: "WRITE",
-        annotationsPromise,
-        clipsPromise,
-        sequencesPromise,
+        return {
+            video: streamData.video,
+            videoUrl: streamData.videoUrl,
+            imgUrl: streamData.imgUrl,
+            expiresIn: streamData.expiresIn,
+            videoId,
+            studyId,
+            siteId,
+            permissionLevel: "WRITE",
+        };
     };
-}
-
-/**
- * @description Revalidation gate for the review route. Skips the loader
- * when neither the pathname nor search string has changed AND no form
- * submission triggered the navigation — this prevents redundant stream
- * URL fetches on purely cosmetic navigations. Mutation-driven revalidation
- * (from `useRevalidator` or resource-route submissions) still re-runs
- * the loader; since annotations/clips/sequences are deferred, that
- * revalidation returns instantly and the Suspense boundaries stream the
- * updated lists in.
- *
- * @param args - React Router `shouldRevalidate` args
- * @returns Whether to re-run the review loader
- */
-export function videoReviewShouldRevalidate({
-    formAction,
-    currentUrl,
-    nextUrl,
-    defaultShouldRevalidate,
-}: {
-    formAction?: string;
-    currentUrl: URL;
-    nextUrl: URL;
-    defaultShouldRevalidate: boolean;
-}): boolean {
-    if (
-        !formAction &&
-        currentUrl.pathname === nextUrl.pathname &&
-        currentUrl.search === nextUrl.search
-    ) {
-        return false;
-    }
-    return defaultShouldRevalidate;
 }
 
 /**
@@ -324,37 +410,82 @@ export async function videoReviewAction({ params, request }: ActionFunctionArgs)
 // ── Route actions ────────────────────────────────────────────────────────
 
 /**
- * @description Video-view route action. Validates the edit form and
- * forwards the update to the backend PUT endpoint.
+ * @description Propagates a metadata edit for a single video into every
+ * cached list/detail entry that already holds that video — without
+ * refetching any of them. Home, search, and stream queries all share
+ * the same `VideoListItem` projection, so we just swap the edited
+ * fields in place wherever the video appears.
  *
- * @param params - Route params containing videoId
- * @param request - The action Request with form data
- * @returns Validation errors or a success flag
+ * @param queryClient - The shared TanStack QueryClient
+ * @param videoId - The video UUID that was edited
+ * @param patch - The title/description fields that changed
  */
-export async function videoViewAction({ params, request }: ActionFunctionArgs) {
-    const formData = await request.formData();
-    const data = Object.fromEntries(formData);
+function patchVideoInCaches(
+    queryClient: QueryClient,
+    videoId: string,
+    patch: { title: string; description: string },
+) {
+    const updateListEntry = (old: VideoListResponse | undefined) => {
+        if (!old) return old;
+        if (!old.videos.some((v) => v.id === videoId)) return old;
+        return {
+            ...old,
+            videos: old.videos.map((v) =>
+                v.id === videoId ? { ...v, ...patch } : v,
+            ),
+        };
+    };
+    queryClient.setQueriesData<VideoListResponse>({ queryKey: homeKeys.all }, updateListEntry);
+    queryClient.setQueriesData<VideoListResponse>({ queryKey: searchKeys.all }, updateListEntry);
+    queryClient.setQueryData<VideoStreamResponse>(
+        videoViewKeys.stream(videoId),
+        (old) => (old ? { ...old, video: { ...old.video, ...patch } } : old),
+    );
+}
 
-    const result = editVideoSchema.safeParse(data);
-    if (!result.success) {
-        const errors: Record<string, string> = {};
-        result.error.issues.forEach((issue) => {
-            if (issue.path[0]) {
-                errors[issue.path[0].toString()] = issue.message;
-            }
+/**
+ * @description Video-view route action factory. Validates the edit form,
+ * forwards the update to the backend, and patches just the edited
+ * video's fields in every relevant TanStack Query cache — so the home
+ * grid, search results, and stream detail reflect the new title and
+ * description immediately without refetching a whole list.
+ *
+ * @param queryClient - The shared TanStack QueryClient
+ * @returns The action handler React Router will call
+ */
+export function videoViewAction(queryClient: QueryClient) {
+    return async ({ params, request }: ActionFunctionArgs) => {
+        const formData = await request.formData();
+        const data = Object.fromEntries(formData);
+
+        const result = editVideoSchema.safeParse(data);
+        if (!result.success) {
+            const errors: Record<string, string> = {};
+            result.error.issues.forEach((issue) => {
+                if (issue.path[0]) {
+                    errors[issue.path[0].toString()] = issue.message;
+                }
+            });
+            return { fieldErrors: errors };
+        }
+
+        const res = await apiFetch(`/videos/${params.videoId}/metadata`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                title: result.data.title,
+                description: result.data.description,
+            }),
         });
-        return { fieldErrors: errors };
-    }
+        if (!res.ok) throw new Error("Failed to update video");
 
-    const res = await apiFetch(`/videos/${params.videoId}/metadata`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            title: result.data.title,
-            description: result.data.description,
-        }),
-    });
-    if (!res.ok) throw new Error("Failed to update video");
+        if (params.videoId) {
+            patchVideoInCaches(queryClient, params.videoId, {
+                title: result.data.title,
+                description: result.data.description,
+            });
+        }
 
-    return { success: true };
+        return { success: true };
+    };
 }

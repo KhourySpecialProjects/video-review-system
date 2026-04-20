@@ -99,7 +99,7 @@ export function ClipTimeline({ duration, timeline }: ClipTimelineProps) {
                 aria-valuemax={duration}
                 aria-valuenow={hoverTime ?? startTime ?? 0}
                 tabIndex={0}
-                className="group relative h-9 w-full cursor-none overflow-hidden rounded-md bg-bg-dark shadow-shadow-s"
+                className="group relative h-9 w-full cursor-none overflow-hidden rounded-md bg-bg-dark shadow-inset"
                 onMouseMove={(e) =>
                     onTrackMouseMove(
                         e.clientX,

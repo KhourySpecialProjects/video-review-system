@@ -1,4 +1,5 @@
 import { createBrowserRouter } from "react-router";
+import { queryClient } from "./lib/queryClient";
 import Root from "./routes/root";
 import Home from "./routes/home";
 import VideoView from "./routes/video-view";
@@ -16,8 +17,8 @@ import { ForgotPassword } from "./features/login/forgot-password";
 import { clientAction as forgotPasswordAction } from "./hooks/use-forgot-password";
 import { ResetPassword } from "./features/login/reset-password";
 import { clientAction as resetPasswordAction } from "./hooks/use-reset-password";
-import { authGuardLoader } from "./hooks/auth-guard";
-import { homeLoader, searchLoader, videoViewLoader, videoViewAction, videoReviewLoader, videoReviewAction, videoReviewShouldRevalidate } from "./lib/video.service";
+import { authGuardLoader, caregiverGuardLoader, nonCaregiverGuardLoader } from "./hooks/auth-guard";
+import { homeLoader, searchLoader, videoViewLoader, videoViewAction, videoReviewLoader, videoReviewAction } from "./lib/video.service";
 import { incompleteUploadsLoader, incompleteUploadsAction } from "./features/layout/incomplete-uploads.route";
 import { clipsLoader, clipsAction } from "./features/video/clips/clips.route";
 import { sequencesLoader, sequencesAction } from "./features/video/sequences/sequences.route";
@@ -30,35 +31,50 @@ export const router = createBrowserRouter([
         element: <Root />,
         loader: authGuardLoader,
         children: [
+            // Caregiver-only pages. The guard loader redirects non-caregiver
+            // roles to /reviews and unauthenticated users to /login before
+            // the child loaders run, so Home and video-view data never leak
+            // to users who shouldn't see them.
             {
-                element: <Home />,
-                loader: homeLoader,
+                loader: caregiverGuardLoader,
                 children: [
-                    { index: true, element: <></> },
                     {
-                        path: "search",
-                        element: <AllVideos />,
-                        loader: searchLoader,
+                        element: <Home />,
+                        loader: homeLoader(queryClient),
+                        children: [
+                            { index: true, element: <></> },
+                            {
+                                path: "search",
+                                element: <AllVideos />,
+                                loader: searchLoader(queryClient),
+                            },
+                        ],
+                    },
+                    {
+                        path: "videos/:videoId",
+                        element: <VideoView />,
+                        loader: videoViewLoader(queryClient),
+                        action: videoViewAction(queryClient),
                     },
                 ],
             },
+            // Reviewer / coordinator / sysadmin pages. Caregivers get
+            // bounced back to `/`.
             {
-                path: "videos/:videoId",
-                element: <VideoView />,
-                loader: videoViewLoader,
-                action: videoViewAction,
-            },
-            {
-                path: "review/:videoId/:studyId/:siteId",
-                element: <VideoReview />,
-                loader: videoReviewLoader,
-                action: videoReviewAction,
-                shouldRevalidate: videoReviewShouldRevalidate,
-            },
-            {
-                path: "reviews",
-                element: <Reviews />,
-                loader: reviewsLoader,
+                loader: nonCaregiverGuardLoader,
+                children: [
+                    {
+                        path: "review/:videoId/:studyId/:siteId",
+                        element: <VideoReview />,
+                        loader: videoReviewLoader(queryClient),
+                        action: videoReviewAction,
+                    },
+                    {
+                        path: "reviews",
+                        element: <Reviews />,
+                        loader: reviewsLoader,
+                    },
+                ],
             },
             {
               path: "tutorials",
@@ -77,17 +93,17 @@ export const router = createBrowserRouter([
     {
         path: "/clips",
         loader: clipsLoader,
-        action: clipsAction,
+        action: clipsAction(queryClient),
     },
     {
         path: "/sequences",
         loader: sequencesLoader,
-        action: sequencesAction,
+        action: sequencesAction(queryClient),
     },
     {
         path: "/annotations",
         loader: annotationsLoader,
-        action: annotationsAction,
+        action: annotationsAction(queryClient),
     },
     {
         path: "/studies/mine",

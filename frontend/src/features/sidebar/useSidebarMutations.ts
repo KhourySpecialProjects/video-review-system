@@ -1,5 +1,4 @@
-import { useEffect } from "react"
-import { useFetcher, useRevalidator } from "react-router"
+import { useFetcher } from "react-router"
 import { useAuth } from "@/context/auth-context"
 import type { Annotation } from "@/features/video/annotations/types"
 import type { NoteEditPayload } from "./TimestampAnnotation"
@@ -39,8 +38,9 @@ function toAnnotationPayload(annotation: Annotation): Record<string, unknown> {
 
 /**
  * @description Hook that owns useFetcher instances for sidebar CRUD operations.
- * Submits to /clips and /annotations resource routes, which handle API calls
- * and toast notifications.
+ * Submits to /clips and /annotations resource routes; those routes invalidate
+ * the relevant TanStack Query caches on success so the sidebar and timeline
+ * refresh without a full route revalidation.
  *
  * @param videoId - Video ID for annotation create payloads
  * @param currentVideoTime - Current video playback time for timestamping new notes
@@ -52,19 +52,6 @@ export function useSidebarMutations(videoId: string, currentVideoTime: number, s
   const { user } = useAuth()
   const clipFetcher = useFetcher()
   const annotationFetcher = useFetcher()
-  const { revalidate } = useRevalidator()
-
-  useEffect(() => {
-    if (clipFetcher.state === "idle" && clipFetcher.data) {
-      revalidate()
-    }
-  }, [clipFetcher.state, clipFetcher.data, revalidate])
-
-  useEffect(() => {
-    if (annotationFetcher.state === "idle" && annotationFetcher.data) {
-      revalidate()
-    }
-  }, [annotationFetcher.state, annotationFetcher.data, revalidate])
 
   /** @description Deletes a clip via the clips resource route. */
   function deleteClip(id: string) {
@@ -77,7 +64,7 @@ export function useSidebarMutations(videoId: string, currentVideoTime: number, s
   /** @description Updates a clip's title or time boundaries. */
   function updateClip(
     id: string,
-    updates: { title?: string; startMs?: number; endMs?: number },
+    updates: { title?: string; startTimeS?: number; endTimeS?: number },
   ) {
     clipFetcher.submit(
       {
@@ -85,8 +72,8 @@ export function useSidebarMutations(videoId: string, currentVideoTime: number, s
         clipId: id,
         payload: JSON.stringify({
           ...(updates.title !== undefined && { title: updates.title }),
-          ...(updates.startMs !== undefined && { startTimeS: Math.floor(updates.startMs / 1000) }),
-          ...(updates.endMs !== undefined && { endTimeS: Math.floor(updates.endMs / 1000) }),
+          ...(updates.startTimeS !== undefined && { startTimeS: updates.startTimeS }),
+          ...(updates.endTimeS !== undefined && { endTimeS: updates.endTimeS }),
         }),
       },
       { method: "POST", action: "/clips" },

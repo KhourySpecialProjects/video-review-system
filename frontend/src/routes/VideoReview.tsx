@@ -1,6 +1,6 @@
 import { Suspense, useState } from "react";
-import { Await, useLoaderData } from "react-router";
-import { LayoutGroup } from "motion/react";
+import { useLoaderData } from "react-router";
+import { LayoutGroup, motion } from "motion/react";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -9,37 +9,29 @@ import {
 import {
   SidebarProvider,
   SidebarInset,
-  SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PermissionProvider, usePermission } from "@/contexts/PermissionContext";
 import { useVideoPlayer } from "@/hooks/useVideoPlayer";
-import { useReviewKeyboardShortcuts } from "@/features/video/review/useReviewKeyboardShortcuts";
-import { ReviewVideoArea, toCanvasAnnotation, toNoteAnnotation } from "@/features/video/review/ReviewVideoArea";
+import type { useVideoPlayer as useVideoPlayerType } from "@/hooks/useVideoPlayer";
+import { useReviewShortcutActions } from "@/features/video/review/useReviewShortcutActions";
+import { useReviewViewModel } from "@/features/video/review/useReviewViewModel";
+import { ReviewVideoArea } from "@/features/video/review/ReviewVideoArea";
 import { ReviewTimelineArea } from "@/features/video/review/ReviewTimelineArea";
 import { ReviewDetailsSection } from "@/features/video/review/ReviewDetailsSection";
 import { VideoMetadataSidebar } from "@/features/video/metadata/VideoMetadataSidebar";
 import { AnnotationSidebar } from "@/features/sidebar/sidebar";
-import type { DrawingToolType } from "@/features/sidebar/DrawingCard";
-import type { VideoReviewLoaderData } from "@/lib/video.service";
 import { useSidebarMutations } from "@/features/sidebar/useSidebarMutations";
-import { useSequenceFetcher } from "@/features/video/sequences/useSequences";
 import { ClipMorphProvider } from "@/features/video/sequences/clipMorphContext";
-import type { AnnotationListItem } from "@shared/annotation";
-import type { Clip } from "@shared/clip";
-import type { Sequence } from "@shared/sequence";
-import type { useVideoPlayer as useVideoPlayerType } from "@/hooks/useVideoPlayer";
+import type { VideoReviewLoaderData } from "@/lib/video.service";
 
-type SidebarData = {
-  annotations: AnnotationListItem[];
-  clips: Clip[];
-  sequences: Sequence[];
-};
+type PlayerState = ReturnType<typeof useVideoPlayerType>;
 
 /**
- * @description Video review page orchestrator. Awaits only the stream URL in
- * the loader so the video and poster paint immediately; annotations, clips,
- * and sequences stream in via `<Await>` + `<Suspense>`.
+ * @description Video review page orchestrator. The loader awaits only the
+ * stream URL so the video paints immediately; annotation/clip/sequence
+ * lists stream into the cache in the background and render behind a
+ * Suspense skeleton.
  */
 export default function VideoReview() {
   const loaderData = useLoaderData() as VideoReviewLoaderData;
@@ -52,321 +44,250 @@ export default function VideoReview() {
 }
 
 /**
- * @description Inner content component that has access to permission context.
- * Separated so usePermission can be called after PermissionProvider wraps it.
+ * @description Shell that renders the video player immediately using loader
+ * data, and defers the data-dependent regions (timeline, annotation sidebar,
+ * details strip) to `DataDependentRegions` behind a Suspense boundary.
+ *
+ * @param props - Component props
  */
-function VideoReviewContent({
-  loaderData,
-}: {
-  loaderData: VideoReviewLoaderData;
-}) {
-  const { canWrite, canAdmin } = usePermission();
+function VideoReviewContent({ loaderData }: { loaderData: VideoReviewLoaderData }) {
+  const { canWrite } = usePermission();
   const playerState = useVideoPlayer();
   const [activeSequenceId, setActiveSequenceId] = useState<string | null>(null);
-
-  /** @description Toggles drawing mode on the video area. */
-  function toggleDrawing() {
-    document.dispatchEvent(new CustomEvent("review:toggle-drawing"));
-  }
-
-  /** @description Opens the timestamped comment input in the sidebar. */
-  function addTimestampedComment() {
-    document.dispatchEvent(new CustomEvent("review:add-comment"));
-  }
-
-  useReviewKeyboardShortcuts({
-    onToggleDrawing: toggleDrawing,
-    onAddComment: addTimestampedComment,
-  });
-
-  const sidebarDataPromise: Promise<SidebarData> = Promise.all([
-    loaderData.annotationsPromise,
-    loaderData.clipsPromise,
-    loaderData.sequencesPromise,
-  ]).then(([annotations, clips, sequences]) => ({ annotations, clips, sequences }));
+  useReviewShortcutActions();
 
   return (
-    // SidebarProvider locks to main's height (h-full) so the review UI
-    // fills the viewport exactly. `!min-h-0` cancels shadcn's default
-    // `min-h-svh` which would otherwise make it 100svh regardless of
-    // where it sits. ReviewDetailsSection is a sibling *below* the
-    // provider so main's `overflow-auto` scrolls to reveal it.
-    <>
-      <SidebarProvider className="!min-h-0 h-full">
-        <VideoMetadataSidebar
-          metadata={{
-            patientId: loaderData.video.id,
-            duration: loaderData.video.durationSeconds,
-            recordedAt: loaderData.video.takenAt
-              ? new Date(loaderData.video.takenAt)
-              : new Date(loaderData.video.createdAt),
-          }}
-        />
+    <SidebarProvider className="!min-h-0 h-full">
+      <VideoMetadataSidebar
+        metadata={{
+          patientId: loaderData.videoId,
+          duration: loaderData.video.durationSeconds,
+          recordedAt: loaderData.video.takenAt
+            ? new Date(loaderData.video.takenAt)
+            : new Date(loaderData.video.createdAt),
+        }}
+      />
 
-        <SidebarInset className="relative">
-          <SidebarTrigger className="absolute left-2 top-2 z-30 bg-background/80 shadow-sm backdrop-blur" />
-
-          <ClipMorphProvider>
+      <SidebarInset className="relative overflow-hidden">
+        <ClipMorphProvider>
           <LayoutGroup>
-          <ResizablePanelGroup
-            orientation="horizontal"
-            className="h-full overflow-hidden"
-          >
-            <ResizablePanel defaultSize="75%" minSize="50%">
-              <ResizablePanelGroup orientation="vertical">
-                <ResizablePanel defaultSize="70%" minSize="30%">
-                  <div className="flex h-full flex-col gap-2 p-2">
-                    <Suspense
-                      fallback={
-                        <ReviewVideoArea
-                          src={loaderData.videoUrl}
-                          duration={loaderData.video.durationSeconds}
-                          poster={loaderData.imgUrl}
+            <ResizablePanelGroup
+              orientation="horizontal"
+              className="min-h-0 flex-1 overflow-hidden"
+            >
+              <ResizablePanel defaultSize="75%" minSize="50%">
+                <ResizablePanelGroup orientation="vertical">
+                  <ResizablePanel defaultSize="70%" minSize="30%">
+                    <motion.div
+                      className="flex h-full flex-col gap-2 p-2"
+                      initial={{ opacity: 0, y: -12, scale: 0.995 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1], delay: 0.05 }}
+                    >
+                      <Suspense fallback={<VideoAreaSkeleton />}>
+                        <VideoAreaWithData
+                          loaderData={loaderData}
                           playerState={playerState}
                           canWrite={canWrite}
+                          activeSequenceId={activeSequenceId}
                         />
-                      }
+                      </Suspense>
+                    </motion.div>
+                  </ResizablePanel>
+
+                  <ResizableHandle withHandle />
+
+                  <ResizablePanel defaultSize="35%" minSize="25%">
+                    <motion.div
+                      className="h-full"
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1], delay: 0.18 }}
                     >
-                      <Await resolve={loaderData.annotationsPromise}>
-                        {(annotations: AnnotationListItem[]) => (
-                          <HydratedVideoArea
-                            videoId={loaderData.video.id}
-                            studyId={loaderData.studyId}
-                            siteId={loaderData.siteId}
-                            videoUrl={loaderData.videoUrl}
-                            imgUrl={loaderData.imgUrl}
-                            duration={loaderData.video.durationSeconds}
-                            playerState={playerState}
-                            canWrite={canWrite}
-                            annotations={annotations}
-                          />
-                        )}
-                      </Await>
-                    </Suspense>
-                  </div>
-                </ResizablePanel>
-
-                <ResizableHandle withHandle />
-
-                <ResizablePanel defaultSize="30%" minSize="10%">
-                  <Suspense fallback={<TimelineAreaFallback />}>
-                    <Await resolve={sidebarDataPromise}>
-                      {({ annotations, clips, sequences }: SidebarData) => (
-                        <ReviewTimelineArea
-                          duration={loaderData.video.durationSeconds}
-                          currentTime={playerState.currentTime}
-                          annotations={annotations.flatMap((item) => {
-                            const a = toCanvasAnnotation(item);
-                            return a ? [a] : [];
-                          })}
-                          clips={clips}
-                          sequences={sequences}
+                      <Suspense fallback={<TimelineSkeleton />}>
+                        <TimelineWithData
+                          loaderData={loaderData}
+                          playerState={playerState}
                           activeSequenceId={activeSequenceId}
                           onActiveSequenceChange={setActiveSequenceId}
-                          videoRef={playerState.videoRef}
-                          onSeek={playerState.handleSeek}
-                          videoId={loaderData.video.id}
-                          studyId={loaderData.studyId}
-                          siteId={loaderData.siteId}
-                          canWrite={canWrite}
-                          canAdmin={canAdmin}
                         />
-                      )}
-                    </Await>
-                  </Suspense>
-                </ResizablePanel>
-              </ResizablePanelGroup>
-            </ResizablePanel>
+                      </Suspense>
+                    </motion.div>
+                  </ResizablePanel>
+                </ResizablePanelGroup>
+              </ResizablePanel>
 
-            <ResizableHandle withHandle />
+              <ResizableHandle withHandle />
 
-            <ResizablePanel
-              defaultSize="20%"
-              minSize="15%"
-              className="overflow-hidden bg-background"
-            >
-              <Suspense
-                fallback={
-                  <AnnotationSidebar
-                    isLoading
-                    currentVideoTime={playerState.currentTime}
-                    videoId={loaderData.video.id}
-                    studyId={loaderData.studyId}
-                    siteId={loaderData.siteId}
-                    onJumpToTime={playerState.handleSeek}
-                  />
-                }
+              <ResizablePanel
+                defaultSize="20%"
+                minSize="15%"
+                className="overflow-hidden bg-background"
               >
-                <Await resolve={sidebarDataPromise}>
-                  {({ annotations, clips, sequences }: SidebarData) => (
-                    <HydratedSidebar
-                      annotations={annotations}
-                      clips={clips}
-                      sequences={sequences}
+                <motion.div
+                  className="h-full"
+                  initial={{ opacity: 0, x: 24 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1], delay: 0.12 }}
+                >
+                  <Suspense fallback={<SidebarSkeleton />}>
+                    <SidebarWithData
+                      loaderData={loaderData}
+                      playerState={playerState}
                       activeSequenceId={activeSequenceId}
-                      currentVideoTime={playerState.currentTime}
-                      videoId={loaderData.video.id}
-                      studyId={loaderData.studyId}
-                      siteId={loaderData.siteId}
-                      onJumpToTime={playerState.handleSeek}
                     />
-                  )}
-                </Await>
-              </Suspense>
-            </ResizablePanel>
-          </ResizablePanelGroup>
+                  </Suspense>
+                </motion.div>
+              </ResizablePanel>
+            </ResizablePanelGroup>
           </LayoutGroup>
-          </ClipMorphProvider>
-        </SidebarInset>
-      </SidebarProvider>
+        </ClipMorphProvider>
 
-      <ReviewDetailsSection disabled={!canWrite} />
-    </>
+        <motion.div
+          initial={{ opacity: 0, y: 32 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1], delay: 0.3 }}
+        >
+          <ReviewDetailsSection disabled={!canWrite} />
+        </motion.div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 
+type RegionProps = {
+  loaderData: VideoReviewLoaderData;
+  playerState: PlayerState;
+  activeSequenceId: string | null;
+};
+
 /**
- * @description Video area that hydrates once annotations have streamed in.
- * Owns the saveDrawing mutation so the player can persist new strokes.
+ * @description Video area enriched with seed annotations from the review view
+ * model. Suspends until the annotations query resolves.
+ *
+ * @param props - Component props
  */
-function HydratedVideoArea({
-  videoId,
-  studyId,
-  siteId,
-  videoUrl,
-  imgUrl,
-  duration,
+function VideoAreaWithData({
+  loaderData,
   playerState,
   canWrite,
-  annotations,
-}: {
-  videoId: string;
-  studyId: string;
-  siteId: string;
-  videoUrl: string;
-  imgUrl: string;
-  duration: number;
-  playerState: ReturnType<typeof useVideoPlayerType>;
-  canWrite: boolean;
-  annotations: AnnotationListItem[];
-}) {
-  const mutations = useSidebarMutations(videoId, playerState.currentTime, studyId, siteId);
+  activeSequenceId,
+}: RegionProps & { canWrite: boolean }) {
+  const vm = useReviewViewModel(loaderData, activeSequenceId);
+  const mutations = useSidebarMutations(
+    loaderData.videoId,
+    playerState.currentTime,
+    loaderData.studyId,
+    loaderData.siteId,
+  );
   return (
     <ReviewVideoArea
-      src={videoUrl}
-      duration={duration}
-      poster={imgUrl}
+      src={loaderData.videoUrl}
+      duration={loaderData.video.durationSeconds}
+      poster={loaderData.imgUrl}
       playerState={playerState}
       canWrite={canWrite}
-      initialAnnotations={annotations}
+      savedAnnotations={vm.rawAnnotations}
       onAnnotationSaved={mutations.saveDrawing}
+      onAnnotationDeleted={mutations.deleteDrawing}
     />
   );
 }
 
 /**
- * @description Sidebar variant rendered once annotations/clips/sequences
- * have streamed in. Computes the derived view-models that the sidebar
- * and "add to sequence" action need.
+ * @description Timeline region consuming the review view model. Suspends
+ * until annotations, clips, and sequences resolve.
+ *
+ * @param props - Component props
  */
-function HydratedSidebar({
-  annotations,
-  clips,
-  sequences,
+function TimelineWithData({
+  loaderData,
+  playerState,
   activeSequenceId,
-  currentVideoTime,
-  videoId,
-  studyId,
-  siteId,
-  onJumpToTime,
-}: {
-  annotations: AnnotationListItem[];
-  clips: Clip[];
-  sequences: Sequence[];
-  activeSequenceId: string | null;
-  currentVideoTime: number;
-  videoId: string;
-  studyId: string;
-  siteId: string;
-  onJumpToTime: (time: number) => void;
-}) {
-  const sequenceFetcher = useSequenceFetcher();
-  const activeSequence = sequences.find((s) => s.id === activeSequenceId) ?? null;
+  onActiveSequenceChange,
+}: RegionProps & { onActiveSequenceChange: (id: string | null) => void }) {
+  const { canWrite, canAdmin } = usePermission();
+  const vm = useReviewViewModel(loaderData, activeSequenceId);
+  return (
+    <ReviewTimelineArea
+      duration={loaderData.video.durationSeconds}
+      currentTime={playerState.currentTime}
+      annotations={vm.canvasAnnotations}
+      clips={vm.clips}
+      sequences={vm.sequences}
+      activeSequenceId={activeSequenceId}
+      onActiveSequenceChange={onActiveSequenceChange}
+      videoRef={playerState.videoRef}
+      onSeek={playerState.handleSeek}
+      videoId={loaderData.videoId}
+      studyId={loaderData.studyId}
+      siteId={loaderData.siteId}
+      canWrite={canWrite}
+      canAdmin={canAdmin}
+    />
+  );
+}
 
-  const sidebarNotes = annotations.flatMap((item) => {
-    const n = toNoteAnnotation(item);
-    return n ? [n] : [];
-  });
-  const drawings = annotations
-    .flatMap((item) => {
-      const a = toCanvasAnnotation(item);
-      return a ? [a] : [];
-    })
-    .map((a) => ({
-      id: a.id,
-      type: a.type as DrawingToolType,
-      color: a.settings.color,
-      timestamp: a.timestamp,
-      duration: a.duration,
-    }));
-  const sidebarClips = clips.map((c) => ({
-    id: c.id,
-    title: c.title,
-    startMs: c.startTimeS,
-    endMs: c.endTimeS,
-    themeColor: c.themeColor,
-  }));
-
-  /**
-   * @description Adds a clip to the active sequence via the /sequences
-   * resource route. Persists through the sequences action handler.
-   *
-   * @param clipId - ID of the clip to add
-   */
-  function handleAddClipToSequence(clipId: string) {
-    if (!activeSequence) {
-      toast.info("Select a sequence first");
-      return;
-    }
-    const clip = clips.find((c) => c.id === clipId);
-    if (!clip) return;
-    const items = activeSequence.items ?? [];
-    if (items.some((i) => i.clipId === clipId)) {
-      toast.info("Clip is already in this sequence");
-      return;
-    }
-    sequenceFetcher.addClipToSequence(activeSequence.id, clip, {
-      ...activeSequence,
-      items,
-    });
-  }
-
+/**
+ * @description Annotation sidebar region consuming the review view model.
+ * Suspends until annotations, clips, and sequences resolve.
+ *
+ * @param props - Component props
+ */
+function SidebarWithData({ loaderData, playerState, activeSequenceId }: RegionProps) {
+  const vm = useReviewViewModel(loaderData, activeSequenceId);
   return (
     <AnnotationSidebar
-      currentVideoTime={currentVideoTime}
-      videoId={videoId}
-      studyId={studyId}
-      siteId={siteId}
-      clips={sidebarClips}
-      notes={sidebarNotes}
-      drawings={drawings}
-      onJumpToTime={onJumpToTime}
-      onAddClipToSequence={activeSequence ? handleAddClipToSequence : undefined}
+      currentVideoTime={playerState.currentTime}
+      videoId={loaderData.videoId}
+      studyId={loaderData.studyId}
+      siteId={loaderData.siteId}
+      clips={vm.sidebarClips}
+      notes={vm.sidebarNotes}
+      drawings={vm.drawings}
+      onJumpToTime={playerState.handleSeek}
+      onAddClipToSequence={
+        vm.activeSequence ? vm.handleAddClipToSequence : undefined
+      }
     />
   );
 }
 
 /**
- * @description Placeholder for the timeline area shown while clips and
- * sequences stream in. Kept intentionally minimal — the critical UI is
- * the player above it.
+ * @description Skeleton placeholder for the video area while annotations load.
  */
-function TimelineAreaFallback() {
+function VideoAreaSkeleton() {
   return (
-    <div className="flex h-full flex-col gap-3 overflow-hidden p-4">
-      <div className="h-10 w-full animate-pulse rounded bg-muted" />
-      <div className="h-12 w-full animate-pulse rounded bg-muted" />
-      <div className="h-16 w-full animate-pulse rounded bg-muted" />
+    <div className="relative flex h-full min-h-0 items-center justify-center overflow-hidden rounded-md bg-black">
+      <Skeleton className="h-full w-full" />
+    </div>
+  );
+}
+
+/**
+ * @description Skeleton placeholder for the timeline region.
+ */
+function TimelineSkeleton() {
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-3 p-4">
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-16 w-full" />
+      <Skeleton className="h-20 w-full" />
+    </div>
+  );
+}
+
+/**
+ * @description Skeleton placeholder for the annotation sidebar.
+ */
+function SidebarSkeleton() {
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-3 p-4">
+      <Skeleton className="h-9 w-full" />
+      <Skeleton className="h-16 w-full" />
+      <Skeleton className="h-16 w-full" />
+      <Skeleton className="h-16 w-full" />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { motion } from "motion/react";
 import { VideoTimeline, annotationsToMarkers } from "@/features/video/timeline/VideoTimeline";
 import { ClipTimeline } from "@/features/video/clips/ClipTimeline";
 import { useClipTimeline } from "@/features/video/clips/useClipTimeline";
@@ -93,37 +94,53 @@ export function ReviewTimelineArea({
     sequenceFetcher.removeClipFromSequence(activeSequence.id, clipId);
   }
 
+  const childInitial = { opacity: 0, y: 10 };
+  const childAnimate = { opacity: 1, y: 0 };
+  const childTransition = (delay: number) => ({
+    duration: 0.32,
+    ease: [0.22, 1, 0.36, 1] as const,
+    delay,
+  });
+
   return (
-    <div className="flex h-full flex-col gap-3 overflow-y-auto p-4">
-      <SequenceTabBar
-        sequences={sequences}
-        activeSequenceId={activeSequenceId}
-        onSelect={onActiveSequenceChange}
-        isPlayingSequence={sequencePlayback.isPlayingSequence}
-        onPlaySequence={sequencePlayback.playSequence}
-        onStopSequence={sequencePlayback.stopSequence}
-        disabled={!canWrite}
-        videoId={videoId}
-        studyId={studyId}
-        siteId={siteId}
-      />
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto p-4">
+      <motion.div initial={childInitial} animate={childAnimate} transition={childTransition(0.24)}>
+        <SequenceTabBar
+          sequences={sequences}
+          activeSequenceId={activeSequenceId}
+          onSelect={onActiveSequenceChange}
+          isPlayingSequence={sequencePlayback.isPlayingSequence}
+          onPlaySequence={sequencePlayback.playSequence}
+          onStopSequence={sequencePlayback.stopSequence}
+          disabled={!canWrite}
+          videoId={videoId}
+          studyId={studyId}
+          siteId={siteId}
+        />
+      </motion.div>
 
-      <SequenceBar
-        activeSequence={activeSequence}
-        clips={clips}
-        activeClipIndex={sequencePlayback.currentClipIndex}
-        onRemoveClip={handleRemoveClip}
-        onSeekToClip={sequencePlayback.seekToClip}
-      />
+      <motion.div initial={childInitial} animate={childAnimate} transition={childTransition(0.3)}>
+        <SequenceBar
+          activeSequence={activeSequence}
+          clips={clips}
+          activeClipIndex={sequencePlayback.currentClipIndex}
+          onRemoveClip={handleRemoveClip}
+          onSeekToClip={sequencePlayback.seekToClip}
+        />
+      </motion.div>
 
-      <VideoTimeline
-        duration={duration}
-        currentTime={currentTime}
-        markers={annotationsToMarkers(filteredAnnotations)}
-        onSeek={onSeek}
-      />
+      <motion.div initial={childInitial} animate={childAnimate} transition={childTransition(0.36)}>
+        <VideoTimeline
+          duration={duration}
+          currentTime={currentTime}
+          markers={annotationsToMarkers(filteredAnnotations)}
+          onSeek={onSeek}
+        />
+      </motion.div>
 
-      <ClipTimeline duration={duration} timeline={timeline} />
+      <motion.div initial={childInitial} animate={childAnimate} transition={childTransition(0.42)}>
+        <ClipTimeline duration={duration} timeline={timeline} />
+      </motion.div>
     </div>
   );
 }

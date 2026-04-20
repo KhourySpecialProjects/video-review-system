@@ -1,5 +1,6 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
+import { motion, type HTMLMotionProps } from "motion/react"
 
 import { cn } from "@/lib/utils"
 
@@ -33,16 +34,61 @@ const buttonVariants = cva(
   }
 )
 
+const MotionButtonPrimitive = motion.create(ButtonPrimitive)
+
+type ButtonProps = ButtonPrimitive.Props &
+  VariantProps<typeof buttonVariants> & {
+    /** Opt out of the built-in press/hover scale animation. */
+    disableMotion?: boolean
+    /** Override the default press animation props (whileHover, whileTap, transition). */
+    motionProps?: Pick<HTMLMotionProps<"button">, "whileHover" | "whileTap" | "transition">
+  }
+
+const defaultMotionProps = {
+  whileHover: { scale: 1.05 },
+  whileTap: { scale: 0.9 },
+  transition: { type: "tween" as const, duration: 0.12, ease: [0.2, 0, 0, 1] as [number, number, number, number] },
+} satisfies Pick<HTMLMotionProps<"button">, "whileHover" | "whileTap" | "transition">
+
+/**
+ * @description Site-wide Button. Wraps the base-ui Button primitive with
+ * motion-driven hover and press feedback so clicks feel responsive. Opt
+ * out per-instance with `disableMotion`, or override timing via
+ * `motionProps`.
+ *
+ * @param props - Button props, including optional motion overrides
+ * @returns The animated button element
+ */
 function Button({
   className,
   variant = "default",
   size = "default",
+  disableMotion = false,
+  motionProps,
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+}: ButtonProps) {
+  if (disableMotion) {
+    return (
+      <ButtonPrimitive
+        data-slot="button"
+        className={cn(buttonVariants({ variant, size, className }))}
+        {...props}
+      />
+    )
+  }
+  // base-ui typings for onAnimationStart/onDrag*/onPan* collide with motion's
+  // lifecycle-style variants. At runtime the handlers are forwarded to the
+  // DOM as-is and behave correctly; cast through unknown to resolve the
+  // purely-structural type clash.
+  const MotionAny = MotionButtonPrimitive as unknown as React.ComponentType<
+    ButtonPrimitive.Props & typeof defaultMotionProps & { "data-slot"?: string }
+  >
   return (
-    <ButtonPrimitive
+    <MotionAny
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      {...defaultMotionProps}
+      {...(motionProps as typeof defaultMotionProps)}
       {...props}
     />
   )

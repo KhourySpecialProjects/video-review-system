@@ -20,9 +20,10 @@ export async function listAnnotationsByVideo(videoId: string, {limit = 20, offse
       orderBy: { timestampS: "asc" },
       skip: offset,
       take: limit,
+      include: { author: { select: { name: true } } },
     }),
     prisma.annotation.count({
-       where: { videoId } 
+       where: { videoId }
     }),
   ]);
   return { annotations, total, limit, offset };
@@ -39,6 +40,7 @@ export async function getAnnotationById(id: string) {
   // findUnique returns null if not found, can handle in the controller
   const annotation = await prisma.annotation.findUnique({
     where: { id },
+    include: { author: { select: { name: true } } },
   });
   return annotation;
 }
@@ -89,6 +91,7 @@ export async function createAnnotation({
       durationS: durationSeconds,
       payload: payload as Prisma.InputJsonValue,
     },
+    include: { author: { select: { name: true } } },
   });
   return annotation;
 }
@@ -112,6 +115,7 @@ export async function updateAnnotation(id: string, data: UpdateAnnotationInput) 
       ...(data.durationSeconds !== undefined && { durationS: data.durationSeconds }),
       ...(data.payload !== undefined && { payload: data.payload as Prisma.InputJsonValue }),
     },
+    include: { author: { select: { name: true } } },
   });
   return annotation;
 }

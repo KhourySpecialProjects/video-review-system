@@ -3,12 +3,13 @@ import { ClipCard } from "./ClipCard"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { ClipAnnotation } from "./sidebar"
 import { useClipMorph } from "@/features/video/sequences/clipMorphContext"
+import { AnimatedList, AnimatedRow } from "./AnimatedList"
 
 type ClipsTabProps = {
   clips: ClipAnnotation[]
   isLoading: boolean
   onJumpToTime: (timeSeconds: number) => void
-  onUpdateClip: (id: string, updates: { title?: string; startMs?: number; endMs?: number }) => void
+  onUpdateClip: (id: string, updates: { title?: string; startTimeS?: number; endTimeS?: number }) => void
   onDeleteClip: (id: string) => void
   /**
    * @description Called when the user clicks "Add to sequence" on a clip card.
@@ -46,25 +47,26 @@ export function ClipsTab({
   }
 
   return (
-    <>
-      {clips.map((clip) => (
-        <ClipRow
-          key={clip.id}
-          clip={clip}
-          onJumpToTime={onJumpToTime}
-          onUpdateClip={onUpdateClip}
-          onDeleteClip={onDeleteClip}
-          onAddToSequence={onAddToSequence}
-        />
+    <AnimatedList>
+      {clips.map((clip, i) => (
+        <AnimatedRow key={clip.id} layoutId={`clip-${clip.id}`} index={i}>
+          <ClipRow
+            clip={clip}
+            onJumpToTime={onJumpToTime}
+            onUpdateClip={onUpdateClip}
+            onDeleteClip={onDeleteClip}
+            onAddToSequence={onAddToSequence}
+          />
+        </AnimatedRow>
       ))}
-    </>
+    </AnimatedList>
   )
 }
 
 type ClipRowProps = {
   clip: ClipAnnotation
   onJumpToTime: (timeSeconds: number) => void
-  onUpdateClip: (id: string, updates: { title?: string; startMs?: number; endMs?: number }) => void
+  onUpdateClip: (id: string, updates: { title?: string; startTimeS?: number; endTimeS?: number }) => void
   onDeleteClip: (id: string) => void
   onAddToSequence?: (clipId: string) => void
 }
@@ -102,13 +104,14 @@ function ClipRow({
     <div ref={wrapperRef}>
       <ClipCard
         title={clip.title}
-        startMs={clip.startMs}
-        endMs={clip.endMs}
+        startTimeS={clip.startTimeS}
+        endTimeS={clip.endTimeS}
         color={clip.themeColor}
-        onJumpStart={() => onJumpToTime(clip.startMs / 1000)}
+        onJumpStart={() => onJumpToTime(clip.startTimeS)}
         onUpdateClip={(updates) => onUpdateClip(clip.id, updates)}
         onDelete={() => onDeleteClip(clip.id)}
         onAddToSequence={onAddToSequence ? handleAdd : undefined}
+        createdBy={clip.createdBy}
       />
     </div>
   )

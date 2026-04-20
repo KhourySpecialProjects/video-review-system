@@ -1,6 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton"
 import { DrawingCard } from "./DrawingCard"
 import type { DrawAnnotation } from "./sidebar"
+import { AnimatedList, AnimatedRow } from "./AnimatedList"
 
 type DrawingsTabProps = {
   drawings: DrawAnnotation[]
@@ -32,22 +33,24 @@ export function DrawingsTab({
   }
 
   return (
-    <>
-      {drawings.map((draw) => (
-        <DrawingCard
-          key={draw.id}
-          id={draw.id}
-          type={draw.type}
-          color={draw.color}
-          timestamp={draw.timestamp}
-          duration={draw.duration}
-          thumbnailUrl={draw.thumbnailUrl}
-          onJumpStart={(ts) => onJumpToTime(ts)}
-          onEditDuration={(id, dur) => onUpdateDuration(id, dur)}
-          onDelete={(id) => onDeleteDrawing(id)}
-        />
+    <AnimatedList>
+      {drawings.map((draw, i) => (
+        <AnimatedRow key={draw.id} layoutId={`drawing-${draw.id}`} index={i}>
+          <DrawingCard
+            id={draw.id}
+            type={draw.type}
+            color={draw.color}
+            timestamp={draw.timestamp}
+            duration={draw.duration}
+            thumbnailUrl={draw.thumbnailUrl}
+            onJumpStart={(ts) => onJumpToTime(ts)}
+            onEditDuration={(id, dur) => onUpdateDuration(id, dur)}
+            onDelete={(id) => onDeleteDrawing(id)}
+            createdBy={draw.createdBy}
+          />
+        </AnimatedRow>
       ))}
-    </>
+    </AnimatedList>
   )
 }
 

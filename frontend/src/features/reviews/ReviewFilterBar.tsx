@@ -1,9 +1,8 @@
-import { Form } from "react-router";
 import type { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { X } from "lucide-react";
-import type { ReviewFilters, SiteOption, StudyOption } from "./types";
+import type { ReviewFilters, ReviewStatus, SiteOption, StudyOption } from "./types";
 import { SearchInput } from "./SearchInput";
 import { StudySelect } from "./StudySelect";
 import { SiteSelect } from "./SiteSelect";
@@ -21,8 +20,14 @@ type ReviewFilterBarProps = {
     groupedStudies: { ongoing: StudyOption[]; completed: StudyOption[] };
     /** @param sites - Available site options for the site dropdown */
     sites: SiteOption[];
-    /** @param onFormChange - onChange handler for the Form, auto-submits on any input change */
-    onFormChange: (event: React.ChangeEvent<HTMLFormElement>) => void;
+    /** @param onSearchChange - Callback fired with the debounced search value */
+    onSearchChange: (value: string) => void;
+    /** @param onStudyChange - Callback fired when the study filter changes */
+    onStudyChange: (value: string | null) => void;
+    /** @param onSiteChange - Callback fired when the site filter changes */
+    onSiteChange: (value: string | null) => void;
+    /** @param onStatusChange - Callback fired when the status filter changes */
+    onStatusChange: (value: ReviewStatus | null) => void;
     /** @param onDateRangeChange - Callback to update the date range */
     onDateRangeChange: (range: DateRange | undefined) => void;
     /** @param onClearAll - Callback to clear all filters */
@@ -31,9 +36,8 @@ type ReviewFilterBarProps = {
 
 /**
  * @description Composes all filter controls into a unified filter bar.
- * Wraps controls in a Form (method="get") with an onChange handler
- * that auto-submits when any input changes, serializing all named
- * inputs to search params.
+ * Each control updates its own slice of the URL search params; there is no
+ * ambient form-level submission.
  */
 export function ReviewFilterBar({
     filters,
@@ -41,34 +45,35 @@ export function ReviewFilterBar({
     hasActiveFilters,
     groupedStudies,
     sites,
-    onFormChange,
+    onSearchChange,
+    onStudyChange,
+    onSiteChange,
+    onStatusChange,
     onDateRangeChange,
     onClearAll,
 }: ReviewFilterBarProps) {
     return (
-        <Form
-            method="get"
-            onChange={onFormChange}
-            className="flex flex-col gap-3"
-        >
-            {/* Hidden inputs for date range (no native form control) */}
-            <input type="hidden" name="dateFrom" value={filters.dateFrom ?? ""} />
-            <input type="hidden" name="dateTo" value={filters.dateTo ?? ""} />
-
+        <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                <SearchInput defaultValue={filters.search ?? ""} />
+                <SearchInput
+                    value={filters.search ?? ""}
+                    onChange={onSearchChange}
+                />
 
                 <div className="flex flex-wrap items-center gap-2">
                     <StudySelect
                         value={filters.study ?? null}
                         groupedStudies={groupedStudies}
+                        onChange={onStudyChange}
                     />
                     <SiteSelect
                         value={filters.site ?? null}
                         sites={sites}
+                        onChange={onSiteChange}
                     />
                     <StatusSelect
                         value={filters.status ?? null}
+                        onChange={onStatusChange}
                     />
                     <DatePickerRange
                         date={dateRange}
@@ -90,7 +95,7 @@ export function ReviewFilterBar({
                     </Button>
                 </div>
             )}
-        </Form>
+        </div>
     );
 }
 

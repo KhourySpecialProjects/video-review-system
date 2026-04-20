@@ -5,6 +5,7 @@ import {
     getPaginationRowModel,
     useReactTable,
 } from "@tanstack/react-table";
+import { motion } from "motion/react";
 import {
     Table,
     TableBody,
@@ -20,6 +21,8 @@ import {
     EmptyDescription,
 } from "@/components/ui/empty";
 import { DataTablePagination } from "./DataTablePagination";
+
+const MotionTableRow = motion.create(TableRow);
 
 type DataTableProps<TData, TValue> = {
     columns: ColumnDef<TData, TValue>[];
@@ -53,8 +56,19 @@ export function DataTable<TData, TValue>({
                 <Table>
                     <TableBody>
                         {table.getRowModel().rows?.length ? (
-                            table.getRowModel().rows.map((row) => (
-                                <TableRow key={row.id} className="border-border hover:bg-bg-dark/30 transition-colors">
+                            table.getRowModel().rows.map((row, idx) => (
+                                <MotionTableRow
+                                    key={row.id}
+                                    className="border-border hover:bg-bg-dark/30 transition-colors"
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{
+                                        type: "spring",
+                                        stiffness: 320,
+                                        damping: 28,
+                                        delay: Math.min(idx, 10) * 0.03,
+                                    }}
+                                >
                                     {row.getVisibleCells().map((cell) => (
                                         <TableCell key={cell.id} className="px-4 py-3">
                                             {flexRender(
@@ -63,7 +77,7 @@ export function DataTable<TData, TValue>({
                                             )}
                                         </TableCell>
                                     ))}
-                                </TableRow>
+                                </MotionTableRow>
                             ))
                         ) : (
                             <TableRow>

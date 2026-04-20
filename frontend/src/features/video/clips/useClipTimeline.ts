@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback } from "react";
 import type { ClipSelectionPhase, SelectionRegion, UseClipTimelineReturn } from "./types";
 import type { Clip } from "@shared/clip";
-import { useFetcher, useRevalidator } from "react-router";
+import { useFetcher } from "react-router";
 
 /** Number of time tick marks to render on the timeline. */
 export const TICK_COUNT = 8;
@@ -184,15 +184,6 @@ export function useClipTimeline(
     const [startTime, setStartTime] = useState<number | null>(null);
     const [hoverTime, setHoverTime] = useState<number | null>(null);
     const fetcher = useFetcher({ key: "clips" });
-    const { revalidate } = useRevalidator();
-    const prevFetcherState = useRef(fetcher.state);
-
-    useEffect(() => {
-        if (prevFetcherState.current !== "idle" && fetcher.state === "idle") {
-            revalidate();
-        }
-        prevFetcherState.current = fetcher.state;
-    }, [fetcher.state, revalidate]);
 
     const onTrackMouseMove = useCallback(
         (clientX: number, rect: DOMRect) => {

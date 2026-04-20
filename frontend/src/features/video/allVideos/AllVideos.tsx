@@ -1,6 +1,8 @@
-import { Suspense } from "react";
-import { Await, Form, useLoaderData, useNavigation, useSubmit } from "react-router";
-import type { SearchLoaderData, VideoListResponse } from "@/lib/video.service";
+import { Suspense, useState } from "react";
+import { Form, useLoaderData, useNavigation, useSubmit } from "react-router";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import type { SearchLoaderData } from "@/lib/video.service";
+import { searchVideosQuery } from "@/lib/video.service";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -12,7 +14,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { CalendarDays, Search, Filter, X } from "lucide-react";
-import { useState } from "react";
 import { DataTable } from "./DataTable";
 import { columns } from "./columns";
 import { MobileVideoList } from "./MobileVideoList";
@@ -23,10 +24,10 @@ let debounceTimer: ReturnType<typeof setTimeout>;
  * @description All-videos panel with server-side search, date filtering,
  * and a DataTable for display. Uses a GET `<Form>` to serialize search
  * inputs into URL params, triggering the route loader to re-run.
- * The search promise is deferred so tab switches are instant.
+ * Results are cached via TanStack Query so tab switches are instant.
  */
 export function AllVideos() {
-    const { searchPromise, q } = useLoaderData() as SearchLoaderData;
+    const { searchParams, q } = useLoaderData() as SearchLoaderData;
     const navigation = useNavigation();
     const submit = useSubmit();
     const isSearching = navigation.state === "loading";
@@ -85,34 +86,52 @@ export function AllVideos() {
                 )}
             </Form>
 
-            {/* Deferred results */}
+            {/* Cached results */}
             <Suspense fallback={<AllVideosResultsSkeleton />}>
-                <Await resolve={searchPromise}>
-                    {({ videos, total }: VideoListResponse) => (
-                        <>
-                            <div className="flex items-center gap-2 text-sm text-text-muted">
-                                {isSearching && <Spinner />}
-                                <span>
-                                    {total} video{total !== 1 ? "s" : ""} found
-                                </span>
-                            </div>
-                            {/* Desktop: DataTable, Mobile: card list */}
-                            <div className="hidden md:block">
-                                <DataTable columns={columns} data={videos} />
-                            </div>
-                            <div className="md:hidden">
-                                <MobileVideoList videos={videos} />
-                            </div>
-                        </>
-                    )}
-                </Await>
+                <AllVideosResults searchParams={searchParams} isSearching={isSearching} />
             </Suspense>
         </div>
     );
 }
 
 /**
- * @description Inline skeleton shown while the deferred search promise resolves.
+ * @description Data-dependent region that suspends until the search query
+ * resolves. Reads from the TanStack Query cache populated by the loader's
+ * `prefetchQuery` call.
+ *
+ * @param searchParams - Serialized URL search params for the query key
+ * @param isSearching - Whether a new search is in flight
+ */
+function AllVideosResults({
+    searchParams,
+    isSearching,
+}: {
+    searchParams: string;
+    isSearching: boolean;
+}) {
+    const { data: { videos, total } } = useSuspenseQuery(searchVideosQuery(searchParams));
+
+    return (
+        <>
+            <div className="flex items-center gap-2 text-sm text-text-muted">
+                {isSearching && <Spinner />}
+                <span>
+                    {total} video{total !== 1 ? "s" : ""} found
+                </span>
+            </div>
+            {/* Desktop: DataTable, Mobile: card list */}
+            <div className="hidden md:block">
+                <DataTable columns={columns} data={videos} />
+            </div>
+            <div className="md:hidden">
+                <MobileVideoList videos={videos} />
+            </div>
+        </>
+    );
+}
+
+/**
+ * @description Inline skeleton shown while the search query resolves.
  */
 function AllVideosResultsSkeleton() {
     return (

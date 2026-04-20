@@ -52,26 +52,36 @@
 }
 
 body.light {
-  --bg-dark: oklch(0.92 0 45);
-  --bg: oklch(0.96 0 45);
+  /* Surface hierarchy: bg-dark = recessed, bg = page, bg-light = raised.
+     Keeps the same semantic as dark mode (bg-dark is deepest) so component
+     classes like bg-bg-dark still mean "recessed" in both themes. */
+  --bg-dark: oklch(0.94 0.002 45);
+  --bg: oklch(0.98 0.002 45);
   --bg-light: oklch(1 0 45);
-  --text: oklch(0.15 0 45);
-  --text-muted: oklch(0.4 0 45);
-  --highlight: oklch(1 0 45);
-  --custom-border: oklch(0.6 0 45);
-  --border-muted: oklch(0.7 0 45);
-  --custom-primary: oklch(0.4 0.1 45);
-  --custom-secondary: oklch(0.4 0.1 225);
-  --danger: oklch(0.2 0.5 30);
-  --warning: oklch(0.5 0.05 100);
-  --success: oklch(0.55 0.8 160);
-  --success-dark: oklch(0.3 0.8 160);
-  --info: oklch(0.5 0.05 260);
+  --text: oklch(0.22 0.01 45);
+  --text-muted: oklch(0.48 0.01 45);
+  --highlight: oklch(0.96 0.005 45);
+  --custom-border: oklch(0.88 0.003 45);
+  --border-muted: oklch(0.92 0.003 45);
+  --custom-primary: oklch(0.55 0.14 45);
+  --custom-secondary: oklch(0.55 0.14 225);
+  --danger: oklch(0.58 0.21 27);
+  --warning: oklch(0.75 0.14 85);
+  --success: oklch(0.62 0.16 151);
+  --success-tinted: oklch(0.72 0.06 160);
+  --info: oklch(0.6 0.12 255);
+  --shadow-s:
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 1px 1px rgba(15, 23, 42, 0.04);
+  --shadow-m:
+    0 2px 4px rgba(15, 23, 42, 0.06),
+    0 4px 8px rgba(15, 23, 42, 0.05);
+  --shadow-l:
+    0 4px 8px rgba(15, 23, 42, 0.07),
+    0 8px 16px rgba(15, 23, 42, 0.05);
   --shadow-inset:
-    inset 0 4px 6px rgba(0, 0, 0, 0.1),
-    inset 1px 0 3px -1px rgba(0, 0, 0, 0.04),
-    inset -1px 0 3px -1px rgba(0, 0, 0, 0.04),
-    inset 0 -2px 4px rgba(255, 255, 255, 0.05);
+    inset 0 2px 4px rgba(15, 23, 42, 0.06),
+    inset 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 /* ─── shadcn token overrides ─────────────────────────────────────────────  */
@@ -128,25 +138,27 @@ body.light {
   --popover: var(--bg-light);
   --popover-foreground: var(--text);
   --primary: var(--custom-primary);
-  --primary-foreground: var(--bg-dark);
+  --primary-foreground: oklch(1 0 0);
   --secondary: var(--custom-secondary);
-  --secondary-foreground: var(--bg-dark);
-  --muted: var(--bg-light);
+  --secondary-foreground: oklch(1 0 0);
+  /* Muted = recessed surface. In light mode that's slightly darker than page,
+     so we use --bg-dark instead of --bg-light. */
+  --muted: var(--bg-dark);
   --muted-foreground: var(--text-muted);
-  --accent: var(--highlight);
+  --accent: var(--bg-dark);
   --accent-foreground: var(--text);
   --destructive: var(--danger);
   --border: var(--custom-border);
   --input: var(--custom-border);
   --ring: var(--custom-primary);
 
-  --sidebar: var(--bg-dark);
+  --sidebar: var(--bg-light);
   --sidebar-foreground: var(--text);
   --sidebar-primary: var(--custom-primary);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: var(--bg-light);
+  --sidebar-accent: var(--bg-dark);
   --sidebar-accent-foreground: var(--text);
-  --sidebar-border: var(--border-muted);
+  --sidebar-border: var(--custom-border);
   --sidebar-ring: var(--custom-primary);
 }
 
@@ -217,6 +229,13 @@ body.light {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Sonner description text defaults to a hardcoded dark gray; force inherit
+   so it respects our themed foreground in both normal and rich-color toasts. */
+[data-sonner-toast][data-styled="true"] [data-description] {
+  color: inherit;
+  opacity: 0.85;
 }
 
 /* Smooth collapse/expand animation for the metadata sidebar panel */

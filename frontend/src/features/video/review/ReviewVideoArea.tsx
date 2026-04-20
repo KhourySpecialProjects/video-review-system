@@ -1,10 +1,10 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { VideoPlayer } from "@/features/video/videoPlayer/VideoPlayer";
 import { AnnotationCanvas } from "@/features/video/annotations/drawing/canvas/AnnotationCanvas";
 import { AnnotationToolbar } from "@/features/video/annotations/drawing/toolbar/AnnotationToolbar";
 import { useAnnotationState } from "@/features/video/annotations/useAnnotationState";
-import type { Annotation, AnnotationTool, DrawingSettings, NormalizedPoint } from "@/features/video/annotations/types";
+import type { Annotation, AnnotationTool, DrawingSettings, NormalizedPoint, UseAnnotationStateReturn } from "@/features/video/annotations/types";
 import type { useVideoPlayer } from "@/hooks/useVideoPlayer";
 import type { AnnotationListItem } from "@shared/annotation";
 import type { NoteAnnotation } from "@/features/sidebar/sidebar";
@@ -22,7 +22,7 @@ export function toNoteAnnotation(item: AnnotationListItem): NoteAnnotation | nul
   const secs = String(Math.floor(item.timestampS % 60)).padStart(2, "0");
   return {
     id: item.id,
-    author: (item.payload.author as string) ?? "",
+    createdBy: item.authorName,
     title: (item.payload.title as string) ?? "",
     content: (item.payload.text as string) ?? "",
     timestamp: `${mins}:${secs}`,
@@ -63,16 +63,20 @@ type ReviewVideoAreaProps = {
   playerState: ReturnType<typeof useVideoPlayer>;
   /** @description Whether the user has write permission (enables drawing controls). */
   canWrite: boolean;
-  /** @description Annotations loaded from the route loader to hydrate the canvas. */
-  initialAnnotations?: AnnotationListItem[];
+  /** @description Server-backed saved annotations (owned by the React Query cache). */
+  savedAnnotations?: AnnotationListItem[];
   /** @description Called with each new annotation after the user finishes a stroke. */
   onAnnotationSaved?: (annotation: Annotation) => void;
+  /** @description Called when the object-eraser removes a saved annotation. */
+  onAnnotationDeleted?: (id: string) => void;
 };
 
 /**
  * @description Video player area with annotation overlay and drawing toolbar.
- * The toolbar slides down from the top of the video container when drawing
- * mode is toggled via the player controls or the "D" keyboard shortcut.
+ * Saved annotations come from the query cache via `savedAnnotations`; the
+ * local reducer owns only the user's in-progress unsaved drawings. The canvas
+ * renders the merged list so server-side edits (e.g. duration changes) take
+ * effect without remounting.
  */
 export function ReviewVideoArea({
   src,
@@ -80,14 +84,30 @@ export function ReviewVideoArea({
   poster,
   playerState,
   canWrite,
-  initialAnnotations,
+  savedAnnotations,
   onAnnotationSaved,
+  onAnnotationDeleted,
 }: ReviewVideoAreaProps) {
-  const seed = initialAnnotations?.flatMap((item) => {
-    const a = toCanvasAnnotation(item);
-    return a ? [a] : [];
-  });
-  const annotationState = useAnnotationState(seed);
+  const unsavedState = useAnnotationState();
+
+  const savedCanvas = useMemo(
+    () =>
+      savedAnnotations?.flatMap((item) => {
+        const a = toCanvasAnnotation(item);
+        return a ? [a] : [];
+      }) ?? [],
+    [savedAnnotations],
+  );
+
+  const savedIds = useMemo(
+    () => new Set(savedCanvas.map((a) => a.id)),
+    [savedCanvas],
+  );
+
+  const mergedAnnotations = useMemo(
+    () => [...savedCanvas, ...unsavedState.annotations],
+    [savedCanvas, unsavedState.annotations],
+  );
 
   const [drawingEnabled, setDrawingEnabled] = useState(false);
   const [tool, setTool] = useState<AnnotationTool>("freehand");
@@ -97,52 +117,57 @@ export function ReviewVideoArea({
   });
 
   /**
-   * Unsaved annotation ids added during the current drawing session.
-   * Persisted and cleared when the user toggles drawing off; discarded
-   * wholesale when the user clicks the trash button.
+   * @description Removes an annotation. Saved annotations are deleted via the
+   * mutation callback; unsaved (in-session) annotations are dropped from the
+   * local reducer.
    */
-  const unsavedIdsRef = useRef<Set<string>>(new Set());
+  const removeAnnotation = useCallback(
+    (id: string) => {
+      if (savedIds.has(id)) {
+        onAnnotationDeleted?.(id);
+      } else {
+        unsavedState.removeAnnotation(id);
+      }
+    },
+    [savedIds, onAnnotationDeleted, unsavedState],
+  );
 
   /**
-   * @description Adds a new annotation to local state and marks it unsaved.
-   * Persistence is deferred until the user toggles drawing off.
-   */
-  function addLocal(annotation: Annotation) {
-    unsavedIdsRef.current.add(annotation.id);
-    annotationState.addAnnotation(annotation);
-  }
-
-  /**
-   * @description Drops all unsaved annotations from local state without
-   * persisting them. Leaves already-saved annotations untouched.
+   * @description Discards all unsaved annotations from the current session.
    */
   function discardUnsaved() {
-    if (unsavedIdsRef.current.size === 0) return;
-    const kept = annotationState.annotations.filter(
-      (a) => !unsavedIdsRef.current.has(a.id),
-    );
-    unsavedIdsRef.current.clear();
-    annotationState.init(kept);
+    if (unsavedState.annotations.length === 0) return;
+    unsavedState.clear();
   }
 
   /**
    * @description Toggles drawing mode on/off. Pauses the video when enabling
-   * so users can't start playback while drawing. When disabling, persists
-   * any annotations drawn during the session and resets the undo history.
+   * so users can't start playback while drawing. When disabling, persists any
+   * annotations drawn during the session; the cache invalidation on save will
+   * reconcile them back into `savedAnnotations`.
    */
   const toggleDrawing = useCallback(() => {
     if (drawingEnabled) {
-      for (const a of annotationState.annotations) {
-        if (unsavedIdsRef.current.has(a.id)) onAnnotationSaved?.(a);
+      for (const a of unsavedState.annotations) {
+        onAnnotationSaved?.(a);
       }
-      unsavedIdsRef.current.clear();
-      annotationState.init(annotationState.annotations);
+      unsavedState.clear();
       setDrawingEnabled(false);
     } else {
       playerState.videoRef.current?.pause();
       setDrawingEnabled(true);
     }
-  }, [drawingEnabled, playerState.videoRef, annotationState, onAnnotationSaved]);
+  }, [drawingEnabled, playerState.videoRef, unsavedState, onAnnotationSaved]);
+
+  const canvasState: UseAnnotationStateReturn = {
+    annotations: mergedAnnotations,
+    addAnnotation: unsavedState.addAnnotation,
+    removeAnnotation,
+    updateAnnotation: unsavedState.updateAnnotation,
+    undo: unsavedState.undo,
+    clear: unsavedState.clear,
+    init: unsavedState.init,
+  };
 
   const drawToolbar = (
     <AnimatePresence>
@@ -159,10 +184,10 @@ export function ReviewVideoArea({
             onToolChange={setTool}
             settings={settings}
             onSettingsChange={setSettings}
-            onUndo={annotationState.undo}
+            onUndo={unsavedState.undo}
             onClear={discardUnsaved}
-            canUndo={annotationState.annotations.length > 0}
-            canClear={unsavedIdsRef.current.size > 0}
+            canUndo={unsavedState.annotations.length > 0}
+            canClear={unsavedState.annotations.length > 0}
           />
         </motion.div>
       )}
@@ -172,7 +197,7 @@ export function ReviewVideoArea({
   const annotationOverlay = (
     <AnnotationCanvas
       containerRef={playerState.containerRef}
-      state={{ ...annotationState, addAnnotation: addLocal }}
+      state={canvasState}
       videoCurrentTime={playerState.currentTime}
       tool={tool}
       settings={settings}

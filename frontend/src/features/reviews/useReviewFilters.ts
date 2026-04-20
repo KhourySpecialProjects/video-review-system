@@ -1,4 +1,4 @@
-import { useSubmit } from "react-router";
+import { useSearchParams, useSubmit } from "react-router";
 import type { DateRange } from "react-day-picker";
 import type { ReviewFilters, StudyOption } from "./types";
 import {
@@ -6,6 +6,9 @@ import {
     getDateRangeFromFilters,
     groupStudiesByStatus,
 } from "./filterUtils";
+
+/** @description Filter keys that are independently updatable via a single value. */
+type UpdatableFilterKey = "search" | "study" | "site" | "status";
 
 /**
  * @description Hook that provides derived filter state and handlers for the
@@ -16,34 +19,42 @@ import {
  */
 export function useReviewFilters(filters: ReviewFilters, studies: StudyOption[]) {
     const submit = useSubmit();
+    const [searchParams] = useSearchParams();
 
     const dateRange = getDateRangeFromFilters(filters);
     const hasActiveFilters = checkHasActiveFilters(filters);
     const groupedStudies = groupStudiesByStatus(studies);
 
     /**
-     * @description onChange handler for the Form element.
-     * Submits the form on any input change, letting the browser
-     * serialize all named inputs to search params.
-     * @param event - The change event from the form
+     * @description Updates a single filter param in the URL while preserving
+     * all other current params. Resets `page` so the user always lands back
+     * on page 1 after changing a filter.
+     * @param key - The filter param to update
+     * @param value - New value, or `null` / empty string to remove it
      */
-    function handleFormChange(event: React.ChangeEvent<HTMLFormElement>) {
-        submit(event.currentTarget, { replace: hasActiveFilters });
+    function updateFilter(key: UpdatableFilterKey, value: string | null) {
+        const params = new URLSearchParams(searchParams);
+        if (value === null || value === "") {
+            params.delete(key);
+        } else {
+            params.set(key, value);
+        }
+        params.delete("page");
+        submit(params, { replace: true });
     }
 
     /**
-     * @description Builds search params from the current loader filters
-     * with the date range overridden, then submits to trigger a navigation.
+     * @description Updates the dateFrom / dateTo params together, preserving
+     * all other params and resetting `page`.
      * @param range - The selected date range, or undefined to clear
      */
     function handleDateRangeChange(range: DateRange | undefined) {
-        const params = new URLSearchParams();
-        if (filters.search) params.set("search", filters.search);
-        if (filters.study) params.set("study", filters.study);
-        if (filters.site) params.set("site", filters.site);
-        if (filters.status) params.set("status", filters.status);
+        const params = new URLSearchParams(searchParams);
         if (range?.from) params.set("dateFrom", range.from.toISOString());
+        else params.delete("dateFrom");
         if (range?.to) params.set("dateTo", range.to.toISOString());
+        else params.delete("dateTo");
+        params.delete("page");
         submit(params, { replace: true });
     }
 
@@ -58,7 +69,7 @@ export function useReviewFilters(filters: ReviewFilters, studies: StudyOption[])
         dateRange,
         hasActiveFilters,
         groupedStudies,
-        handleFormChange,
+        updateFilter,
         handleDateRangeChange,
         clearAllFilters,
     };

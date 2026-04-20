@@ -57,7 +57,7 @@ function ReviewsBody({
         dateRange,
         hasActiveFilters,
         groupedStudies,
-        handleFormChange,
+        updateFilter,
         handleDateRangeChange,
         clearAllFilters,
     } = useReviewFilters(filters, studies);
@@ -74,7 +74,10 @@ function ReviewsBody({
                 hasActiveFilters={hasActiveFilters}
                 groupedStudies={groupedStudies}
                 sites={sites}
-                onFormChange={handleFormChange}
+                onSearchChange={(value) => updateFilter("search", value)}
+                onStudyChange={(value) => updateFilter("study", value)}
+                onSiteChange={(value) => updateFilter("site", value)}
+                onStatusChange={(value) => updateFilter("status", value)}
                 onDateRangeChange={handleDateRangeChange}
                 onClearAll={clearAllFilters}
             />

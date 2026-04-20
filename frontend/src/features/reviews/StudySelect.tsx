@@ -14,27 +14,17 @@ type StudySelectProps = {
     value: string | null;
     /** @param groupedStudies - Studies split into ongoing and completed groups */
     groupedStudies: { ongoing: StudyOption[]; completed: StudyOption[] };
+    /** @param onChange - Fires with the new study name, or null when "All" is selected */
+    onChange: (value: string | null) => void;
 };
 
 /**
  * @description Select dropdown for filtering reviews by study.
  * Displays studies in two groups: Ongoing and Completed.
- * Uses the base-ui Select `name` prop for form serialization.
- * Submission is handled by the parent Form's onChange.
  */
-export function StudySelect({ value, groupedStudies }: StudySelectProps) {
-    const items = [
-        { label: "All studies", value: null },
-        ...groupedStudies.ongoing.map((s) => ({ label: s.name, value: s.name })),
-        ...groupedStudies.completed.map((s) => ({ label: s.name, value: s.name })),
-    ];
-
+export function StudySelect({ value, groupedStudies, onChange }: StudySelectProps) {
     return (
-        <Select
-            name="study"
-            items={items}
-            value={value}
-        >
+        <Select value={value} onValueChange={onChange}>
             <SelectTrigger>
                 <SelectValue>
                     {(selected: string | null) => selected ?? "All studies"}

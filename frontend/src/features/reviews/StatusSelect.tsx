@@ -12,25 +12,16 @@ import { REVIEW_STATUS_OPTIONS } from "./filterUtils";
 type StatusSelectProps = {
     /** @param value - Currently selected status, or null for "all" */
     value: ReviewStatus | null;
+    /** @param onChange - Fires with the new status, or null when "All" is selected */
+    onChange: (value: ReviewStatus | null) => void;
 };
 
 /**
  * @description Select dropdown for filtering reviews by review status.
- * Uses the base-ui Select `name` prop for form serialization.
- * Submission is handled by the parent Form's onChange.
  */
-export function StatusSelect({ value }: StatusSelectProps) {
-    const items = [
-        { label: "All statuses", value: null },
-        ...REVIEW_STATUS_OPTIONS.map((s) => ({ label: s, value: s })),
-    ];
-
+export function StatusSelect({ value, onChange }: StatusSelectProps) {
     return (
-        <Select
-            name="status"
-            items={items}
-            value={value}
-        >
+        <Select value={value} onValueChange={onChange}>
             <SelectTrigger>
                 <SelectValue>
                     {(selected: string | null) => selected ?? "All statuses"}

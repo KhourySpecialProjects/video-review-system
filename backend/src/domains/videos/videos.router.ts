@@ -102,7 +102,10 @@ router.get("/:id/detail", async (req, res) => {
  * @returns 409 if the video is not yet UPLOADED
  */
 router.get("/:id/stream", async (req, res) => {
-  const result = await videosService.getVideoStreamUrl(req.params.id);
+  const result = await videosService.getVideoStreamUrl(
+    req.params.id,
+    req.authSession.user.id,
+  );
   res.json(result);
 });
 

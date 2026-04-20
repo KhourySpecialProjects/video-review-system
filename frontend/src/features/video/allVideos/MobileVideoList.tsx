@@ -1,3 +1,4 @@
+import { motion } from "motion/react";
 import type { Video } from "@/lib/types";
 import { Search } from "lucide-react";
 import {
@@ -15,7 +16,8 @@ type MobileVideoListProps = {
 
 /**
  * @description Card-based video list for mobile viewports.
- * Uses Empty component for the zero-results state.
+ * Uses Empty component for the zero-results state. Cards fade and
+ * slide in with a staggered spring when the result list renders.
  *
  * @param videos - Array of videos to display
  */
@@ -37,10 +39,29 @@ export function MobileVideoList({ videos }: MobileVideoListProps) {
     }
 
     return (
-        <div className="flex flex-col gap-2">
+        <motion.div
+            className="flex flex-col gap-2"
+            initial="hidden"
+            animate="visible"
+            variants={{
+                visible: { transition: { staggerChildren: 0.04 } },
+            }}
+        >
             {videos.map((video) => (
-                <MobileVideoCard key={video.id} video={video} />
+                <motion.div
+                    key={video.id}
+                    variants={{
+                        hidden: { opacity: 0, y: 12 },
+                        visible: {
+                            opacity: 1,
+                            y: 0,
+                            transition: { type: "spring", stiffness: 300, damping: 28 },
+                        },
+                    }}
+                >
+                    <MobileVideoCard video={video} />
+                </motion.div>
             ))}
-        </div>
+        </motion.div>
     );
 }
