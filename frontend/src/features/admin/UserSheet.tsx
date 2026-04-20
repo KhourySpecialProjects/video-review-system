@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import {
     Sheet,
@@ -50,30 +50,12 @@ interface FormErrors {
 export function UserSheet({ open, onOpenChange, user }: UserSheetProps) {
     const isEdit = user !== undefined;
 
-    const [firstName, setFirstName] = useState("");
-    const [lastName, setLastName] = useState("");
-    const [email, setEmail] = useState("");
-    const [role, setRole] = useState<UserRole | "">("");
-    const [site, setSite] = useState("");
+    const [firstName, setFirstName] = useState(user?.firstName ?? '');
+    const [lastName, setLastName] = useState(user?.lastName ?? '');
+    const [email, setEmail] = useState(user?.email ?? '');
+    const [role, setRole] = useState<UserRole | ''>(user?.role ?? '');
+    const [site, setSite] = useState(user?.site ?? '');
     const [errors, setErrors] = useState<FormErrors>({});
-
-    // Sync form fields when the sheet opens or the user changes.
-    useEffect(() => {
-        if (user) {
-            setFirstName(user.firstName);
-            setLastName(user.lastName);
-            setEmail(user.email);
-            setRole(user.role);
-            setSite(user.site);
-        } else {
-            setFirstName("");
-            setLastName("");
-            setEmail("");
-            setRole("");
-            setSite("");
-        }
-        setErrors({});
-    }, [user, open]);
 
     function validate(): boolean {
         const next: FormErrors = {};
