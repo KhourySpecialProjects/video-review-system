@@ -4,29 +4,42 @@ import { AppError } from "../../middleware/errors.js";
 import type { CreateAnnotationParams, UpdateAnnotationInput } from "./annotations.types.js";
 
 /**
- * retrieves a paginated list of annotations for a video, ordered by timestamp
+ * Retrieves a paginated list of annotations for a video, ordered by timestamp.
+ * Access control is handled by the accessFilter from the router.
  *
  * @param videoId - uuid of the video to get annotations for
  * @param options.limit - max number of annotations to return (default: 20)
  * @param options.offset - number of annotations to skip (default: 0)
- * 
+ * @param options.accessFilter - Prisma where clause from buildDirectAccessFilter
+ *
  * @returns annotations array and total count for pagination
  */
-export async function listAnnotationsByVideo(videoId: string, {limit = 20, offset = 0}) {
-  // creates efficient query for annotations and total with one call
+export async function listAnnotationsByVideo(
+  videoId: string,
+  {
+    limit = 20,
+    offset = 0,
+    accessFilter,
+  }: {
+    limit?: number;
+    offset?: number;
+    accessFilter: Record<string, any>;
+  }
+) {
+  const where = { videoId, ...accessFilter };
+
   const [annotations, total] = await Promise.all([
     prisma.annotation.findMany({
-      where: { videoId },
+      where,
       orderBy: { timestampS: "asc" },
       skip: offset,
       take: limit,
     }),
-    prisma.annotation.count({
-       where: { videoId } 
-    }),
+    prisma.annotation.count({ where }),
   ]);
+
   return { annotations, total, limit, offset };
-};
+}
 
 /**
  * finds a single annotation by its uuid

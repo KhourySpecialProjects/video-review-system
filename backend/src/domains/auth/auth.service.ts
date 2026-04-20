@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import prisma from "../../lib/prisma.js";
-import { auth } from "../../lib/auth.js";
+import { auth, seedDefaultPermission } from "../../lib/auth.js";
 import { AppError } from "../../middleware/errors.js";
 import {
   createInviteSchema,
@@ -136,6 +136,9 @@ export async function activateInvite(input: ActivateInviteInput) {
         updatedAt: new Date(),
       },
     });
+
+    // Seed default permission row based on role
+    // await seedDefaultPermission(userId, invitation.role, invitation.siteId, tx);
 
     return { success: true, message: "Account created. Please sign in." };
   });

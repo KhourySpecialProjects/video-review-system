@@ -549,15 +549,21 @@ export function createBodyContextResolver() {
  * @param userId - The newly created user's ID
  * @param role   - The user's assigned role
  * @param siteId - The user's home site ID
+ * @param tx     - Optional transaction client
+ * 
+ * @returns A promise that resolves when the permission row is created
  */
 export async function seedDefaultPermission(
   userId: string,
   role: user_role,
-  siteId: string
+  siteId: string,
+  tx?: any // accepts either the transaction client or falls back to prisma
 ): Promise<void> {
+  const db = tx ?? prisma;
+
   switch (role) {
     case "SYSADMIN":
-      await prisma.userPermission.create({
+      await db.userPermission.create({
         data: {
           userId,
           siteId: null,
@@ -569,7 +575,7 @@ export async function seedDefaultPermission(
       break;
 
     case "SITE_COORDINATOR":
-      await prisma.userPermission.create({
+      await db.userPermission.create({
         data: {
           userId,
           siteId,
@@ -581,11 +587,7 @@ export async function seedDefaultPermission(
       break;
 
     case "CLINICAL_REVIEWER":
-      // No default — admin assigns specific study/site grants
-      break;
-
     case "CAREGIVER":
-      // No default — access is purely ownership-based
       break;
   }
 }
