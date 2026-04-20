@@ -25,23 +25,37 @@ import { UserSheet } from "./UserSheet";
 import type { User } from "./UserSheet";
 import { PlusIcon } from "lucide-react";
 
-// TODO: wire to backend API
-const mockUsers: User[] = [
+export interface Site {
+    id: number;
+    name: string;
+    caregivers: number;
+    studies: number;
+    coordinator: string;
+}
+
+export interface AuditLog {
+    id: number;
+    actionType: string;
+    entityType: string;
+    user: string;
+    site: string;
+    dateTime: string;
+}
+
+const DEFAULT_USERS: User[] = [
     { id: 1, firstName: "Sarah", lastName: "Chen", email: "sarah.chen@example.com", role: "System Admin", site: "All Sites" },
     { id: 2, firstName: "Marcus", lastName: "Rivera", email: "marcus.rivera@example.com", role: "Clinical Reviewer", site: "Boston General" },
     { id: 3, firstName: "Priya", lastName: "Patel", email: "priya.patel@example.com", role: "Site Coordinator", site: "Mass General" },
     { id: 4, firstName: "James", lastName: "O'Brien", email: "james.obrien@example.com", role: "Caregiver", site: "Boston General" },
 ];
 
-// TODO: wire to backend API
-const mockSites = [
+const DEFAULT_SITES: Site[] = [
     { id: 1, name: "Boston General", caregivers: 8, studies: 2, coordinator: "Priya Patel" },
     { id: 2, name: "Mass General", caregivers: 12, studies: 3, coordinator: "Emily Torres" },
     { id: 3, name: "Children's Hospital", caregivers: 5, studies: 1, coordinator: "David Kim" },
 ];
 
-// TODO: wire to backend API
-const mockAuditLogs = [
+const DEFAULT_AUDIT_LOGS: AuditLog[] = [
     { id: 1, actionType: "Create", entityType: "User", user: "Sarah Chen", site: "All Sites", dateTime: "2026-04-14 09:23:01" },
     { id: 2, actionType: "Update", entityType: "Video", user: "Marcus Rivera", site: "Boston General", dateTime: "2026-04-14 11:45:22" },
     { id: 3, actionType: "Delete", entityType: "Site", user: "Sarah Chen", site: "Mass General", dateTime: "2026-04-13 16:02:55" },
@@ -70,6 +84,9 @@ const actionBadgeVariant: Record<string, BadgeVariant> = {
 interface AdminTableProps {
     defaultTab?: "users" | "sites" | "audit-logs";
     isLoading?: boolean;
+    users?: User[];
+    sites?: Site[];
+    auditLogs?: AuditLog[];
 }
 
 function SkeletonRows({ cols, rows = 4 }: { cols: number; rows?: number }) {
@@ -98,7 +115,13 @@ function EmptyRow({ cols, message = "No results found." }: { cols: number; messa
     );
 }
 
-export function AdminTable({ defaultTab = "users", isLoading = false }: AdminTableProps) {
+export function AdminTable({
+    defaultTab = "users",
+    isLoading = false,
+    users = DEFAULT_USERS,
+    sites = DEFAULT_SITES,
+    auditLogs = DEFAULT_AUDIT_LOGS,
+}: AdminTableProps) {
     const [userSearch, setUserSearch] = useState("");
     const [userRoleFilter, setUserRoleFilter] = useState("all");
 
@@ -120,18 +143,18 @@ export function AdminTable({ defaultTab = "users", isLoading = false }: AdminTab
         setSheetOpen(true);
     }
 
-    const filteredUsers = mockUsers.filter((u) => {
+    const filteredUsers = users.filter((u) => {
         const matchesSearch =
             `${u.firstName} ${u.lastName}`.toLowerCase().includes(userSearch.toLowerCase());
         const matchesRole = userRoleFilter === "all" || u.role === userRoleFilter;
         return matchesSearch && matchesRole;
     });
 
-    const filteredSites = mockSites.filter((s) =>
+    const filteredSites = sites.filter((s) =>
         s.name.toLowerCase().includes(siteSearch.toLowerCase())
     );
 
-    const filteredAuditLogs = mockAuditLogs.filter((log) => {
+    const filteredAuditLogs = auditLogs.filter((log) => {
         const matchesSearch =
             log.user.toLowerCase().includes(auditSearch.toLowerCase()) ||
             log.site.toLowerCase().includes(auditSearch.toLowerCase());
