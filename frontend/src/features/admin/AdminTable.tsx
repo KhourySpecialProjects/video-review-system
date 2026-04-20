@@ -38,10 +38,10 @@ const mockSites = [
 
 // TODO: wire to backend API
 const mockAuditLogs = [
-    { id: 1, actionType: "Create", entityType: "User", user: "Sarah Chen", site: "All Sites", dateTime: "2026-04-14 09:23:01" },
-    { id: 2, actionType: "Update", entityType: "Video", user: "Marcus Rivera", site: "Boston General", dateTime: "2026-04-14 11:45:22" },
-    { id: 3, actionType: "Delete", entityType: "Site", user: "Sarah Chen", site: "Mass General", dateTime: "2026-04-13 16:02:55" },
-    { id: 4, actionType: "Login", entityType: "Session", user: "Priya Patel", site: "Mass General", dateTime: "2026-04-15 08:10:33" },
+    { id: 1, actionType: "Create", entityType: "User", user: "Sarah Chen", role: "System Admin", site: "All Sites", dateTime: "2026-04-14 09:23:01" },
+    { id: 2, actionType: "Update", entityType: "Video", user: "Marcus Rivera", role: "Clinical Reviewer", site: "Boston General", dateTime: "2026-04-14 11:45:22" },
+    { id: 3, actionType: "Delete", entityType: "Site", user: "Sarah Chen", role: "System Admin", site: "Mass General", dateTime: "2026-04-13 16:02:55" },
+    { id: 4, actionType: "Login", entityType: "Session", user: "Priya Patel", role: "Site Coordinator", site: "Mass General", dateTime: "2026-04-15 08:10:33" },
 ];
 
 const USER_ROLES = ["System Admin", "Clinical Reviewer", "Site Coordinator", "Caregiver"] as const;
@@ -68,6 +68,7 @@ interface AdminTableProps {
     isLoading?: boolean;
 }
 
+/** Renders placeholder skeleton rows while data is loading. */
 function SkeletonRows({ cols, rows = 4 }: { cols: number; rows?: number }) {
     return (
         <>
@@ -84,6 +85,7 @@ function SkeletonRows({ cols, rows = 4 }: { cols: number; rows?: number }) {
     );
 }
 
+/** Renders a single full-width row with an empty-state message. */
 function EmptyRow({ cols, message = "No results found." }: { cols: number; message?: string }) {
     return (
         <TableRow>
@@ -94,6 +96,11 @@ function EmptyRow({ cols, message = "No results found." }: { cols: number; messa
     );
 }
 
+/**
+ * Tabbed admin table showing Users, Sites, and Audit Logs.
+ * Each tab has its own search/filter controls and a data table.
+ * All data is currently mocked and should be replaced with API calls.
+ */
 export function AdminTable({ defaultTab = "users", isLoading = false }: AdminTableProps) {
     const [userSearch, setUserSearch] = useState("");
     const [userRoleFilter, setUserRoleFilter] = useState("all");
@@ -102,6 +109,9 @@ export function AdminTable({ defaultTab = "users", isLoading = false }: AdminTab
 
     const [auditSearch, setAuditSearch] = useState("");
     const [auditActionFilter, setAuditActionFilter] = useState("all");
+    const [auditRoleFilter, setAuditRoleFilter] = useState("all");
+    const [auditStartDate, setAuditStartDate] = useState("");
+    const [auditEndDate, setAuditEndDate] = useState("");
 
     const filteredUsers = mockUsers.filter((u) => {
         const matchesSearch =
@@ -119,7 +129,11 @@ export function AdminTable({ defaultTab = "users", isLoading = false }: AdminTab
             log.user.toLowerCase().includes(auditSearch.toLowerCase()) ||
             log.site.toLowerCase().includes(auditSearch.toLowerCase());
         const matchesAction = auditActionFilter === "all" || log.actionType === auditActionFilter;
-        return matchesSearch && matchesAction;
+        const matchesRole = auditRoleFilter === "all" || log.role === auditRoleFilter;
+        const logDate = log.dateTime.slice(0, 10);
+        const matchesStart = !auditStartDate || logDate >= auditStartDate;
+        const matchesEnd = !auditEndDate || logDate <= auditEndDate;
+        return matchesSearch && matchesAction && matchesRole && matchesStart && matchesEnd;
     });
 
     return (
@@ -247,6 +261,29 @@ export function AdminTable({ defaultTab = "users", isLoading = false }: AdminTab
                             ))}
                         </SelectContent>
                     </Select>
+                    <Select value={auditRoleFilter} onValueChange={setAuditRoleFilter}>
+                        <SelectTrigger className="h-8 w-44 text-sm">
+                            <SelectValue placeholder="All Roles" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Roles</SelectItem>
+                            {USER_ROLES.map((role) => (
+                                <SelectItem key={role} value={role}>{role}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <Input
+                        type="date"
+                        value={auditStartDate}
+                        onChange={(e) => setAuditStartDate(e.target.value)}
+                        className="h-8 w-40 text-sm"
+                    />
+                    <Input
+                        type="date"
+                        value={auditEndDate}
+                        onChange={(e) => setAuditEndDate(e.target.value)}
+                        className="h-8 w-40 text-sm"
+                    />
                 </div>
 
                 <div className="rounded-md border bg-background">
