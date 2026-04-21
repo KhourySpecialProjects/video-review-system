@@ -31,10 +31,12 @@ export async function clientAction({ request }: ActionFunctionArgs) {
     }
 
     const { email, password } = result.data;
+    const rememberMe = formData.get("rememberMe") !== null;
 
     const response = await authClient.signIn.email({
         email,
         password,
+        rememberMe,
     });
 
     if (response.error) {

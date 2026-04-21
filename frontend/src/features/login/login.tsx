@@ -8,6 +8,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Form, Link, useActionData, useNavigation } from "react-router";
@@ -93,6 +94,14 @@ export function Login() {
                             {fieldErrors.password && (
                                 <p className="text-xs font-medium text-destructive">{fieldErrors.password}</p>
                             )}
+                        </div>
+
+                        {/* Remember Me checkbox. When checked, Better Auth issues a persistent session cookie. */}
+                        <div className="flex items-center gap-2">
+                            <Checkbox id="rememberMe" name="rememberMe" defaultChecked />
+                            <Label htmlFor="rememberMe" className="text-sm font-normal cursor-pointer">
+                                Remember me
+                            </Label>
                         </div>
 
                         {/* Submit Button. Disabled and updates text while request is processing. */}

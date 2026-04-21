@@ -150,6 +150,45 @@ export async function activateInvite(input: ActivateInviteInput) {
           permissionLevel: "ADMIN",
         },
       });
+    } else if (invitation.role === "SITE_COORDINATOR") {
+      await tx.userPermission.create({
+        data: {
+          userId,
+          studyId: null,
+          siteId: invitation.siteId,
+          videoId: null,
+          permissionLevel: "ADMIN",
+        },
+      });
+    } else if (invitation.role === "CLINICAL_REVIEWER") {
+      await tx.userPermission.create({
+        data: {
+          userId,
+          studyId: null,
+          siteId: invitation.siteId,
+          videoId: null,
+          permissionLevel: "WRITE",
+        },
+      });
+    } else {
+      const miscStudy = await tx.study.findFirst({
+        where: {
+          name: "Miscellaneous",
+          siteStudies: { some: { siteId: invitation.siteId } },
+        },
+        select: { id: true },
+      });
+
+      if (!miscStudy) {
+        throw AppError.badRequest("Miscellaneous study not found");
+      }
+
+      await tx.caregiverPatient.create({
+        data: {
+          studyId: miscStudy.id,
+          userId,
+        },
+      });
     }
 
     return { success: true, message: "Account created. Please sign in." };
