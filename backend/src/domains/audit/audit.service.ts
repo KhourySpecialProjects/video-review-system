@@ -1,61 +1,13 @@
 import type { AuditLog, Prisma } from "../../generated/prisma/index.js";
 import type {
-  AuditEntityType,
+  AuditedUpdateInput,
+  MappedAuditedUpdateInput,
   AuditEventInput,
+  AuditWriteClient,
   AuditSnapshot,
+  UpdateAuditEventInput,
+  AuditedRecord,
 } from "./audit.types.js";
-
-/**
- * Prisma surface needed by `recordAudit`.
- */
-export interface AuditWriteClient {
-  auditLog: {
-    create(args: {
-      data: Prisma.AuditLogUncheckedCreateInput;
-    }): Promise<AuditLog>;
-  };
-}
-
-type AuditedRecord = {
-  id: string;
-};
-
-/** Input for an update audit event. */
-type UpdateAuditEventInput<T extends AuditedRecord> = {
-  actorUserId: string;
-  entityType: AuditEntityType;
-  siteId: string;
-  before: T;
-  after: T;
-  snapshot: (value: T) => AuditSnapshot;
-  ipAddress?: string | null;
-};
-
-type AuditedUpdateBaseInput<TRecord extends AuditedRecord> = {
-  client: AuditWriteClient;
-  loadBefore: () => Promise<TRecord | null>;
-  update: () => Promise<TRecord>;
-  notFound: Error;
-  actorUserId: string;
-  entityType: AuditEntityType;
-  snapshot: (value: TRecord) => AuditSnapshot;
-  getSiteId: (before: TRecord, after: TRecord) => string;
-  ipAddress?: string | null;
-};
-
-/** Input for a transaction-safe audited update. */
-export type AuditedUpdateInput<TRecord extends AuditedRecord> =
-  AuditedUpdateBaseInput<TRecord> & {
-    mapResult?: undefined;
-  };
-
-/** Input for a transaction-safe audited update with mapped output. */
-export type MappedAuditedUpdateInput<
-  TRecord extends AuditedRecord,
-  TResult,
-> = AuditedUpdateBaseInput<TRecord> & {
-  mapResult: (value: TRecord) => TResult;
-};
 
 /**
  * Ensures a snapshot is object-shaped.

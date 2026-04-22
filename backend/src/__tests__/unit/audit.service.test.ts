@@ -4,9 +4,11 @@ import {
   recordAudit,
   runAuditedUpdate,
   toAuditCreateInput,
-  type AuditWriteClient,
 } from "../../domains/audit/audit.service.js";
-import type { AuditEventInput } from "../../domains/audit/audit.types.js";
+import type {
+  AuditEventInput,
+  AuditWriteClient,
+} from "../../domains/audit/audit.types.js";
 
 const createMock = vi.fn();
 

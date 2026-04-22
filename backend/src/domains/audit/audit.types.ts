@@ -1,4 +1,6 @@
 import type {
+  AuditLog,
+  Prisma,
   action_type,
   annotation_type,
   entity_type,
@@ -40,6 +42,57 @@ export interface AuditEventInput {
   newValues: AuditSnapshot;
   ipAddress?: string | null;
 }
+
+/** Prisma surface needed by `recordAudit`. */
+export interface AuditWriteClient {
+  auditLog: {
+    create(args: {
+      data: Prisma.AuditLogUncheckedCreateInput;
+    }): Promise<AuditLog>;
+  };
+}
+
+/** Minimal record shape needed for audited updates. */
+export type AuditedRecord = {
+  id: string;
+};
+
+/** Input for an update audit event. */
+export type UpdateAuditEventInput<T extends AuditedRecord> = {
+  actorUserId: string;
+  entityType: AuditEntityType;
+  siteId: string;
+  before: T;
+  after: T;
+  snapshot: (value: T) => AuditSnapshot;
+  ipAddress?: string | null;
+};
+
+export type AuditedUpdateBaseInput<TRecord extends AuditedRecord> = {
+  client: AuditWriteClient;
+  loadBefore: () => Promise<TRecord | null>;
+  update: () => Promise<TRecord>;
+  notFound: Error;
+  actorUserId: string;
+  entityType: AuditEntityType;
+  snapshot: (value: TRecord) => AuditSnapshot;
+  getSiteId: (before: TRecord, after: TRecord) => string;
+  ipAddress?: string | null;
+};
+
+/** Input for a transaction-safe audited update. */
+export type AuditedUpdateInput<TRecord extends AuditedRecord> =
+  AuditedUpdateBaseInput<TRecord> & {
+    mapResult?: undefined;
+  };
+
+/** Input for a transaction-safe audited update with mapped output. */
+export type MappedAuditedUpdateInput<
+  TRecord extends AuditedRecord,
+  TResult,
+> = AuditedUpdateBaseInput<TRecord> & {
+  mapResult: (value: TRecord) => TResult;
+};
 
 /** Video snapshot for audit rows. */
 export interface AuditVideoSnapshot extends AuditSnapshot {
