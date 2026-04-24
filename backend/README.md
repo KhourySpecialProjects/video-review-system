@@ -75,6 +75,14 @@ src/
     └── prisma/           # Prisma client
 ```
 
+## Audit layer
+
+The backend now includes a standalone audit logging core under `src/domains/audit/`.
+
+- the core currently provides typed audit events, safe snapshot builders, and a write service
+- route integration is intentionally deferred until the endpoint surface is more stable
+- the current implementation is aligned to the existing `AuditLog` schema, so future wiring should only log flows that can provide a concrete actor, entity ID, and site ID honestly
+
 ## Testing
 
 Backend tests use `Vitest` as the test runner and `Supertest` for router-level
