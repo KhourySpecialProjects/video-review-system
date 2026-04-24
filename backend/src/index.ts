@@ -68,7 +68,7 @@ export function createApp() {
   app.use("/api/domain/sites", sitesRouter);
   app.use("/api/domain/studies", studiesRouter);
   // app.use("/api/domain/accounts", accountsRouter);
-  // app.use("/domain/audit", auditRouter);
+  // app.use("/api/domain/audit", auditRouter);
 
   // error handling — must be registered after all routes
   app.use(notFoundHandler);

@@ -1,4 +1,12 @@
 import prisma from "../../lib/prisma.js";
+import {
+  recordAudit,
+  runAuditedCreate,
+  runAuditedDelete,
+  runAuditedUpdate,
+} from "../audit/audit.service.js";
+import { buildSequenceSnapshot } from "../audit/audit.snapshots.js";
+import type { AuthenticatedAuditContext } from "../audit/audit.types.js";
 import { AppError } from "../../middleware/errors.js";
 import type {
   CreateSequenceInput,
@@ -11,6 +19,22 @@ import type {
 // SEQUENCES
 // ────────────────────────────────────────────────────────────
 
+type SequenceItemAuditValue = {
+  clipId: string;
+  playOrder: number;
+};
+
+function buildSequenceItemsSnapshot(items: SequenceItemAuditValue[]) {
+  return {
+    items: [...items]
+      .sort((a, b) => a.playOrder - b.playOrder)
+      .map((item) => ({
+        clipId: item.clipId,
+        playOrder: item.playOrder,
+      })),
+  };
+}
+
 /**
  * Creates a new stitched sequence.
  * Validates that the source video exists before creating.
@@ -22,7 +46,11 @@ import type {
  *
  * @throws {AppError} 404 if the source video does not exist
  */
-export async function createSequence(input: CreateSequenceInput, createdByUserId: string) {
+export async function createSequence(
+  input: CreateSequenceInput,
+  createdByUserId: string,
+  audit?: AuthenticatedAuditContext,
+) {
   const video = await prisma.video.findUnique({
     where: { id: input.videoId },
   });
@@ -31,17 +59,41 @@ export async function createSequence(input: CreateSequenceInput, createdByUserId
     throw AppError.notFound("Source video not found");
   }
 
-  const sequence = await prisma.stitchedSequence.create({
-    data: {
-      studyId: input.studyId,
-      siteId: input.siteId,
-      videoId: input.videoId,
-      createdByUserId,
-      title: input.title,
-    },
-  });
+  const create = () =>
+    prisma.stitchedSequence.create({
+      data: {
+        studyId: input.studyId,
+        siteId: input.siteId,
+        videoId: input.videoId,
+        createdByUserId,
+        title: input.title,
+      },
+    });
 
-  return sequence;
+  if (!audit) {
+    return create();
+  }
+
+  return prisma.$transaction((tx) =>
+    runAuditedCreate({
+      client: tx,
+      create: () =>
+        tx.stitchedSequence.create({
+          data: {
+            studyId: input.studyId,
+            siteId: input.siteId,
+            videoId: input.videoId,
+            createdByUserId,
+            title: input.title,
+          },
+        }),
+      actorUserId: audit.actorUserId,
+      entityType: "SEQUENCE",
+      snapshot: buildSequenceSnapshot,
+      getSiteId: (sequence) => sequence.siteId,
+      ipAddress: audit.ipAddress,
+    }),
+  );
 }
 
 /**
@@ -103,19 +155,46 @@ export async function getSequence(sequenceId: string) {
  * @returns the updated sequence with its items
  * @throws {AppError} 404 if no sequence with that id exists
  */
-export async function updateSequence(sequenceId: string, input: UpdateSequenceInput) {
-  const sequence = await prisma.stitchedSequence.findUnique({
-    where: { id: sequenceId },
-  });
+export async function updateSequence(
+  sequenceId: string,
+  input: UpdateSequenceInput,
+  audit?: AuthenticatedAuditContext,
+) {
+  if (!audit) {
+    const sequence = await prisma.stitchedSequence.findUnique({
+      where: { id: sequenceId },
+    });
 
-  if (!sequence) {
-    throw AppError.notFound("Sequence not found");
+    if (!sequence) {
+      throw AppError.notFound("Sequence not found");
+    }
+
+    await prisma.stitchedSequence.update({
+      where: { id: sequenceId },
+      data: { title: input.title },
+    });
+
+    return getSequence(sequenceId);
   }
 
-  await prisma.stitchedSequence.update({
-    where: { id: sequenceId },
-    data: { title: input.title },
-  });
+  await prisma.$transaction((tx) =>
+    runAuditedUpdate({
+      client: tx,
+      loadBefore: () =>
+        tx.stitchedSequence.findUnique({ where: { id: sequenceId } }),
+      update: () =>
+        tx.stitchedSequence.update({
+          where: { id: sequenceId },
+          data: { title: input.title },
+        }),
+      notFound: AppError.notFound("Sequence not found"),
+      actorUserId: audit.actorUserId,
+      entityType: "SEQUENCE",
+      snapshot: buildSequenceSnapshot,
+      getSiteId: (seq) => seq.siteId,
+      ipAddress: audit.ipAddress,
+    }),
+  );
 
   return getSequence(sequenceId);
 }
@@ -133,7 +212,11 @@ export async function updateSequence(sequenceId: string, input: UpdateSequenceIn
  * @throws {AppError} 404 if the clip does not exist
  * @throws {AppError} 409 if the clip is already in this sequence
  */
-export async function addClipToSequence(sequenceId: string, input: AddClipToSequenceInput) {
+export async function addClipToSequence(
+  sequenceId: string,
+  input: AddClipToSequenceInput,
+  audit?: AuthenticatedAuditContext,
+) {
   const [sequence, clip, existing] = await Promise.all([
     prisma.stitchedSequence.findUnique({ where: { id: sequenceId } }),
     prisma.videoClip.findUnique({ where: { id: input.clipId } }),
@@ -149,12 +232,40 @@ export async function addClipToSequence(sequenceId: string, input: AddClipToSequ
   // ensure the clip belongs to the same video, site, and study as the sequence
   assertClipMatchesSequence(clip, sequence);
 
-  return prisma.sequenceItem.create({
-    data: {
-      clipId: input.clipId,
-      sequenceId,
-      playOrder: input.playOrder,
-    },
+  if (!audit) {
+    return prisma.sequenceItem.create({
+      data: {
+        clipId: input.clipId,
+        sequenceId,
+        playOrder: input.playOrder,
+      },
+    });
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const item = await tx.sequenceItem.create({
+      data: {
+        clipId: input.clipId,
+        sequenceId,
+        playOrder: input.playOrder,
+      },
+    });
+
+    await recordAudit(tx, {
+      actorUserId: audit.actorUserId,
+      actionType: "UPDATE",
+      entityType: "SEQUENCE",
+      entityId: sequence.id,
+      siteId: sequence.siteId,
+      oldValues: {},
+      newValues: {
+        addedClipId: item.clipId,
+        playOrder: item.playOrder,
+      },
+      ipAddress: audit.ipAddress,
+    });
+
+    return item;
   });
 }
 
@@ -169,22 +280,52 @@ export async function addClipToSequence(sequenceId: string, input: AddClipToSequ
  *
  * @throws {AppError} 404 if the sequence does not exist
  */
-export async function reorderSequenceClips(sequenceId: string, input: ReorderSequenceInput) {
-  const sequence = await prisma.stitchedSequence.findUnique({
-    where: { id: sequenceId },
+export async function reorderSequenceClips(
+  sequenceId: string,
+  input: ReorderSequenceInput,
+  audit?: AuthenticatedAuditContext,
+) {
+  await prisma.$transaction(async (tx) => {
+    const sequence = await tx.stitchedSequence.findUnique({
+      where: { id: sequenceId },
+    });
+
+    if (!sequence) {
+      throw AppError.notFound("Sequence not found");
+    }
+
+    const beforeItems = audit
+      ? await tx.sequenceItem.findMany({
+          where: { sequenceId },
+          select: {
+            clipId: true,
+            playOrder: true,
+          },
+        })
+      : [];
+
+    await Promise.all(
+      input.items.map((item) =>
+        tx.sequenceItem.update({
+          where: { clipId_sequenceId: { clipId: item.clipId, sequenceId } },
+          data: { playOrder: item.playOrder },
+        }),
+      ),
+    );
+
+    if (audit) {
+      await recordAudit(tx, {
+        actorUserId: audit.actorUserId,
+        actionType: "UPDATE",
+        entityType: "SEQUENCE",
+        entityId: sequence.id,
+        siteId: sequence.siteId,
+        oldValues: buildSequenceItemsSnapshot(beforeItems),
+        newValues: buildSequenceItemsSnapshot(input.items),
+        ipAddress: audit.ipAddress,
+      });
+    }
   });
-
-  if (!sequence) {
-    throw AppError.notFound("Sequence not found");
-  }
-
-  // updates clips in the sequence to match the new play order
-  await prisma.$transaction(input.items.map((item) =>
-    prisma.sequenceItem.update({
-      where: { clipId_sequenceId: { clipId: item.clipId, sequenceId } },
-      data: { playOrder: item.playOrder },
-    })
-  ));
 
   // Return the updated sequence with ordered items
   return await getSequence(sequenceId);
@@ -198,27 +339,56 @@ export async function reorderSequenceClips(sequenceId: string, input: ReorderSeq
  *
  * @throws {AppError} 404 if the clip is not in this sequence
  */
-export async function removeClipFromSequence(sequenceId: string, clipId: string) {
-  const item = await prisma.sequenceItem.findUnique({
-    where: {
-      clipId_sequenceId: {
-        clipId,
-        sequenceId,
-      },
-    },
-  });
+export async function removeClipFromSequence(
+  sequenceId: string,
+  clipId: string,
+  audit?: AuthenticatedAuditContext,
+) {
+  await prisma.$transaction(async (tx) => {
+    const [sequence, item] = await Promise.all([
+      tx.stitchedSequence.findUnique({ where: { id: sequenceId } }),
+      tx.sequenceItem.findUnique({
+        where: {
+          clipId_sequenceId: {
+            clipId,
+            sequenceId,
+          },
+        },
+      }),
+    ]);
 
-  if (!item) {
-    throw AppError.notFound("Clip is not in this sequence");
-  }
+    if (!sequence) {
+      throw AppError.notFound("Sequence not found");
+    }
 
-  await prisma.sequenceItem.delete({
-    where: {
-      clipId_sequenceId: {
-        clipId,
-        sequenceId,
+    if (!item) {
+      throw AppError.notFound("Clip is not in this sequence");
+    }
+
+    await tx.sequenceItem.delete({
+      where: {
+        clipId_sequenceId: {
+          clipId,
+          sequenceId,
+        },
       },
-    },
+    });
+
+    if (audit) {
+      await recordAudit(tx, {
+        actorUserId: audit.actorUserId,
+        actionType: "UPDATE",
+        entityType: "SEQUENCE",
+        entityId: sequence.id,
+        siteId: sequence.siteId,
+        oldValues: {
+          removedClipId: item.clipId,
+          playOrder: item.playOrder,
+        },
+        newValues: {},
+        ipAddress: audit.ipAddress,
+      });
+    }
   });
 }
 
@@ -230,18 +400,44 @@ export async function removeClipFromSequence(sequenceId: string, clipId: string)
  *
  * @throws {AppError} 404 if no sequence with that id exists
  */
-export async function deleteSequence(sequenceId: string) {
-  const sequence = await prisma.stitchedSequence.findUnique({
-    where: { id: sequenceId },
-  });
+export async function deleteSequence(
+  sequenceId: string,
+  audit?: AuthenticatedAuditContext,
+) {
+  if (!audit) {
+    const sequence = await prisma.stitchedSequence.findUnique({
+      where: { id: sequenceId },
+    });
 
-  if (!sequence) {
-    throw AppError.notFound("Sequence not found");
+    if (!sequence) {
+      throw AppError.notFound("Sequence not found");
+    }
+
+    await prisma.stitchedSequence.delete({
+      where: { id: sequenceId },
+    });
+    return;
   }
 
-  await prisma.stitchedSequence.delete({
-    where: { id: sequenceId },
-  });
+  await prisma.$transaction((tx) =>
+    runAuditedDelete({
+      client: tx,
+      loadBefore: () =>
+        tx.stitchedSequence.findUnique({
+          where: { id: sequenceId },
+        }),
+      deleteRecord: (sequence) =>
+        tx.stitchedSequence.delete({
+          where: { id: sequence.id },
+        }),
+      notFound: AppError.notFound("Sequence not found"),
+      actorUserId: audit.actorUserId,
+      entityType: "SEQUENCE",
+      snapshot: buildSequenceSnapshot,
+      getSiteId: (sequence) => sequence.siteId,
+      ipAddress: audit.ipAddress,
+    }),
+  );
 }
 
 /**

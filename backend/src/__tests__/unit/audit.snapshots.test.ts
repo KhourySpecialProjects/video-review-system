@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   buildAnnotationSnapshot,
+  buildAnnotationUpdateSnapshot,
   buildClipSnapshot,
+  buildInvitationSnapshot,
   buildPermissionSnapshot,
   buildSequenceSnapshot,
+  buildSiteSnapshot,
+  buildStudySnapshot,
   buildUserSnapshot,
   buildVideoSnapshot,
   summarizeAnnotationPayload,
@@ -39,7 +43,6 @@ describe("audit.snapshots", () => {
     };
 
     expect(buildVideoSnapshot(baseVideo)).toEqual({
-      id: "video-1",
       uploadedByUserId: "user-1",
       status: "UPLOADED",
       durationSeconds: 42,
@@ -52,7 +55,6 @@ describe("audit.snapshots", () => {
         privateNotes: "Occurred after waking up",
       }),
     ).toEqual({
-      id: "video-1",
       uploadedByUserId: "user-1",
       status: "UPLOADED",
       durationSeconds: 42,
@@ -107,12 +109,19 @@ describe("audit.snapshots", () => {
     };
 
     expect(buildAnnotationSnapshot(annotation)).toEqual({
-      id: "annotation-1",
       videoId: "video-1",
       authorUserId: "user-1",
       studyId: "study-1",
       siteId: "site-1",
       type: "drawing_box",
+      timestampS: 34,
+      durationS: 5,
+      payload: {
+        changed: true,
+      },
+    });
+
+    expect(buildAnnotationUpdateSnapshot(annotation)).toEqual({
       timestampS: 34,
       durationS: 5,
       payload: {
@@ -133,7 +142,6 @@ describe("audit.snapshots", () => {
     };
 
     expect(buildPermissionSnapshot(permission)).toEqual({
-      id: "perm-1",
       userId: "user-1",
       permissionLevel: "ADMIN",
       siteId: "site-1",
@@ -167,7 +175,6 @@ describe("audit.snapshots", () => {
 
     expect(
       buildSequenceSnapshot({
-        id: "sequence-1",
         videoId: "video-1",
         createdByUserId: "user-1",
         studyId: "study-1",
@@ -175,12 +182,39 @@ describe("audit.snapshots", () => {
         title: "Episode highlights",
       }),
     ).toEqual({
-      id: "sequence-1",
       videoId: "video-1",
       createdByUserId: "user-1",
       studyId: "study-1",
       siteId: "site-1",
       title: "Episode highlights",
+    });
+  });
+
+  it("buildStudySnapshot returns name and status", () => {
+    expect(
+      buildStudySnapshot({ name: "Motor skills", status: "IN_PROGRESS" }),
+    ).toEqual({ name: "Motor skills", status: "IN_PROGRESS" });
+  });
+
+  it("buildSiteSnapshot returns name only", () => {
+    expect(buildSiteSnapshot({ name: "Boston Children's" })).toEqual({
+      name: "Boston Children's",
+    });
+  });
+
+  it("buildInvitationSnapshot excludes tokenHash", () => {
+    const invitation = {
+      id: "inv-1",
+      email: "invitee@example.com",
+      role: "CAREGIVER" as const,
+      siteId: "site-1",
+      tokenHash: "should-not-appear",
+    };
+
+    expect(buildInvitationSnapshot(invitation)).toEqual({
+      email: "invitee@example.com",
+      role: "CAREGIVER",
+      siteId: "site-1",
     });
   });
 });

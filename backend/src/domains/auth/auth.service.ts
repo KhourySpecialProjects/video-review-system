@@ -1,6 +1,12 @@
 import crypto from "crypto";
 import prisma from "../../lib/prisma.js";
 import { auth } from "../../lib/auth.js";
+import { recordAudit } from "../audit/audit.service.js";
+import {
+  buildInvitationSnapshot,
+  buildUserSnapshot,
+} from "../audit/audit.snapshots.js";
+import type { AuthenticatedAuditContext } from "../audit/audit.types.js";
 import { AppError } from "../../middleware/errors.js";
 import {
   createInviteSchema,
@@ -21,7 +27,10 @@ import { sendInviteEmail } from "../../lib/ses.js";
  * @throws {ZodError} If input validation fails
  * @throws {Error} If database operation fails
  */
-export async function createInvite(input: CreateInviteInput) {
+export async function createInvite(
+  input: CreateInviteInput,
+  audit?: AuthenticatedAuditContext,
+) {
   // Zod parse validates and returns typed data (throws on invalid input)
   const { email, role, siteId } = createInviteSchema.parse(input);
 
@@ -31,16 +40,32 @@ export async function createInvite(input: CreateInviteInput) {
   const token = crypto.randomBytes(32).toString("hex");
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
-  const invitation = await prisma.invitation.create({
-    data: {
-      email: normalizedEmail,
-      role,
-      siteId,
-      tokenHash,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-      // TODO: dev-only: using placeholder until we have authenticated admin routes
-      createdBy: "system",
-    },
+  const invitation = await prisma.$transaction(async (tx) => {
+    const created = await tx.invitation.create({
+      data: {
+        email: normalizedEmail,
+        role,
+        siteId,
+        tokenHash,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        createdBy: audit?.actorUserId ?? "system",
+      },
+    });
+
+    if (audit) {
+      await recordAudit(tx, {
+        actorUserId: audit.actorUserId,
+        actionType: "CREATE",
+        entityType: "INVITATION",
+        entityId: created.id,
+        siteId,
+        oldValues: {},
+        newValues: buildInvitationSnapshot(created),
+        ipAddress: audit.ipAddress,
+      });
+    }
+
+    return created;
   });
 
   await sendInviteEmail(normalizedEmail, token);
@@ -190,6 +215,23 @@ export async function activateInvite(input: ActivateInviteInput) {
         },
       });
     }
+
+    await recordAudit(tx, {
+      actorUserId: userId,
+      actionType: "CREATE",
+      entityType: "USER",
+      entityId: userId,
+      siteId: invitation.siteId,
+      oldValues: {},
+      newValues: buildUserSnapshot({
+        id: userId,
+        email: normalizedEmail,
+        role: invitation.role,
+        siteId: invitation.siteId,
+        isDeactivated: false,
+      }),
+      ipAddress: null,
+    });
 
     return { success: true, message: "Account created. Please sign in." };
   });

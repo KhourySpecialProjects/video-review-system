@@ -1,6 +1,9 @@
 import type {
   Annotation,
   CaregiverVideoMetadata,
+  Invitation,
+  Site,
+  Study,
   User,
   UserPermission,
   Video,
@@ -10,16 +13,20 @@ import type {
 import type {
   AuditAnnotationPayloadSummary,
   AuditAnnotationSnapshot,
+  AuditAnnotationUpdateSnapshot,
   AuditClipSnapshot,
+  AuditInvitationSnapshot,
   AuditPermissionSnapshot,
   AuditSequenceSnapshot,
+  AuditSiteSnapshot,
+  AuditStudySnapshot,
   AuditUserSnapshot,
   AuditVideoSnapshot,
 } from "./audit.types.js";
 
 type VideoSnapshotSource = Pick<
   Video,
-  "id" | "uploadedByUserId" | "status" | "durationSeconds" | "takenAt"
+  "uploadedByUserId" | "status" | "durationSeconds" | "takenAt"
 >;
 type VideoMetadataSnapshotSource = Pick<
   CaregiverVideoMetadata,
@@ -31,11 +38,10 @@ type UserSnapshotSource = Pick<
 >;
 type UserPermissionSnapshotSource = Pick<
   UserPermission,
-  "id" | "userId" | "permissionLevel" | "siteId" | "studyId" | "videoId"
+  "userId" | "permissionLevel" | "siteId" | "studyId" | "videoId"
 >;
 type AnnotationSnapshotSource = Pick<
   Annotation,
-  | "id"
   | "videoId"
   | "authorUserId"
   | "studyId"
@@ -58,8 +64,11 @@ type ClipSnapshotSource = Pick<
 >;
 type SequenceSnapshotSource = Pick<
   StitchedSequence,
-  "id" | "videoId" | "createdByUserId" | "studyId" | "siteId" | "title"
+  "videoId" | "createdByUserId" | "studyId" | "siteId" | "title"
 >;
+type StudySnapshotSource = Pick<Study, "name" | "status">;
+type SiteSnapshotSource = Pick<Site, "name">;
+type InvitationSnapshotSource = Pick<Invitation, "email" | "role" | "siteId">;
 
 /** Returns true for plain objects. */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -75,17 +84,12 @@ function pickString(
   return typeof value === "string" ? value : undefined;
 }
 
-/**
- * Builds a video snapshot.
- *
- * TODO: Title and notes live in caregiver_video_metadata, not videos.
- */
+/** Builds the safe video fields stored in audit JSON. */
 export function buildVideoSnapshot(
   video: VideoSnapshotSource,
   metadata?: VideoMetadataSnapshotSource | null,
 ): AuditVideoSnapshot {
   const snapshot: AuditVideoSnapshot = {
-    id: video.id,
     uploadedByUserId: video.uploadedByUserId,
     status: video.status,
     durationSeconds: video.durationSeconds,
@@ -116,7 +120,6 @@ export function buildPermissionSnapshot(
   permission: UserPermissionSnapshotSource,
 ): AuditPermissionSnapshot {
   return {
-    id: permission.id,
     userId: permission.userId,
     permissionLevel: permission.permissionLevel,
     siteId: permission.siteId,
@@ -169,12 +172,22 @@ export function buildAnnotationSnapshot(
   annotation: AnnotationSnapshotSource,
 ): AuditAnnotationSnapshot {
   return {
-    id: annotation.id,
     videoId: annotation.videoId,
     authorUserId: annotation.authorUserId,
     studyId: annotation.studyId,
     siteId: annotation.siteId,
     type: annotation.type,
+    timestampS: annotation.timestampS,
+    durationS: annotation.durationS,
+    payload: summarizeAnnotationPayload(annotation.type, annotation.payload),
+  };
+}
+
+/** Builds the safe fields stored for annotation updates. */
+export function buildAnnotationUpdateSnapshot(
+  annotation: AnnotationSnapshotSource,
+): AuditAnnotationUpdateSnapshot {
+  return {
     timestampS: annotation.timestampS,
     durationS: annotation.durationS,
     payload: summarizeAnnotationPayload(annotation.type, annotation.payload),
@@ -200,11 +213,40 @@ export function buildSequenceSnapshot(
   sequence: SequenceSnapshotSource,
 ): AuditSequenceSnapshot {
   return {
-    id: sequence.id,
     videoId: sequence.videoId,
     createdByUserId: sequence.createdByUserId,
     studyId: sequence.studyId,
     siteId: sequence.siteId,
     title: sequence.title,
+  };
+}
+
+/** Builds a study snapshot. */
+export function buildStudySnapshot(
+  study: StudySnapshotSource,
+): AuditStudySnapshot {
+  return {
+    name: study.name,
+    status: study.status,
+  };
+}
+
+/** Builds a site snapshot. */
+export function buildSiteSnapshot(
+  site: SiteSnapshotSource,
+): AuditSiteSnapshot {
+  return {
+    name: site.name,
+  };
+}
+
+/** Builds an invitation snapshot (excludes tokenHash). */
+export function buildInvitationSnapshot(
+  invitation: InvitationSnapshotSource,
+): AuditInvitationSnapshot {
+  return {
+    email: invitation.email,
+    role: invitation.role,
+    siteId: invitation.siteId,
   };
 }

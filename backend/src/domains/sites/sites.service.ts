@@ -1,4 +1,7 @@
 import prisma from "../../lib/prisma.js";
+import { recordAudit } from "../audit/audit.service.js";
+import { buildSiteSnapshot, buildStudySnapshot } from "../audit/audit.snapshots.js";
+import type { AuthenticatedAuditContext } from "../audit/audit.types.js";
 import type { CreateSiteInput } from "./sites.types.js";
 
 /** @description Name of the default study auto-created for every new site. */
@@ -11,9 +14,13 @@ export const MISCELLANEOUS_STUDY_NAME = "Miscellaneous";
  * pick a specific study.
  *
  * @param input - The validated create-site payload.
+ * @param audit - Audit context from the authenticated request.
  * @returns The created Site record and the id of its Miscellaneous study.
  */
-export async function createSiteWithMiscellaneousStudy({ name }: CreateSiteInput) {
+export async function createSiteWithMiscellaneousStudy(
+  { name }: CreateSiteInput,
+  audit?: AuthenticatedAuditContext,
+) {
     return await prisma.$transaction(async (tx) => {
         const site = await tx.site.create({ data: { name } });
         const study = await tx.study.create({
@@ -22,6 +29,31 @@ export async function createSiteWithMiscellaneousStudy({ name }: CreateSiteInput
         await tx.siteStudy.create({
             data: { studyId: study.id, siteId: site.id },
         });
+
+        if (audit) {
+            await recordAudit(tx, {
+                actorUserId: audit.actorUserId,
+                actionType: "CREATE",
+                entityType: "SITE",
+                entityId: site.id,
+                siteId: site.id,
+                oldValues: {},
+                newValues: buildSiteSnapshot(site),
+                ipAddress: audit.ipAddress,
+            });
+
+            await recordAudit(tx, {
+                actorUserId: audit.actorUserId,
+                actionType: "CREATE",
+                entityType: "STUDY",
+                entityId: study.id,
+                siteId: site.id,
+                oldValues: {},
+                newValues: buildStudySnapshot(study),
+                ipAddress: audit.ipAddress,
+            });
+        }
+
         return { site, miscellaneousStudyId: study.id };
     });
 }

@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client.js";
 import {
   normalizeAuditSnapshot,
   recordAudit,
+  runAuditedCreate,
+  runAuditedDelete,
   runAuditedUpdate,
   toAuditCreateInput,
 } from "../../domains/audit/audit.service.js";
@@ -45,7 +48,9 @@ describe("audit.service", () => {
     it("returns an empty object for non-object snapshot input", () => {
       expect(normalizeAuditSnapshot(null)).toEqual({});
       expect(normalizeAuditSnapshot(undefined)).toEqual({});
-      expect(normalizeAuditSnapshot([])).toEqual({});
+      expect(
+        normalizeAuditSnapshot([] as unknown as Record<string, unknown>),
+      ).toEqual({});
     });
 
     it("returns a shallow copy for plain object snapshots", () => {
@@ -82,6 +87,18 @@ describe("audit.service", () => {
         ipAddress: null,
       });
     });
+
+    it("allows audit rows without one authoritative site", () => {
+      expect(
+        toAuditCreateInput(
+          buildEvent({
+            siteId: null,
+          }),
+        ),
+      ).toMatchObject({
+        siteId: null,
+      });
+    });
   });
 
   describe("recordAudit", () => {
@@ -104,6 +121,50 @@ describe("audit.service", () => {
           },
           newValues: {
             isDeactivated: true,
+          },
+          ipAddress: "203.0.113.10",
+        },
+      });
+    });
+  });
+
+  describe("runAuditedCreate", () => {
+    it("creates a record and writes a CREATE audit row", async () => {
+      createMock.mockResolvedValue({
+        id: "audit-1",
+      });
+
+      const result = await runAuditedCreate({
+        client,
+        create: async () => ({
+          id: "44444444-4444-4444-8444-444444444444",
+          siteId: null,
+          status: "UPLOADING",
+        }),
+        actorUserId: "user-1",
+        entityType: "VIDEO",
+        snapshot: (value) => ({
+          status: value.status,
+        }),
+        getSiteId: (value) => value.siteId,
+        ipAddress: "203.0.113.10",
+      });
+
+      expect(result).toEqual({
+        id: "44444444-4444-4444-8444-444444444444",
+        siteId: null,
+        status: "UPLOADING",
+      });
+      expect(createMock).toHaveBeenCalledWith({
+        data: {
+          actorUserId: "user-1",
+          actionType: "CREATE",
+          entityType: "VIDEO",
+          entityId: "44444444-4444-4444-8444-444444444444",
+          siteId: null,
+          oldValues: {},
+          newValues: {
+            status: "UPLOADING",
           },
           ipAddress: "203.0.113.10",
         },
@@ -163,6 +224,134 @@ describe("audit.service", () => {
           ipAddress: "203.0.113.10",
         },
       });
+    });
+
+    it("allows getSiteId to return null", async () => {
+      createMock.mockResolvedValue({
+        id: "audit-1",
+      });
+
+      await runAuditedUpdate({
+        client,
+        loadBefore: async () => ({
+          id: "11111111-1111-1111-8111-111111111111",
+          status: "UPLOADING",
+        }),
+        update: async () => ({
+          id: "11111111-1111-1111-8111-111111111111",
+          status: "UPLOADED",
+        }),
+        notFound: new Error("Video not found"),
+        actorUserId: "user-1",
+        entityType: "VIDEO",
+        snapshot: (value) => ({
+          status: value.status,
+        }),
+        getSiteId: () => null,
+      });
+
+      expect(createMock).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          siteId: null,
+        }),
+      });
+    });
+
+    it("maps update-time Prisma not-found errors to the provided notFound error", async () => {
+      const notFound = new Error("Video not found");
+
+      await expect(
+        runAuditedUpdate({
+          client,
+          loadBefore: async () => ({
+            id: "11111111-1111-1111-8111-111111111111",
+            status: "UPLOADING",
+          }),
+          update: async () => {
+            throw new PrismaClientKnownRequestError("Record not found", {
+              code: "P2025",
+              clientVersion: "test",
+            });
+          },
+          notFound,
+          actorUserId: "user-1",
+          entityType: "VIDEO",
+          snapshot: () => ({}),
+          getSiteId: () => null,
+        }),
+      ).rejects.toBe(notFound);
+
+      expect(createMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("runAuditedDelete", () => {
+    it("deletes a record and writes a DELETE audit row", async () => {
+      createMock.mockResolvedValue({
+        id: "audit-1",
+      });
+      const deleteRecord = vi.fn().mockResolvedValue(undefined);
+
+      await runAuditedDelete({
+        client,
+        loadBefore: async () => ({
+          id: "55555555-5555-5555-8555-555555555555",
+          siteId: "22222222-2222-2222-8222-222222222222",
+          title: "Clip title",
+        }),
+        deleteRecord,
+        notFound: new Error("Clip not found"),
+        actorUserId: "user-1",
+        entityType: "CLIP",
+        snapshot: (value) => ({
+          title: value.title,
+        }),
+        getSiteId: (value) => value.siteId,
+      });
+
+      expect(deleteRecord).toHaveBeenCalledWith({
+        id: "55555555-5555-5555-8555-555555555555",
+        siteId: "22222222-2222-2222-8222-222222222222",
+        title: "Clip title",
+      });
+      expect(createMock).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          actionType: "DELETE",
+          entityType: "CLIP",
+          entityId: "55555555-5555-5555-8555-555555555555",
+          oldValues: {
+            title: "Clip title",
+          },
+          newValues: {},
+          ipAddress: null,
+        }),
+      });
+    });
+
+    it("maps delete-time Prisma not-found errors to the provided notFound error", async () => {
+      const notFound = new Error("Clip not found");
+
+      await expect(
+        runAuditedDelete({
+          client,
+          loadBefore: async () => ({
+            id: "55555555-5555-5555-8555-555555555555",
+          }),
+          deleteRecord: async () => {
+            throw new PrismaClientKnownRequestError("Record not found", {
+              code: "P2025",
+              clientVersion: "test",
+            });
+          },
+          notFound,
+          actorUserId: "user-1",
+          entityType: "CLIP",
+          snapshot: () => ({}),
+          getSiteId: () => null,
+        }),
+      ).rejects.toBe(notFound);
+
+      expect(createMock).not.toHaveBeenCalled();
     });
   });
 });

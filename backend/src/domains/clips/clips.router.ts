@@ -3,6 +3,7 @@ import * as clipsService from "./clips.service.js";
 import { requireSession, requirePermission, requirePermissionWithOwnership, denyCaregiver } from "../../middleware/auth.js";
 import { clips } from "../../lib/resolvers.js";
 import { createClipSchema, updateClipSchema, listClipsQuerySchema } from "./clips.types.js";
+import { requireAuditActorContext } from "../../middleware/audit.js";
 
 const router = Router();
 
@@ -22,6 +23,7 @@ router.get("/",
   }
 );
 
+
 /**
  * @description POST /domain/clips - create a video clip from a source video.
  * Requires WRITE permission in the clip's scope.
@@ -30,7 +32,7 @@ router.post("/",
   requirePermission("WRITE", clips.fromBody),
   async (req, res) => {
     const data = createClipSchema.parse(req.body);
-    const clip = await clipsService.createClip(data, req.authSession.user.id);
+    const clip = await clipsService.createClip(data, req.authSession.user.id, requireAuditActorContext(req));
     res.status(201).json(clip);
   }
 );
@@ -46,7 +48,7 @@ router.put("/:id",
   }),
   async (req, res) => {
     const data = updateClipSchema.parse(req.body);
-    const clip = await clipsService.updateClip(req.params.id as string, data);
+    const clip = await clipsService.updateClip(req.params.id as string, data, requireAuditActorContext(req));
     res.json(clip);
   }
 );
@@ -61,9 +63,10 @@ router.delete("/:id",
     resolveOwnerId: clips.resolveOwnerId,
   }),
   async (req, res) => {
-    await clipsService.deleteClip(req.params.id as string);
+    await clipsService.deleteClip(req.params.id as string, requireAuditActorContext(req));
     res.status(204).send();
   }
 );
+
 
 export default router;

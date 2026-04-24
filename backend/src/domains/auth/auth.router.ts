@@ -3,6 +3,7 @@ import { createInvite, activateInvite } from "./auth.service.js";
 import { createInviteSchema, activateInviteSchema } from "./auth.types.js";
 import { AppError } from "../../middleware/errors.js";
 import { requireSession } from "../../middleware/auth.js";
+import { requireAuditActorContext } from "../../middleware/audit.js";
 
 /**
  * Auth router for invitation-based user registration.
@@ -33,7 +34,7 @@ router.post("/invite", requireSession, async (req, res) => {
   // Parse and validate request body at the HTTP boundary
   // Throws ZodError on failure — caught by errorHandler
   const input = createInviteSchema.parse(req.body);
-  const result = await createInvite(input);
+  const result = await createInvite(input, requireAuditActorContext(req));
   res.json(result);
 });
 

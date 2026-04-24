@@ -25,6 +25,18 @@ const { prismaMock, authMock } = vi.hoisted(() => {
     account: {
       create: vi.fn(),
     },
+    userPermission: {
+      create: vi.fn(),
+    },
+    study: {
+      findFirst: vi.fn(),
+    },
+    caregiverPatient: {
+      create: vi.fn(),
+    },
+    auditLog: {
+      create: vi.fn(),
+    },
     $transaction: vi.fn(),
   } satisfies AuthPrismaMock;
 
@@ -248,6 +260,8 @@ describe("auth.service", () => {
     authMock.context.password.hash.mockResolvedValue("hashed-password");
     prismaMock.user.create.mockResolvedValue(makeUser({ id: "user-uuid" }));
     prismaMock.account.create.mockResolvedValue({ id: "account-uuid" });
+    prismaMock.userPermission.create.mockResolvedValue({ id: "perm-uuid" });
+    prismaMock.auditLog.create.mockResolvedValue({ id: "audit-uuid" });
 
     const result = await activateInvite(
       makeActivateInviteInput({ email: "Invitee@Example.com" }),
@@ -297,6 +311,9 @@ describe("auth.service", () => {
     authMock.context.password.hash.mockResolvedValue("hashed-password");
     prismaMock.user.create.mockResolvedValue(makeUser({ id: "user-uuid" }));
     prismaMock.account.create.mockResolvedValue({ id: "account-uuid" });
+    prismaMock.study.findFirst.mockResolvedValue({ id: "misc-study-uuid" });
+    prismaMock.caregiverPatient.create.mockResolvedValue({});
+    prismaMock.auditLog.create.mockResolvedValue({ id: "audit-uuid" });
     vi.spyOn(crypto, "randomUUID")
       .mockReturnValueOnce("user-uuid")
       .mockReturnValueOnce("account-uuid");

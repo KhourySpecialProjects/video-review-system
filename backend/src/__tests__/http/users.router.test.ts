@@ -32,9 +32,14 @@ const { authMock, prismaMock, usersServiceMock } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("../../lib/auth.js", () => ({
-  auth: authMock.auth,
-}));
+vi.mock("../../lib/auth.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../lib/auth.js")>();
+
+  return {
+    ...actual,
+    auth: authMock.auth,
+  };
+});
 
 vi.mock("../../lib/prisma.js", () => ({
   default: prismaMock,
@@ -532,6 +537,9 @@ describe("users.router", () => {
         studyId: null,
         videoId: null,
       },
+      expect.objectContaining({
+        actorUserId: "actor-1",
+      }),
     );
   });
 
@@ -688,12 +696,18 @@ describe("users.router", () => {
       });
 
     expect(response.status).toBe(201);
-    expect(usersServiceMock.createUserPermission).toHaveBeenCalledWith("user-2", {
-      permissionLevel: "EXPORT",
-      siteId: "11111111-1111-1111-8111-111111111111",
-      studyId: null,
-      videoId: null,
-    });
+    expect(usersServiceMock.createUserPermission).toHaveBeenCalledWith(
+      "user-2",
+      {
+        permissionLevel: "EXPORT",
+        siteId: "11111111-1111-1111-8111-111111111111",
+        studyId: null,
+        videoId: null,
+      },
+      expect.objectContaining({
+        actorUserId: "actor-1",
+      }),
+    );
   });
 
   it("POST /domain/users/:userId/permissions returns 409 for a duplicate permission", async () => {
@@ -772,6 +786,9 @@ describe("users.router", () => {
     expect(usersServiceMock.deleteUserPermission).toHaveBeenCalledWith(
       "user-1",
       "perm-1",
+      expect.objectContaining({
+        actorUserId: "actor-1",
+      }),
     );
   });
 
@@ -807,6 +824,9 @@ describe("users.router", () => {
     expect(usersServiceMock.deleteUserPermission).toHaveBeenCalledWith(
       "user-1",
       "perm-stale",
+      expect.objectContaining({
+        actorUserId: "actor-1",
+      }),
     );
   });
 

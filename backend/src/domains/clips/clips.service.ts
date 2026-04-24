@@ -1,13 +1,19 @@
 import prisma from "../../lib/prisma.js";
+import {
+  runAuditedCreate,
+  runAuditedDelete,
+  runAuditedUpdate,
+} from "../audit/audit.service.js";
+import { buildClipSnapshot } from "../audit/audit.snapshots.js";
+import type { AuthenticatedAuditContext } from "../audit/audit.types.js";
 import { AppError } from "../../middleware/errors.js";
 import type {
   CreateClipInput,
   UpdateClipInput,
 } from "./clips.types.js";
 
-// ────────────────────────────────────────────────────────────
-// CLIPS
-// ────────────────────────────────────────────────────────────
+type ClipWriteClient = Pick<typeof prisma, "videoClip">;
+
 
 /**
  * Creates a new video clip from a source video.
@@ -20,7 +26,11 @@ import type {
  *
  * @throws {AppError} 404 if the source video does not exist
  */
-export async function createClip(input: CreateClipInput, createdByUserId: string) {
+export async function createClip(
+  input: CreateClipInput,
+  createdByUserId: string,
+  audit?: AuthenticatedAuditContext,
+) {
   const video = await prisma.video.findUnique({
     where: { id: input.videoId },
   });
@@ -36,20 +46,35 @@ export async function createClip(input: CreateClipInput, createdByUserId: string
     throw AppError.badRequest("Start time exceeds video duration");
   }
 
-  const clip = await prisma.videoClip.create({
-    data: {
-      videoId: input.videoId,
-      createdByUserId,
-      studyId: input.studyId,
-      siteId: input.siteId,
-      title: input.title,
-      startTimeS: input.startTimeS,
-      endTimeS: input.endTimeS,
-    },
-    include: { createdBy: { select: { name: true } } },
-  });
+  const create = (client: ClipWriteClient) =>
+    client.videoClip.create({
+      data: {
+        videoId: input.videoId,
+        createdByUserId,
+        studyId: input.studyId,
+        siteId: input.siteId,
+        title: input.title,
+        startTimeS: input.startTimeS,
+        endTimeS: input.endTimeS,
+      },
+      include: { createdBy: { select: { name: true } } },
+    });
 
-  return clip;
+  if (!audit) {
+    return create(prisma);
+  }
+
+  return prisma.$transaction((tx) =>
+    runAuditedCreate({
+      client: tx,
+      create: () => create(tx),
+      actorUserId: audit.actorUserId,
+      entityType: "CLIP",
+      snapshot: buildClipSnapshot,
+      getSiteId: (clip) => clip.siteId,
+      ipAddress: audit.ipAddress,
+    }),
+  );
 }
 
 /**
@@ -98,19 +123,47 @@ export async function getClip(clipId: string) {
  * @returns the updated clip record
  * @throws {AppError} 404 if no clip with that id exists
  */
-export async function updateClip(clipId: string, input: UpdateClipInput) {
-  const clip = await prisma.videoClip.findUnique({ where: { id: clipId } });
-  if (!clip) throw AppError.notFound("Clip not found");
+export async function updateClip(
+  clipId: string,
+  input: UpdateClipInput,
+  audit?: AuthenticatedAuditContext,
+) {
+  const data = {
+    ...(input.title !== undefined && { title: input.title }),
+    ...(input.startTimeS !== undefined && { startTimeS: input.startTimeS }),
+    ...(input.endTimeS !== undefined && { endTimeS: input.endTimeS }),
+  };
 
-  return prisma.videoClip.update({
-    where: { id: clipId },
-    data: {
-      ...(input.title !== undefined && { title: input.title }),
-      ...(input.startTimeS !== undefined && { startTimeS: input.startTimeS }),
-      ...(input.endTimeS !== undefined && { endTimeS: input.endTimeS }),
-    },
-    include: { createdBy: { select: { name: true } } },
-  });
+  if (!audit) {
+    const clip = await prisma.videoClip.findUnique({ where: { id: clipId } });
+    if (!clip) throw AppError.notFound("Clip not found");
+
+    return prisma.videoClip.update({
+      where: { id: clipId },
+      data,
+      include: { createdBy: { select: { name: true } } },
+    });
+  }
+
+  return prisma.$transaction((tx) =>
+    runAuditedUpdate({
+      client: tx,
+      loadBefore: () =>
+        tx.videoClip.findUnique({ where: { id: clipId } }),
+      update: () =>
+        tx.videoClip.update({
+          where: { id: clipId },
+          data,
+          include: { createdBy: { select: { name: true } } },
+        }),
+      notFound: AppError.notFound("Clip not found"),
+      actorUserId: audit.actorUserId,
+      entityType: "CLIP",
+      snapshot: buildClipSnapshot,
+      getSiteId: (clip) => clip.siteId,
+      ipAddress: audit.ipAddress,
+    }),
+  );
 }
 
 /**
@@ -121,8 +174,34 @@ export async function updateClip(clipId: string, input: UpdateClipInput) {
  *
  * @throws {AppError} 404 if no clip with that id exists (Prisma P2025)
  */
-export async function deleteClip(clipId: string) {
-  await prisma.videoClip.delete({
-    where: { id: clipId },
-  });
+export async function deleteClip(
+  clipId: string,
+  audit?: AuthenticatedAuditContext,
+) {
+  if (!audit) {
+    await prisma.videoClip.delete({
+      where: { id: clipId },
+    });
+    return;
+  }
+
+  await prisma.$transaction((tx) =>
+    runAuditedDelete({
+      client: tx,
+      loadBefore: () =>
+        tx.videoClip.findUnique({
+          where: { id: clipId },
+        }),
+      deleteRecord: (clip) =>
+        tx.videoClip.delete({
+          where: { id: clip.id },
+        }),
+      notFound: AppError.notFound("Clip not found"),
+      actorUserId: audit.actorUserId,
+      entityType: "CLIP",
+      snapshot: buildClipSnapshot,
+      getSiteId: (clip) => clip.siteId,
+      ipAddress: audit.ipAddress,
+    }),
+  );
 }

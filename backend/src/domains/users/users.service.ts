@@ -1,5 +1,12 @@
 import type { Prisma } from "../../generated/prisma/index.js";
-import { runAuditedUpdate } from "../audit/audit.service.js";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client.js";
+import {
+  runAuditedCreate,
+  runAuditedDelete,
+  runAuditedUpdate,
+} from "../audit/audit.service.js";
+import { buildPermissionSnapshot } from "../audit/audit.snapshots.js";
+import type { AuthenticatedAuditContext } from "../audit/audit.types.js";
 import prisma from "../../lib/prisma.js";
 import { AppError } from "../../middleware/errors.js";
 import type {
@@ -67,11 +74,7 @@ export type UserManagementActor = {
   siteId: string;
 };
 
-/** Acting user ID and client IP for a user status audit row. */
-export type UserStatusAuditInput = {
-  actorUserId: string;
-  ipAddress: string | null;
-};
+export type UserStatusAuditInput = AuthenticatedAuditContext;
 
 /**
  * Lists users with optional filters and pagination.
@@ -436,35 +439,59 @@ export async function resolvePermissionScopeAccess(
 export async function createUserPermission(
   userId: string,
   input: CreateUserPermissionInput,
+  audit: AuthenticatedAuditContext,
 ): Promise<UserPermissionItem> {
   await getUserSiteContext(userId);
   await resolvePermissionScopeAccess(input);
 
-  const existing = await prisma.userPermission.findFirst({
-    where: {
-      userId,
-      permissionLevel: input.permissionLevel,
-      siteId: input.siteId,
-      studyId: input.studyId,
-      videoId: input.videoId,
-    },
-    select: { id: true },
-  });
+  try {
+    return await prisma.$transaction((tx) =>
+      runAuditedCreate({
+        client: tx,
+        create: async () => {
+          const existing = await tx.userPermission.findFirst({
+            where: {
+              userId,
+              permissionLevel: input.permissionLevel,
+              siteId: input.siteId,
+              studyId: input.studyId,
+              videoId: input.videoId,
+            },
+            select: { id: true },
+          });
 
-  if (existing) {
-    throw AppError.conflict("Duplicate user permission already exists");
+          if (existing) {
+            throw AppError.conflict("Duplicate user permission already exists");
+          }
+
+          return tx.userPermission.create({
+            data: {
+              userId,
+              permissionLevel: input.permissionLevel,
+              siteId: input.siteId,
+              studyId: input.studyId,
+              videoId: input.videoId,
+            },
+            select: userPermissionSelect,
+          });
+        },
+        actorUserId: audit.actorUserId,
+        entityType: "PERMISSIONS",
+        snapshot: buildPermissionSnapshot,
+        getSiteId: (permission) => permission.siteId,
+        ipAddress: audit.ipAddress,
+      }),
+    );
+  } catch (error) {
+    if (
+      error instanceof PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      throw AppError.conflict("Duplicate user permission already exists");
+    }
+
+    throw error;
   }
-
-  return prisma.userPermission.create({
-    data: {
-      userId,
-      permissionLevel: input.permissionLevel,
-      siteId: input.siteId,
-      studyId: input.studyId,
-      videoId: input.videoId,
-    },
-    select: userPermissionSelect,
-  });
 }
 
 /**
@@ -504,13 +531,33 @@ export async function getUserPermission(
 export async function deleteUserPermission(
   userId: string,
   permissionId: string,
+  audit: AuthenticatedAuditContext,
 ): Promise<void> {
   await getUserSiteContext(userId);
-  await getUserPermission(userId, permissionId);
 
-  await prisma.userPermission.delete({
-    where: { id: permissionId },
-  });
+  await prisma.$transaction((tx) =>
+    runAuditedDelete({
+      client: tx,
+      loadBefore: () =>
+        tx.userPermission.findFirst({
+          where: {
+            id: permissionId,
+            userId,
+          },
+          select: userPermissionSelect,
+        }),
+      deleteRecord: () =>
+        tx.userPermission.delete({
+          where: { id: permissionId },
+        }),
+      notFound: AppError.notFound("User permission not found"),
+      actorUserId: audit.actorUserId,
+      entityType: "PERMISSIONS",
+      snapshot: buildPermissionSnapshot,
+      getSiteId: (deletedPermission) => deletedPermission.siteId,
+      ipAddress: audit.ipAddress,
+    }),
+  );
 }
 
 /**

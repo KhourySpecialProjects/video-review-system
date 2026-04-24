@@ -4,6 +4,8 @@ import { Prisma } from "../../generated/prisma/client.js";
 import { createAnnotationSchema, updateAnnotationSchema } from "./annotations.types.js";
 import { requireSession, requirePermission, requirePermissionWithOwnership, denyCaregiver } from "../../middleware/auth.js";
 import { annotations, resolveAnnotationContextsFromBody } from "../../lib/resolvers.js";
+import { requireAuditActorContext } from "../../middleware/audit.js";
+
 
 const router = Router();
 
@@ -60,7 +62,7 @@ router.post("/",
       timestampSeconds: data.timestampSeconds,
       durationSeconds: data.durationSeconds,
       payload: data.payload as Prisma.InputJsonValue,
-    });
+    }, requireAuditActorContext(req));
 
     res.status(201).json(annotation);
   }
@@ -77,7 +79,11 @@ router.put("/:id",
   }),
   async (req, res) => {
     const data = updateAnnotationSchema.parse(req.body);
-    const annotation = await annotationsService.updateAnnotation(req.params.id as string, data);
+    const annotation = await annotationsService.updateAnnotation(
+      req.params.id as string,
+      data,
+      requireAuditActorContext(req),
+    );
     res.json(annotation);
   }
 );
@@ -92,7 +98,10 @@ router.delete("/:id",
     resolveOwnerId: annotations.resolveOwnerId,
   }),
   async (req, res) => {
-    await annotationsService.deleteAnnotation(req.params.id as string);
+    await annotationsService.deleteAnnotation(
+      req.params.id as string,
+      requireAuditActorContext(req),
+    );
     res.status(204).send();
   }
 );

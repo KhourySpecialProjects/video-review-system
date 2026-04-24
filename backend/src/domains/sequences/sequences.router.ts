@@ -2,6 +2,7 @@ import { Router } from "express";
 import * as sequencesService from "./sequences.service.js";
 import { requireSession, requirePermission, requirePermissionWithOwnership, denyCaregiver } from "../../middleware/auth.js";
 import { sequences } from "../../lib/resolvers.js";
+import { requireAuditActorContext } from "../../middleware/audit.js";
 import {
   createSequenceSchema,
   addClipToSequenceSchema,
@@ -28,6 +29,7 @@ router.get("/",
   }
 );
 
+
 /**
  * @description POST /domain/sequences - create a new stitched sequence.
  * Requires WRITE permission in the sequence's scope.
@@ -36,10 +38,14 @@ router.post("/",
   requirePermission("WRITE", sequences.fromBody),
   async (req, res) => {
     const data = createSequenceSchema.parse(req.body);
-    const sequence = await sequencesService.createSequence(data, req.authSession.user.id);
+    const sequence = await sequencesService.createSequence(
+      data,
+      req.authSession.user.id,
+      requireAuditActorContext(req),
+    );
     res.status(201).json(sequence);
-  }
-);
+  });
+    
 
 /**
  * @description POST /domain/sequences/:id - add a clip to a sequence.
@@ -52,10 +58,14 @@ router.post("/:id",
   }),
   async (req, res) => {
     const data = addClipToSequenceSchema.parse(req.body);
-    const item = await sequencesService.addClipToSequence(req.params.id as string, data);
+    const item = await sequencesService.addClipToSequence(
+      req.params.id as string,
+      data,
+      requireAuditActorContext(req),
+    );
     res.status(201).json(item);
-  }
-);
+  });
+
 
 /**
  * @description PATCH /domain/sequences/:id - update a sequence's title.
@@ -68,7 +78,11 @@ router.patch("/:id",
   }),
   async (req, res) => {
     const data = updateSequenceSchema.parse(req.body);
-    const sequence = await sequencesService.updateSequence(req.params.id as string, data);
+    const sequence = await sequencesService.updateSequence(
+      req.params.id as string,
+      data,
+      requireAuditActorContext(req),
+    );
     res.json(sequence);
   }
 );
@@ -84,10 +98,13 @@ router.put("/:id",
   }),
   async (req, res) => {
     const data = reorderSequenceSchema.parse(req.body);
-    const sequence = await sequencesService.reorderSequenceClips(req.params.id as string, data);
+    const sequence = await sequencesService.reorderSequenceClips(
+      req.params.id as string,
+      data,
+      requireAuditActorContext(req),
+    );
     res.json(sequence);
-  }
-);
+  });
 
 /**
  * @description DELETE /domain/sequences/:id/clip/:clipId - remove a clip from a sequence.
@@ -99,7 +116,11 @@ router.delete("/:id/clip/:clipId",
     resolveOwnerId: sequences.resolveOwnerId,
   }),
   async (req, res) => {
-    await sequencesService.removeClipFromSequence(req.params.id as string, req.params.clipId as string);
+    await sequencesService.removeClipFromSequence(
+      req.params.id as string,
+      req.params.clipId as string,
+      requireAuditActorContext(req),
+    );
     res.status(204).send();
   }
 );
@@ -114,7 +135,10 @@ router.delete("/:id",
     resolveOwnerId: sequences.resolveOwnerId,
   }),
   async (req, res) => {
-    await sequencesService.deleteSequence(req.params.id as string);
+    await sequencesService.deleteSequence(
+      req.params.id as string,
+      requireAuditActorContext(req),
+    );
     res.status(204).send();
   }
 );

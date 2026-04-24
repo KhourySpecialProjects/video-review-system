@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireSession, requireRole } from "../../middleware/auth.js";
+import { requireAuditActorContext } from "../../middleware/audit.js";
 import { createSiteSchema } from "./sites.types.js";
 import { createSiteWithMiscellaneousStudy } from "./sites.service.js";
 
@@ -18,7 +19,7 @@ router.post("/",
   requireRole("SYSADMIN"),
   async (req, res) => {
     const data = createSiteSchema.parse(req.body);
-    const result = await createSiteWithMiscellaneousStudy(data);
+    const result = await createSiteWithMiscellaneousStudy(data, requireAuditActorContext(req));
     res.status(201).json(result);
   }
 );

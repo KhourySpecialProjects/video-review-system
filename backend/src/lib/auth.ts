@@ -13,6 +13,7 @@ import prisma from "./prisma.js";
 import { sendPasswordResetEmail } from "./ses.js";
 
 import type { user_role } from "../generated/prisma/client.js";
+import type { PermissionRow } from "./permissions.js";
 
 // configure Better Auth instance
 // this is the core auth engine that handles sessions, sign-in, and password hashing
@@ -320,7 +321,31 @@ export async function getPermissionConditions(
     videoId: r.videoId,
   }));
 }
- 
+
+/**
+ * @description Fetches all `UserPermission` rows for a user at or above the
+ * required level, including `permissionLevel`. Used by cross-scope list
+ * endpoints that need both an access filter and per-row permission decoration.
+ *
+ * @param userId - The ID of the user
+ * @param level - The minimum permission level to include
+ * @returns An array of PermissionRow objects
+ */
+export async function getPermissionRows(
+  userId: string,
+  level: permission_level
+): Promise<PermissionRow[]> {
+  const qualifyingLevels = levelsAtOrAbove(level);
+
+  return prisma.userPermission.findMany({
+    where: {
+      userId,
+      permissionLevel: { in: qualifyingLevels },
+    },
+    select: { siteId: true, studyId: true, videoId: true, permissionLevel: true },
+  });
+}
+
 /**
  * Builds a Prisma `where` clause for models that have `studyId`, `siteId`,
  * and `videoId` columns directly on the table — annotations, clips, and sequences.

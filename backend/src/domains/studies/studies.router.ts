@@ -1,6 +1,7 @@
 import { Router } from "express";
 import prisma from "../../lib/prisma.js";
 import { requireSession, requireRole } from "../../middleware/auth.js";
+import { requireAuditActorContext } from "../../middleware/audit.js";
 import { AppError } from "../../middleware/errors.js";
 import { listStudiesForSite, createStudy } from "./studies.service.js";
 import { createStudySchema } from "./studies.types.js";
@@ -36,7 +37,7 @@ router.post("/",
       throw AppError.forbidden("Site coordinators can only create studies for their own site.");
     }
 
-    const study = await createStudy(data);
+    const study = await createStudy(data, requireAuditActorContext(req));
     res.status(201).json(study);
   }
 );

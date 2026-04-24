@@ -20,9 +20,14 @@ const { authMock, authServiceMock } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("../../lib/auth.js", () => ({
-  auth: authMock.auth,
-}));
+vi.mock("../../lib/auth.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../lib/auth.js")>();
+
+  return {
+    ...actual,
+    auth: authMock.auth,
+  };
+});
 
 vi.mock("../../domains/auth/auth.service.js", () => authServiceMock);
 
@@ -94,7 +99,10 @@ describe("auth.router", () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual(payload);
-    expect(authServiceMock.createInvite).toHaveBeenCalledWith(input);
+    expect(authServiceMock.createInvite).toHaveBeenCalledWith(
+      input,
+      expect.objectContaining({ actorUserId: "actor-1" }),
+    );
   });
 
   it("POST /domain/auth/invite rejects invalid payloads before the service is called", async () => {

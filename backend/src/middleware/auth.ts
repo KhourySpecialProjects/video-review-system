@@ -11,9 +11,11 @@ import type { user_role } from "../generated/prisma/client.js";
 import {
   checkPermission,
   getHighestPermission,
+  getPermissionRows,
   PERMISSION_RANK,
   type ResourceContext,
 } from "../lib/auth.js";
+import type { PermissionRow } from "../lib/permissions.js";
 
 // ────────────────────────────────────────────────────────────
 // Extend Express Request to carry the authenticated user
@@ -34,12 +36,18 @@ export interface AuthenticatedUser {
   siteId: string;
 }
 
+export type PermissionContext = {
+  rows: PermissionRow[];
+  isGlobal: boolean;
+};
+
 declare global {
   namespace Express {
     interface Request {
       user?: AuthenticatedUser;
       authSession: Session;
       caregiverAuthorized?: boolean;
+      permissionContext?: PermissionContext;
     }
   }
 }
@@ -138,6 +146,48 @@ export function requireCaregiverOwnership(
 
     req.caregiverAuthorized = true;
     next();
+  };
+}
+
+/**
+ * @description Middleware for cross-scope list endpoints (reviews, etc.).
+ * Fetches the user's permission rows, verifies they have at least one,
+ * and attaches a `PermissionContext` to `req` for the route handler.
+ *
+ * @param level - The minimum permission level required
+ */
+export function requirePermissionContext(level: permission_level) {
+  return async (req: Request, _res: Response, next: NextFunction) => {
+    const rows = await getPermissionRows(req.authSession.user.id, level);
+    if (rows.length === 0) throw AppError.forbidden();
+
+    req.permissionContext = {
+      rows,
+      isGlobal: rows.some(r => !r.siteId && !r.studyId && !r.videoId),
+    };
+    next();
+  };
+}
+
+/**
+ * @description Builds a Prisma where clause from a PermissionContext.
+ * Works on any model with direct `studyId`, `siteId`, `videoId` columns.
+ * Returns `{}` for global access (matches everything).
+ *
+ * @param ctx - The permission context from `req.permissionContext`
+ * @returns A Prisma-compatible where object
+ */
+export function buildScopeFilter(ctx: PermissionContext): Record<string, any> {
+  if (ctx.isGlobal) return {};
+
+  return {
+    OR: ctx.rows.map(r => {
+      const clause: Record<string, any> = {};
+      if (r.siteId !== null) clause.siteId = r.siteId;
+      if (r.studyId !== null) clause.studyId = r.studyId;
+      if (r.videoId !== null) clause.videoId = r.videoId;
+      return clause;
+    }),
   };
 }
 

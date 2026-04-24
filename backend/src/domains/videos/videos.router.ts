@@ -3,14 +3,14 @@ import * as videosService from "./videos.service.js";
 import { AppError } from "../../middleware/errors.js";
 import { createVideoSchema, completeUploadSchema, updateVideoSchema, updateVideoMetadataSchema, searchVideosSchema, updateS3KeySchema } from "./videos.types.js";
 import { requireInternalAuth, requireSession, requirePermission, requireRole, requireCaregiverOwnership } from "../../middleware/auth.js";
-import { buildVideoAccessFilter } from "../../lib/auth.js";
+import { requireAuditActorContext } from "../../middleware/audit.js";
 import { videos } from "../../lib/resolvers.js";
-import type { user_role } from "../../generated/prisma/client.js";
 
 const router = Router();
 
 /**
- * @description PUT /domain/videos/:id/update-key - update the S3 key for a video (internal only)
+ * @description PUT /domain/videos/:id/update-key - update the S3 key for a video (internal only).
+ * Not audited: infrastructure operation with no user session (API key auth only).
  */
 router.put("/:id/update-key", requireInternalAuth, async (req: Request<{ id: string }>, res: Response) => {
   const { s3Key } = updateS3KeySchema.parse(req.body);
@@ -23,39 +23,41 @@ router.use(requireSession);
 
 /**
  * @description GET /domain/videos - list uploaded videos with pagination.
- * Caregivers see only their own uploads via buildVideoAccessFilter.
+ * Caregiver-only — scoped to the authenticated user's own uploads.
  */
-router.get("/", async (req, res) => {
-  const parsedLimit = Number.parseInt(String(req.query.limit), 10);
-  const parsedOffset = Number.parseInt(String(req.query.offset), 10);
+router.get("/",
+  requireRole("CAREGIVER"),
+  async (req, res) => {
+    const parsedLimit = Number.parseInt(String(req.query.limit), 10);
+    const parsedOffset = Number.parseInt(String(req.query.offset), 10);
 
-  const limit = Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 20;
-  const offset = Number.isInteger(parsedOffset) && parsedOffset >= 0 ? parsedOffset : 0;
+    const limit = Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 20;
+    const offset = Number.isInteger(parsedOffset) && parsedOffset >= 0 ? parsedOffset : 0;
 
-  const { id: userId, role } = req.authSession.user;
-  const accessFilter = await buildVideoAccessFilter(userId, role as user_role, "READ");
-
-  const result = await videosService.listVideos({ limit, offset, accessFilter, userId });
-
-  res.json(result);
-});
+    const result = await videosService.listVideos({
+      limit,
+      offset,
+      userId: req.authSession.user.id,
+    });
+    res.json(result);
+  }
+);
 
 /**
  * @description GET /domain/videos/search - search and filter uploaded videos.
+ * Caregiver-only — scoped to the authenticated user's own uploads.
  */
-router.get("/search", async (req, res) => {
-  const data = searchVideosSchema.parse(req.query);
-
-  const { id: userId, role } = req.authSession.user;
-  const accessFilter = await buildVideoAccessFilter(userId, role as user_role, "READ");
-
-  const result = await videosService.searchVideos({
-    ...data,
-    accessFilter,
-    userId,
-  });
-  res.json(result);
-});
+router.get("/search",
+  requireRole("CAREGIVER"),
+  async (req, res) => {
+    const data = searchVideosSchema.parse(req.query);
+    const result = await videosService.searchVideos({
+      ...data,
+      userId: req.authSession.user.id,
+    });
+    res.json(result);
+  }
+);
 
 /**
  * @description POST /domain/videos/upload - creates a video record and initiates a multipart upload.
@@ -83,11 +85,12 @@ router.post("/upload",
     const result = await videosService.initiateVideoUpload({
       ...data,
       uploadedByUserId: req.authSession.user.id,
-    });
-
+    }, requireAuditActorContext(req));
+  
     res.status(201).json(result);
-  }
-);
+  });
+
+  
 
 /**
  * @description GET /domain/videos/incomplete - list the current user's incomplete uploads.
@@ -123,7 +126,11 @@ router.get("/:id/stream",
   requireCaregiverOwnership(videos.resolveOwnerId),
   requirePermission("READ", videos.fromParams),
   async (req, res) => {
-    const result = await videosService.getVideoStreamUrl(req.params.id as string, req.authSession.user.id);
+    const result = await videosService.getVideoStreamUrl(
+      req.params.id as string,
+      req.authSession.user.id,
+      requireAuditActorContext(req),
+    );
     if (!result) throw AppError.notFound("Video not found");
     res.json(result);
   }
@@ -151,7 +158,11 @@ router.post("/:id/complete-upload",
   requireCaregiverOwnership(videos.resolveOwnerId),
   async (req, res) => {
     const data = completeUploadSchema.parse(req.body);
-    const video = await videosService.completeVideoUpload(req.params.id as string, data);
+    const video = await videosService.completeVideoUpload(
+      req.params.id as string,
+      data,
+      requireAuditActorContext(req),
+    );
     res.json(video);
   }
 );
@@ -164,7 +175,10 @@ router.post("/:id/cancel-upload",
   requireRole("CAREGIVER"),
   requireCaregiverOwnership(videos.resolveOwnerId),
   async (req, res) => {
-    await videosService.cancelVideoUpload(req.params.id as string);
+    await videosService.cancelVideoUpload(
+      req.params.id as string,
+      requireAuditActorContext(req),
+    );
     res.status(204).send();
   }
 );
@@ -184,6 +198,7 @@ router.put("/:id/metadata",
       req.params.id as string,
       req.authSession.user.id,
       data,
+      requireAuditActorContext(req),
     );
     res.json(metadata);
   }
@@ -197,8 +212,13 @@ router.put("/:id",
   requirePermission("WRITE", videos.fromParams),
   async (req, res) => {
     const data = updateVideoSchema.parse(req.body);
-    const video = await videosService.updateVideo(req.params.id as string, data);
+    const video = await videosService.updateVideo(
+      req.params.id as string,
+      data,
+      requireAuditActorContext(req),
+    );
     res.json(video);
+    
   }
 );
 
@@ -208,7 +228,10 @@ router.put("/:id",
 router.delete("/:id",
   requirePermission("ADMIN", videos.fromParams),
   async (req, res) => {
-    await videosService.deleteVideo(req.params.id as string);
+    await videosService.deleteVideo(
+      req.params.id as string,
+      requireAuditActorContext(req),
+    );
     res.status(204).send();
   }
 );

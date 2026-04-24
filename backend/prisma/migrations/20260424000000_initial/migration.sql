@@ -1,7 +1,3 @@
-[dotenv@17.3.1] injecting env (21) from ../.env -- tip: 🛡️ auth for agents: https://vestauth.com
-Using database connection string: postgresql://dbadmin:***@127.0.0.1:5432/postgres?sslmode=require
-Loaded Prisma config from prisma.config.ts.
-
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
@@ -24,7 +20,7 @@ CREATE TYPE "annotation_type" AS ENUM ('text_comment', 'drawing_box', 'drawing_c
 CREATE TYPE "action_type" AS ENUM ('CREATE', 'READ', 'UPDATE', 'DELETE', 'DOWNLOAD', 'LOGIN');
 
 -- CreateEnum
-CREATE TYPE "entity_type" AS ENUM ('VIDEO', 'ANNOTATION', 'USER', 'STUDY', 'SEQUENCE', 'CLIP', 'SITE', 'PERMISSIONS');
+CREATE TYPE "entity_type" AS ENUM ('VIDEO', 'ANNOTATION', 'USER', 'STUDY', 'SEQUENCE', 'CLIP', 'SITE', 'PERMISSIONS', 'INVITATION');
 
 -- CreateEnum
 CREATE TYPE "user_role" AS ENUM ('CAREGIVER', 'CLINICAL_REVIEWER', 'SITE_COORDINATOR', 'SYSADMIN');
@@ -250,7 +246,7 @@ CREATE TABLE "audit_logs" (
     "action_type" "action_type" NOT NULL,
     "entity_type" "entity_type" NOT NULL,
     "entity_id" UUID NOT NULL,
-    "site_id" UUID NOT NULL,
+    "site_id" UUID,
     "old_values" JSONB NOT NULL,
     "new_values" JSONB NOT NULL,
     "ip_address" TEXT,
@@ -380,5 +376,5 @@ ALTER TABLE "sequence_items" ADD CONSTRAINT "sequence_items_sequence_id_fkey" FO
 ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_actor_user_id_fkey" FOREIGN KEY ("actor_user_id") REFERENCES "user"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_site_id_fkey" FOREIGN KEY ("site_id") REFERENCES "sites"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_site_id_fkey" FOREIGN KEY ("site_id") REFERENCES "sites"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 

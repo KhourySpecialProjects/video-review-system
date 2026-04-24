@@ -1,9 +1,10 @@
 import prisma from "../../lib/prisma.js";
+import { buildScopeFilter, type PermissionContext } from "../../middleware/auth.js";
+import { resolvePermissionLevel } from "../../lib/permissions.js";
 import type {
-    UserPermission,
+    Prisma,
     permission_level,
     review_status,
-    Prisma,
 } from "../../generated/prisma/client.js";
 import type {
     ReviewPermissionLevel,
@@ -12,17 +13,6 @@ import type {
     ReviewsQuery,
     ReviewsResponse,
 } from "./reviews.types.js";
-
-/**
- * @description Ranks used to pick the highest permission a user has for a
- * given VideoStudy tuple when multiple UserPermission rows match it.
- */
-const PERMISSION_RANK: Record<permission_level, number> = {
-    READ: 1,
-    WRITE: 2,
-    EXPORT: 3,
-    ADMIN: 4,
-};
 
 /**
  * @description Maps DB permission_level enum to the lowercase string the
@@ -58,81 +48,21 @@ const STUDY_STATUS_LABEL: Record<"NOT_STARTED" | "IN_PROGRESS" | "FINISHED", Rev
 };
 
 /**
- * @description Builds the Prisma `where` fragment for a single UserPermission
- * row, treating null fields as wildcards. The returned object is meant to be
- * OR'd together with other rows' fragments when filtering VideoStudy.
- * @param perm - A UserPermission row.
- * @returns A VideoStudy `where` fragment; `{}` for full wildcards.
- */
-function permissionToWhere(perm: UserPermission): Prisma.VideoStudyWhereInput {
-    const where: Prisma.VideoStudyWhereInput = {};
-    if (perm.studyId !== null) where.studyId = perm.studyId;
-    if (perm.siteId !== null) where.siteId = perm.siteId;
-    if (perm.videoId !== null) where.videoId = perm.videoId;
-    return where;
-}
-
-/**
- * @description Returns the highest-ranked permission the user has that
- * matches the given VideoStudy tuple. Callers must guarantee at least one
- * row matches (the caller already filtered by the same rules).
- * @param perms - All of the user's permissions.
- * @param vs - The VideoStudy tuple to match against.
- * @returns The matching permission_level with the highest rank.
- */
-function highestPermissionFor(
-    perms: UserPermission[],
-    vs: { studyId: string; siteId: string; videoId: string },
-): permission_level {
-    let best: permission_level = "READ";
-    let bestRank = 0;
-    for (const p of perms) {
-        if (p.studyId !== null && p.studyId !== vs.studyId) continue;
-        if (p.siteId !== null && p.siteId !== vs.siteId) continue;
-        if (p.videoId !== null && p.videoId !== vs.videoId) continue;
-        const rank = PERMISSION_RANK[p.permissionLevel];
-        if (rank > bestRank) {
-            bestRank = rank;
-            best = p.permissionLevel;
-        }
-    }
-    return best;
-}
-
-/**
  * @description Lists the reviewer-video assignments visible to the given user,
  * filtered + paginated by the provided query. Also returns the distinct
  * studies and sites the user has access to (for the filter dropdowns).
  *
- * Visibility is determined by UserPermission rows: a VideoStudy row is
- * visible if the user has at least READ permission whose (studyId, siteId,
- * videoId) tuple matches (with null = wildcard).
- *
- * @param userId - The authenticated user's id.
- * @param query - Parsed & validated query params from the URL.
- * @returns The page of ReviewVideos plus totalCount and dropdown options.
+ * @param permissionCtx - Pre-fetched permission context from middleware
+ * @param query - Parsed & validated query params from the URL
+ * @returns The page of ReviewVideos plus totalCount and dropdown options
  */
 export async function listReviewsForUser(
-    userId: string,
+    permissionCtx: PermissionContext,
     query: ReviewsQuery,
 ): Promise<ReviewsResponse> {
-    const permissions = await prisma.userPermission.findMany({ where: { userId } });
+    const scopeFilter = buildScopeFilter(permissionCtx);
 
-    if (permissions.length === 0) {
-        return { videos: [], totalCount: 0, studies: [], sites: [] };
-    }
-
-    // A permission with all three scope fields null (e.g. SYSADMIN) means
-    // "see everything". Detect that up front so we can skip the OR filter
-    // entirely — Prisma's behavior for an `OR` branch of `{}` is ambiguous
-    // across versions, so the safe path is to not add a scope filter at all.
-    const hasWildcard = permissions.some(
-        (p) => p.studyId === null && p.siteId === null && p.videoId === null,
-    );
-    const permissionConditions = permissions.map(permissionToWhere);
-
-    const where: Prisma.VideoStudyWhereInput = {};
-    if (!hasWildcard) where.OR = permissionConditions;
+    const where: Prisma.VideoStudyWhereInput = { ...scopeFilter };
 
     if (query.study) where.study = { name: query.study };
     if (query.site) where.site = { name: query.site };
@@ -158,11 +88,9 @@ export async function listReviewsForUser(
 
     const skip = (query.page - 1) * query.limit;
 
-    // Same wildcard handling for the dropdown lookups: if the user sees
-    // everything, don't filter the Study/Site lists by permission scope.
-    const dropdownScopeFilter = hasWildcard
+    const dropdownScopeFilter = permissionCtx.isGlobal
         ? {}
-        : { videoStudies: { some: { OR: permissionConditions } } };
+        : { videoStudies: { some: scopeFilter } };
 
     const [rows, totalCount, studies, sites] = await Promise.all([
         prisma.videoStudy.findMany({
@@ -195,23 +123,25 @@ export async function listReviewsForUser(
         }),
     ]);
 
-    const videos: ReviewsResponse["videos"] = rows.map((row) => ({
-        id: row.videoId,
-        studyId: row.studyId,
-        siteId: row.siteId,
-        title: row.video.caregiverMetadata[0]?.privateTitle,
-        reviewStatus: REVIEW_STATUS_LABEL[row.reviewStatus],
-        studyName: row.study.name,
-        siteName: row.site.name,
-        permissionLevel: PERMISSION_LABEL[
-            highestPermissionFor(permissions, {
-                studyId: row.studyId,
-                siteId: row.siteId,
-                videoId: row.videoId,
-            })
-        ],
-        uploadedAt: row.video.createdAt.toISOString(),
-    }));
+    const videos: ReviewsResponse["videos"] = rows.map((row) => {
+        const level = resolvePermissionLevel(permissionCtx.rows, {
+            studyId: row.studyId,
+            siteId: row.siteId,
+            videoId: row.videoId,
+        });
+
+        return {
+            id: row.videoId,
+            studyId: row.studyId,
+            siteId: row.siteId,
+            title: row.video.caregiverMetadata[0]?.privateTitle,
+            reviewStatus: REVIEW_STATUS_LABEL[row.reviewStatus],
+            studyName: row.study.name,
+            siteName: row.site.name,
+            permissionLevel: PERMISSION_LABEL[level ?? "READ"],
+            uploadedAt: row.video.createdAt.toISOString(),
+        };
+    });
 
     return {
         videos,

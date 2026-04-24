@@ -1,6 +1,5 @@
 import { Router } from "express";
-import { requireSession, denyCaregiver } from "../../middleware/auth.js";
-import { AppError } from "../../middleware/errors.js";
+import { requireSession, denyCaregiver, requirePermissionContext } from "../../middleware/auth.js";
 import { listReviewsForUser } from "./reviews.service.js";
 import { reviewsQuerySchema } from "./reviews.types.js";
 
@@ -10,9 +9,9 @@ router.use(requireSession);
 router.use(denyCaregiver);
 
 /**
- * GET /domain/reviews - list video-review assignments for the current user.
+ * @description GET /domain/reviews - list video-review assignments for the current user.
  *
- * Visibility is scoped by UserPermission rows (see reviews.service).
+ * Visibility is scoped by the user's permission rows via requirePermissionContext.
  * All query params are optional; unknown params are ignored.
  *
  * @query search - free-text search across the caregiver privateTitle/privateNotes
@@ -27,14 +26,13 @@ router.use(denyCaregiver);
  * @returns 200 with { videos, totalCount, studies, sites }
  * @returns 400 on invalid query params
  */
-router.get("/", async (req, res) => {
-    const parsed = reviewsQuerySchema.safeParse(req.query);
-    if (!parsed.success) {
-        throw AppError.badRequest(parsed.error.issues[0].message);
-    }
-
-    const result = await listReviewsForUser(req.authSession.user.id, parsed.data);
+router.get("/",
+  requirePermissionContext("READ"),
+  async (req, res) => {
+    const data = reviewsQuerySchema.parse(req.query);
+    const result = await listReviewsForUser(req.permissionContext!, data);
     res.json(result);
-});
+  }
+);
 
 export default router;
