@@ -3,17 +3,26 @@ import * as annotationsService from "./annotations.service.js";
 import { AppError } from "../../middleware/errors.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import { createAnnotationSchema, updateAnnotationSchema } from "./annotations.types.js";
+import { requireSession } from "../../middleware/auth.js";
+import { requirePermission, requirePermissionWithOwnership } from "../../middleware/auth.js";
+import { buildDirectAccessFilter } from "../../lib/auth.js";
+import {
+  resolveAnnotationContexts,
+  resolveAnnotationContextsFromBody,
+  resolveAnnotationOwnerId,
+} from "./annotations.perms.js";
+import type { user_role } from "../../generated/prisma/client.js";
 
 const router = Router();
+
+// All annotation routes require authentication
+router.use(requireSession);
 
 /**
  * GET /domain/annotations - lists annotations for a specific video with pagination.
  *
- * @query videoId - uuid of the video to filter by
- * @query limit - max number of annotations to return (default: 20)
- * @query offset - number of annotations to skip (default: 0)
- *
- * @returns 200 with { annotations, total, limit, offset }
+ * Access filtered by the user's permission grants.
+ * Caregivers cannot access annotations.
  */
 router.get("/", async (req, res) => {
   const parsedLimit = Number.parseInt(String(req.query.limit), 10);
@@ -22,100 +31,99 @@ router.get("/", async (req, res) => {
   const limit = Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 20;
   const offset = Number.isInteger(parsedOffset) && parsedOffset >= 0 ? parsedOffset : 0;
 
-  const result = await annotationsService.listAnnotationsByVideo(req.query.videoId as string, { limit, offset });
+  const { id: userId, role } = req.authSession.user;
+  const accessFilter = await buildDirectAccessFilter(userId, role as user_role, "READ");
+  
+  const videoId = req.query.videoId;
+  if (typeof videoId !== "string" || videoId.length === 0) {
+    throw AppError.badRequest("videoId query parameter is required");
+  }
+
+  const result = await annotationsService.listAnnotationsByVideo(
+    videoId,
+    { limit, offset, accessFilter }
+  );
   res.json(result);
 });
 
 /**
  * GET /domain/annotations/:id - retrieves a single annotation by its uuid.
- *
- * @param id - uuid of the annotation
- *
- * @returns 200 with the annotation object
- * @returns 404 if no annotation with that id exists
  */
-router.get("/:id", async (req, res) => {
-  const annotation = await annotationsService.getAnnotationById(req.params.id);
-  if (!annotation) {
-    throw AppError.notFound("Annotation not found");
+router.get("/:id",
+  requirePermission("READ", resolveAnnotationContexts),
+  async (req, res) => {
+    const annotation = await annotationsService.getAnnotationById(req.params.id as string);
+    if (!annotation) throw AppError.notFound("Annotation not found");
+    res.json(annotation);
   }
-  res.json(annotation);
-});
+);
 
 /**
  * POST /domain/annotations - creates a new annotation on a video.
  *
- * @body videoId - uuid of the video to annotate
- * @body authorUserId - uuid of the user creating the annotation
- * @body studyId - uuid of the associated study
- * @body siteId - uuid of the associated site
- * @body type - annotation type (text_comment, drawing_box, drawing_circle, freehand_drawing, or tag)
- * @body timestampSeconds - position in the video in seconds
- * @body durationSeconds - how long the annotation spans in seconds
- * @body payload - JSON object with type-specific data
- *
- * @returns 201 with the created annotation
- * @returns 400 if request body fails validation
- * @returns 404 if the referenced video does not exist
+ * Requires WRITE permission in the annotation's scope.
+ * Uses the authenticated user's ID as the author.
  */
-router.post("/", async (req, res) => {
-  const parsed = createAnnotationSchema.safeParse(req.body);
-  if (!parsed.success) {
-    throw AppError.badRequest(parsed.error.issues[0].message);
+router.post("/",
+  requirePermission("WRITE", resolveAnnotationContextsFromBody),
+  async (req, res) => {
+    const parsed = createAnnotationSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw AppError.badRequest(parsed.error.issues[0].message);
+    }
+
+    const annotation = await annotationsService.createAnnotation({
+      videoId: parsed.data.videoId,
+      authorUserId: req.authSession.user.id,
+      studyId: parsed.data.studyId,
+      siteId: parsed.data.siteId,
+      type: parsed.data.type,
+      timestampSeconds: parsed.data.timestampSeconds,
+      durationSeconds: parsed.data.durationSeconds,
+      payload: parsed.data.payload as Prisma.InputJsonValue,
+    });
+
+    res.status(201).json(annotation);
   }
-
-  // TODO: get real user ID from auth middleware (req.user.id)
-  const uploadedByUserId = "00000000-0000-0000-0000-000000000000";
-
-  const annotation = await annotationsService.createAnnotation({
-    videoId: parsed.data.videoId,
-    authorUserId: uploadedByUserId,
-    studyId: parsed.data.studyId,
-    siteId: parsed.data.siteId,
-    type: parsed.data.type,
-    timestampSeconds: parsed.data.timestampSeconds,
-    durationSeconds: parsed.data.durationSeconds,
-    payload: parsed.data.payload as Prisma.InputJsonValue,
-  });
-
-  res.status(201).json(annotation);
-});
+);
 
 /**
- * PUT /domain/annotations/:id - updates an existing annotation's timestamp, duration, or payload.
+ * PUT /domain/annotations/:id - updates an existing annotation.
  *
- * @param id - uuid of the annotation to update
- * @body timestampSeconds - updated position in seconds
- * @body durationSeconds - updated duration in seconds
- * @body payload - updated JSON payload
- *
- * @returns 200 with the updated annotation
- * @returns 400 if request body fails validation
- * @returns 404 if no annotation with that id exists (Prisma P2025 → errorHandler)
+ * WRITE: can only update your own annotations.
+ * ADMIN: can update anyone's annotations.
  */
-router.put("/:id", async (req, res) => {
-  const parsed = updateAnnotationSchema.safeParse(req.body);
-  if (!parsed.success) {
-    throw AppError.badRequest(parsed.error.issues[0].message);
-  }
+router.put("/:id",
+  requirePermissionWithOwnership("WRITE", {
+    resolveContexts: resolveAnnotationContexts,
+    resolveOwnerId: resolveAnnotationOwnerId,
+  }),
+  async (req, res) => {
+    const parsed = updateAnnotationSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw AppError.badRequest(parsed.error.issues[0].message);
+    }
 
-  // Prisma throws P2025 if not found — caught by errorHandler as 404
-  const annotation = await annotationsService.updateAnnotation(req.params.id, parsed.data);
-  res.json(annotation);
-});
+    const annotation = await annotationsService.updateAnnotation(req.params.id as string, parsed.data);
+    res.json(annotation);
+  }
+);
 
 /**
- * DELETE /domain/annotations/:id - permanently deletes an annotation by its uuid.
+ * DELETE /domain/annotations/:id - permanently deletes an annotation.
  *
- * @param id - uuid of the annotation to delete
- *
- * @returns 204 No Content on success
- * @returns 404 if no annotation with that id exists (Prisma P2025 → errorHandler)
+ * WRITE: can only delete your own annotations.
+ * ADMIN: can delete anyone's annotations.
  */
-router.delete("/:id", async (req, res) => {
-  // Prisma throws P2025 if not found — caught by errorHandler as 404
-  await annotationsService.deleteAnnotation(req.params.id);
-  res.status(204).send();
-});
+router.delete("/:id",
+  requirePermissionWithOwnership("WRITE", {
+    resolveContexts: resolveAnnotationContexts,
+    resolveOwnerId: resolveAnnotationOwnerId,
+  }),
+  async (req, res) => {
+    await annotationsService.deleteAnnotation(req.params.id as string);
+    res.status(204).send();
+  }
+);
 
 export default router;

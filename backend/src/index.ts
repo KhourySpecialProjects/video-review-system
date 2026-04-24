@@ -24,7 +24,7 @@ import authRouter from "./domains/auth/auth.router.js";
 import annotationsRouter from "./domains/annotations/annotations.router.js";
 import usersRouter from "./domains/users/users.router.js";
 // import clipsRouter from "./domains/clips/clips.router";
-// import accountsRouter from "./domains/accounts/accounts.router";
+import accountsRouter from "./domains/accounts/accounts.router";
 // import auditRouter from "./domains/audit/audit.router";
 
 dotenv.config();

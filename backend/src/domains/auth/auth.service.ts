@@ -139,6 +139,9 @@ export async function activateInvite(input: ActivateInviteInput) {
       },
     });
 
+    // Seed default permission row based on role
+    // await seedDefaultPermission(userId, invitation.role, invitation.siteId, tx);
+
     return { success: true, message: "Account created. Please sign in." };
   });
 }
