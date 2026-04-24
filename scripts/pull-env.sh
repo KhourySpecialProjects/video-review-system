@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 # Usage: ./scripts/pull-env.sh
 #
 # Fetches project secrets from AWS Secrets Manager and writes them to:

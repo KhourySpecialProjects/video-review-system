@@ -8,5 +8,5 @@ import { createAuthClient } from "better-auth/react";
  * @description All auth API calls are proxied through Vite to the Express backend at /api/auth/*
  */
 export const authClient = createAuthClient({
-  baseURL: import.meta.env.VITE_BETTER_AUTH_URL,
+  baseURL: `${window.location.origin}/api/auth`,
 });

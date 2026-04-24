@@ -17,13 +17,12 @@ import { ResetPassword } from "./features/login/reset-password";
 import { clientAction as resetPasswordAction } from "./hooks/use-reset-password";
 import { authGuardLoader } from "./hooks/auth-guard";
 import { homeLoader, searchLoader, videoViewLoader, videoViewAction } from "./lib/video.service";
-;
 
 export const router = createBrowserRouter([
     {
         path: "/",
         element: <Root />,
-        loader: authGuardLoader,
+        //    loader: authGuardLoader,
         children: [
             {
                 element: <Home />,

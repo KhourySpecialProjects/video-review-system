@@ -8,6 +8,7 @@ dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import prisma from "./prisma.js";
+import { sendPasswordResetEmail } from "./ses.js";
 
 // configure Better Auth instance
 // this is the core auth engine that handles sessions, sign-in, and password hashing
@@ -33,8 +34,7 @@ export const auth = betterAuth({
     enabled: true,
     disableSignUp: true,
     sendResetPassword: async ({ user, url }) => {
-      // TODO: send a real email in production
-      console.log(`[DEV-ONLY] Password reset link for ${user.email}: ${url}`);
+      await sendPasswordResetEmail(user.email, url);
     },
   },
 

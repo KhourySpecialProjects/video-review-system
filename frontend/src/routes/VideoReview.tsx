@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/sidebar";
 import { ClipTimeline } from "@/features/video/clips/ClipTimeline";
 import { useClipTimeline } from "@/features/video/clips/useClipTimeline";
-import { TimestampAnnotation } from "@/features/sidebar/TimestampAnnotation";
+import { AnnotationSidebar, type NoteAnnotation } from "@/features/sidebar/sidebar";
 import { GeneralNotes } from "@/features/annotate/video-summary/comment/GeneralNotes";
 import { useGeneralNotes } from "@/features/annotate/video-summary/comment/useGeneralNotes";
 import { TagManager } from "@/features/annotate/video-summary/tags/TagManager";
@@ -30,6 +30,8 @@ export default function VideoReview() {
     const videoContainerRef = useRef<HTMLDivElement>(null);
 
     const [videoDuration, setVideoDuration] = useState(0);
+
+    const [sidebarNotes, setSidebarNotes] = useState<NoteAnnotation[]>([]);
 
     const timeline = useClipTimeline(videoDuration, videoRef, (clip) => {
         console.log("Clip created:", clip);
@@ -161,24 +163,64 @@ export default function VideoReview() {
                     <ResizableHandle withHandle />
 
                     {/* Right sidebar — full height */}
-                    <ResizablePanel defaultSize="20%" minSize="15%">
-                        <div className="flex h-full flex-col gap-4 p-4 overflow-y-auto border-l bg-background">
-                            <h2 className="font-semibold text-lg mb-2">Annotations</h2>
-                            <TimestampAnnotation
-                                timestamp="01:23"
-                                comment="Seizure begins at this time."
-                                onNavigate={(ts) => console.log("Navigate to:", ts)}
-                                onEdit={(newComment) => console.log("Edit saved:", newComment)}
-                                onDelete={() => console.log("Delete clicked")}
-                            />
-                            <TimestampAnnotation
-                                timestamp="04:56"
-                                comment="Patient is experiencing confusion."
-                                onNavigate={(ts) => console.log("Navigate to:", ts)}
-                                onEdit={(newComment) => console.log("Edit saved:", newComment)}
-                                onDelete={() => console.log("Delete clicked")}
-                            />
-                        </div>
+                    <ResizablePanel defaultSize="20%" minSize="15%" className="overflow-hidden bg-background">
+                        <AnnotationSidebar
+                            currentVideoTime={videoCurrentTime}
+                            clips={timeline.clips.map((c, i) => ({
+                                id: `clip-${i}`,
+                                title: c.title || `Highlight Clip ${i + 1}`,
+                                startMs: Math.floor(c.startTime * 1000),
+                                endMs: Math.floor(c.endTime * 1000),
+                                themeColor: "#3B82F6",
+                            }))}
+                            drawings={annotationState.annotations.map(a => ({
+                                id: a.id,
+                                type: a.type,
+                                color: a.settings.color,
+                                timestamp: a.timestamp,
+                                duration: a.duration,
+                            }))}
+                            onDeleteClip={(id) => {
+                                const index = parseInt(id.replace("clip-", ""), 10);
+                                if (!isNaN(index)) {
+                                    timeline.removeClip(index);
+                                }
+                            }}
+                            notes={sidebarNotes}
+                            onAddNoteRequest={(author, content, timestamp) => {
+                                setSidebarNotes(prev => [{
+                                    id: `note-${Date.now()}`,
+                                    author,
+                                    content,
+                                    timestamp
+                                }, ...prev]);
+                            }}
+                            onUpdateNote={(id, newContent) => {
+                                setSidebarNotes(prev => prev.map(n => n.id === id ? { ...n, content: newContent } : n));
+                            }}
+                            onDeleteNote={(id) => {
+                                setSidebarNotes(prev => prev.filter(n => n.id !== id));
+                            }}
+                            onDeleteDrawing={(id) => annotationState.removeAnnotation(id)}
+                            onUpdateDrawingDuration={(id, duration) => {
+                                annotationState.updateAnnotation(id, { duration });
+                            }}
+                            onUpdateClip={(id, updates) => {
+                                const index = parseInt(id.replace("clip-", ""), 10);
+                                if (!isNaN(index)) {
+                                    const timelineUpdates: Partial<typeof timeline.clips[0]> = {};
+                                    if (updates.title !== undefined) timelineUpdates.title = updates.title;
+                                    if (updates.startMs !== undefined) timelineUpdates.startTime = updates.startMs / 1000;
+                                    if (updates.endMs !== undefined) timelineUpdates.endTime = updates.endMs / 1000;
+                                    timeline.updateClip(index, timelineUpdates);
+                                }
+                            }}
+                            onJumpToTime={(timeSeconds) => {
+                                if (videoRef.current) {
+                                    videoRef.current.currentTime = timeSeconds;
+                                }
+                            }}
+                        />
                     </ResizablePanel>
                 </ResizablePanelGroup>
 

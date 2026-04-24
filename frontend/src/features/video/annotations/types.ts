@@ -205,6 +205,7 @@ export type Annotation =
 export type AnnotationAction =
     | { type: "ADD"; annotation: Annotation }
     | { type: "REMOVE"; id: string }
+    | { type: "UPDATE"; id: string; updates: Partial<Annotation> }
     | { type: "UNDO" }
     | { type: "CLEAR" }
     | { type: "INIT"; annotations: Annotation[] };
@@ -251,6 +252,11 @@ export type UseAnnotationStateReturn = {
      * @param id - The unique ID of the annotation to remove.
      */
     removeAnnotation: (id: string) => void;
+    /**
+     * Modifies specific keys of an existing annotation safely matching its ID. 
+     * Pushes to the history stack allowing undo.
+     */
+    updateAnnotation: (id: string, updates: Partial<Annotation>) => void;
     /** Undo the last annotation action, restoring the previous state. */
     undo: () => void;
     /** Remove all annotations and clear history. */
