@@ -37,6 +37,7 @@ type UserPermissionSnapshotSource = Pick<
 type AnnotationSnapshotSource = Pick<
   Annotation,
   | "videoId"
+  | "authorUserId"
   | "studyId"
   | "siteId"
   | "type"
@@ -47,6 +48,7 @@ type AnnotationSnapshotSource = Pick<
 type ClipSnapshotSource = Pick<
   VideoClip,
   | "sourceVideoId"
+  | "createdByUserId"
   | "studyId"
   | "siteId"
   | "title"
@@ -55,7 +57,7 @@ type ClipSnapshotSource = Pick<
 >;
 type SequenceSnapshotSource = Pick<
   StitchedSequence,
-  "videoId" | "studyId" | "siteId" | "title"
+  "videoId" | "createdByUserId" | "studyId" | "siteId" | "title"
 >;
 
 /** Returns true for plain objects. */
@@ -161,6 +163,7 @@ export function buildAnnotationSnapshot(
 ): AuditAnnotationSnapshot {
   return {
     videoId: annotation.videoId,
+    authorUserId: annotation.authorUserId,
     studyId: annotation.studyId,
     siteId: annotation.siteId,
     type: annotation.type,
@@ -185,6 +188,7 @@ export function buildAnnotationUpdateSnapshot(
 export function buildClipSnapshot(clip: ClipSnapshotSource): AuditClipSnapshot {
   return {
     sourceVideoId: clip.sourceVideoId,
+    createdByUserId: clip.createdByUserId,
     studyId: clip.studyId,
     siteId: clip.siteId,
     title: clip.title,
@@ -199,6 +203,7 @@ export function buildSequenceSnapshot(
 ): AuditSequenceSnapshot {
   return {
     videoId: sequence.videoId,
+    createdByUserId: sequence.createdByUserId,
     studyId: sequence.studyId,
     siteId: sequence.siteId,
     title: sequence.title,

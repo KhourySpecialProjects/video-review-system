@@ -40,15 +40,20 @@ vi.mock("../../lib/auth.js", async (importOriginal) => {
   };
 });
 
-vi.mock("../../middleware/auth.js", () => ({
-  requireSession: async (req: any, _res: any, next: any) => {
-    const session = await authMock.auth.api.getSession();
-    req.authSession = session;
-    next();
-  },
-  requireInternalAuth: (_req: any, _res: any, next: any) => next(),
-  requirePermission: () => (_req: any, _res: any, next: any) => next(),
-}));
+vi.mock("../../middleware/auth.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../middleware/auth.js")>();
+
+  return {
+    ...actual,
+    requireSession: async (req: any, _res: any, next: any) => {
+      const session = await authMock.auth.api.getSession();
+      req.authSession = session;
+      next();
+    },
+    requireInternalAuth: (_req: any, _res: any, next: any) => next(),
+    requirePermission: () => (_req: any, _res: any, next: any) => next(),
+  };
+});
 
 vi.mock("../../domains/videos/videos.service.js", () => videosServiceMock);
 

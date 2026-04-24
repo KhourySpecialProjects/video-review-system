@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client.js";
 import {
   normalizeAuditSnapshot,
   recordAudit,
@@ -295,8 +296,35 @@ describe("audit.service", () => {
             title: "Clip title",
           },
           newValues: {},
+          ipAddress: null,
         }),
       });
+    });
+
+    it("maps delete-time Prisma not-found errors to the provided notFound error", async () => {
+      const notFound = new Error("Clip not found");
+
+      await expect(
+        runAuditedDelete({
+          client,
+          loadBefore: async () => ({
+            id: "55555555-5555-5555-8555-555555555555",
+          }),
+          deleteRecord: async () => {
+            throw new PrismaClientKnownRequestError("Record not found", {
+              code: "P2025",
+              clientVersion: "test",
+            });
+          },
+          notFound,
+          actorUserId: "user-1",
+          entityType: "CLIP",
+          snapshot: () => ({}),
+          getSiteId: () => null,
+        }),
+      ).rejects.toBe(notFound);
+
+      expect(createMock).not.toHaveBeenCalled();
     });
   });
 });

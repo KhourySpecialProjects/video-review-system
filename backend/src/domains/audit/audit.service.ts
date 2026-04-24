@@ -1,4 +1,5 @@
 import type { AuditLog, Prisma } from "../../generated/prisma/index.js";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client.js";
 import type {
   AuditedCreateInput,
   AuditedDeleteInput,
@@ -155,7 +156,18 @@ export async function runAuditedDelete<TRecord extends AuditedRecord>(
     throw input.notFound;
   }
 
-  await input.deleteRecord(before);
+  try {
+    await input.deleteRecord(before);
+  } catch (error) {
+    if (
+      error instanceof PrismaClientKnownRequestError &&
+      error.code === "P2025"
+    ) {
+      throw input.notFound;
+    }
+
+    throw error;
+  }
 
   await recordAudit(input.client, {
     actorUserId: input.actorUserId,

@@ -5,6 +5,7 @@ import {
   getRequestIp,
   requireAuditActorContext,
 } from "../../middleware/audit.js";
+import { AppError } from "../../middleware/errors.js";
 
 type MockRequestInput = Omit<Partial<Request>, "authSession"> & {
   authSession?: any;
@@ -86,6 +87,12 @@ describe("audit.middleware", () => {
   it("throws when authenticated audit data is missing", () => {
     const req = createRequest();
 
-    expect(() => requireAuditActorContext(req)).toThrow("Unauthorized");
+    try {
+      requireAuditActorContext(req);
+      throw new Error("Expected requireAuditActorContext to throw");
+    } catch (error) {
+      expect(error).toBeInstanceOf(AppError);
+      expect((error as AppError).statusCode).toBe(401);
+    }
   });
 });

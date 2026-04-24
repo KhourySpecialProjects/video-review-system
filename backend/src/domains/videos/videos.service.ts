@@ -658,6 +658,7 @@ export async function cancelVideoUpload(
 
   await prisma.$transaction(async (tx) => {
     const metadata = await getUploaderVideoMetadata(tx, video);
+    const siteId = await resolveVideoAuditSiteId(tx, videoId);
 
     await runAuditedDelete({
       client: tx,
@@ -667,7 +668,7 @@ export async function cancelVideoUpload(
       actorUserId: audit.actorUserId,
       entityType: "VIDEO",
       snapshot: (deletedVideo) => buildVideoSnapshot(deletedVideo, metadata),
-      getSiteId: () => resolveVideoAuditSiteId(tx, videoId),
+      getSiteId: () => siteId,
       ipAddress: audit.ipAddress,
     });
   });
@@ -752,6 +753,7 @@ export async function deleteVideo(
         return {
           ...video,
           auditMetadata: await getUploaderVideoMetadata(tx, video),
+          auditSiteId: await resolveVideoAuditSiteId(tx, video.id),
         };
       },
       deleteRecord: (video) =>
@@ -763,7 +765,7 @@ export async function deleteVideo(
       entityType: "VIDEO",
       snapshot: (video) =>
         buildVideoSnapshot(video, video.auditMetadata),
-      getSiteId: (video) => resolveVideoAuditSiteId(tx, video.id),
+      getSiteId: (video) => video.auditSiteId,
       ipAddress: audit.ipAddress,
     }),
   );

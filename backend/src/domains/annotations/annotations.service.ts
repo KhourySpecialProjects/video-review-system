@@ -1,6 +1,6 @@
 import { Prisma } from "../../generated/prisma/index.js";
 import {
-  recordAudit,
+  runAuditedCreate,
   runAuditedDelete,
   runAuditedUpdate,
 } from "../audit/audit.service.js";
@@ -94,40 +94,36 @@ export async function createAnnotation({
   audit: AuthenticatedAuditContext,
 ) {
   return prisma.$transaction(async (tx) => {
-    // verify the video exists before creating an annotation
-    const video = await tx.video.findUnique({
-      where: { id: videoId },
-    });
+    return runAuditedCreate({
+      client: tx,
+      create: async () => {
+        const video = await tx.video.findUnique({
+          where: { id: videoId },
+        });
 
-    if (!video) {
-      throw AppError.notFound("Video not found");
-    }
+        if (!video) {
+          throw AppError.notFound("Video not found");
+        }
 
-    const annotation = await tx.annotation.create({
-      data: {
-        videoId,
-        authorUserId,
-        studyId,
-        siteId,
-        type,
-        timestampS: timestampSeconds,
-        durationS: durationSeconds,
-        payload: payload as Prisma.InputJsonValue,
+        return tx.annotation.create({
+          data: {
+            videoId,
+            authorUserId,
+            studyId,
+            siteId,
+            type,
+            timestampS: timestampSeconds,
+            durationS: durationSeconds,
+            payload: payload as Prisma.InputJsonValue,
+          },
+        });
       },
-    });
-
-    await recordAudit(tx, {
       actorUserId: audit.actorUserId,
-      actionType: "CREATE",
       entityType: "ANNOTATION",
-      entityId: annotation.id,
-      siteId: annotation.siteId,
-      oldValues: {},
-      newValues: buildAnnotationSnapshot(annotation),
+      snapshot: buildAnnotationSnapshot,
+      getSiteId: (annotation) => annotation.siteId,
       ipAddress: audit.ipAddress,
     });
-
-    return annotation;
   });
 }
 

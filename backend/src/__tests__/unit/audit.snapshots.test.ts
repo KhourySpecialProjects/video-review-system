@@ -107,6 +107,7 @@ describe("audit.snapshots", () => {
 
     expect(buildAnnotationSnapshot(annotation)).toEqual({
       videoId: "video-1",
+      authorUserId: "user-1",
       studyId: "study-1",
       siteId: "site-1",
       type: "drawing_box",
@@ -150,6 +151,7 @@ describe("audit.snapshots", () => {
     expect(
       buildClipSnapshot({
         sourceVideoId: "video-1",
+        createdByUserId: "user-1",
         studyId: "study-1",
         siteId: "site-1",
         title: "Interesting section",
@@ -158,6 +160,7 @@ describe("audit.snapshots", () => {
       }),
     ).toEqual({
       sourceVideoId: "video-1",
+      createdByUserId: "user-1",
       studyId: "study-1",
       siteId: "site-1",
       title: "Interesting section",
@@ -168,12 +171,14 @@ describe("audit.snapshots", () => {
     expect(
       buildSequenceSnapshot({
         videoId: "video-1",
+        createdByUserId: "user-1",
         studyId: "study-1",
         siteId: "site-1",
         title: "Episode highlights",
       }),
     ).toEqual({
       videoId: "video-1",
+      createdByUserId: "user-1",
       studyId: "study-1",
       siteId: "site-1",
       title: "Episode highlights",

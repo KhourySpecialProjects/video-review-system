@@ -521,12 +521,18 @@ export async function deleteUserPermission(
   audit: AuthenticatedAuditContext,
 ): Promise<void> {
   await getUserSiteContext(userId);
-  const permission = await getUserPermission(userId, permissionId);
 
   await prisma.$transaction((tx) =>
     runAuditedDelete({
       client: tx,
-      loadBefore: async () => permission,
+      loadBefore: () =>
+        tx.userPermission.findFirst({
+          where: {
+            id: permissionId,
+            userId,
+          },
+          select: userPermissionSelect,
+        }),
       deleteRecord: () =>
         tx.userPermission.delete({
           where: { id: permissionId },

@@ -175,6 +175,7 @@ export interface AuditAnnotationPayloadSummary extends AuditSnapshot {
 /** Annotation snapshot for audit rows. */
 export interface AuditAnnotationSnapshot extends AuditSnapshot {
   videoId: string;
+  authorUserId: string;
   studyId: string;
   siteId: string;
   type: annotation_type;
@@ -193,6 +194,7 @@ export interface AuditAnnotationUpdateSnapshot extends AuditSnapshot {
 /** Clip snapshot for audit rows. */
 export interface AuditClipSnapshot extends AuditSnapshot {
   sourceVideoId: string;
+  createdByUserId: string;
   studyId: string;
   siteId: string;
   title: string;
@@ -203,6 +205,7 @@ export interface AuditClipSnapshot extends AuditSnapshot {
 /** Sequence snapshot for audit rows. */
 export interface AuditSequenceSnapshot extends AuditSnapshot {
   videoId: string;
+  createdByUserId: string;
   studyId: string;
   siteId: string;
   title: string;
