@@ -1,4 +1,5 @@
 import { createBrowserRouter } from "react-router";
+import SystemAdminDashboard from "./routes/SystemAdminDashboard";
 import Root from "./routes/root";
 import Home from "./routes/home";
 import VideoView from "./routes/video-view";
@@ -52,6 +53,10 @@ export const router = createBrowserRouter([
                     return { tutorialPromise: fetchTutorial() };
                 },
             },
+            {
+                path: "admin",
+                element: <SystemAdminDashboard />,
+            },
         ],
     },
     {
@@ -75,4 +80,5 @@ export const router = createBrowserRouter([
         element: <ResetPassword />,
         action: resetPasswordAction,
     },
+
 ]);
