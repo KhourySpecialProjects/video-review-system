@@ -16,6 +16,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import type { SignupActionData } from "./signup.types";
 
 /**
@@ -78,7 +79,7 @@ export function SignupForm({
                 <Field className="grid grid-cols-2 gap-4">
                   <Field>
                     <FieldLabel htmlFor="password">Password</FieldLabel>
-                    <Input id="password" name="password" type="password" />
+                    <PasswordInput id="password" name="password" />
                     {actionData?.fieldErrors?.password && (
                       <FieldError>
                         {actionData.fieldErrors.password}
@@ -89,10 +90,9 @@ export function SignupForm({
                     <FieldLabel htmlFor="confirmPassword">
                       Confirm Password
                     </FieldLabel>
-                    <Input
+                    <PasswordInput
                       id="confirmPassword"
                       name="confirmPassword"
-                      type="password"
                     />
                     {actionData?.fieldErrors?.confirmPassword && (
                       <FieldError>

@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AllVideos, AllVideosSkeleton } from "./AllVideos";
 import type { Video } from "@/lib/types";
-import type { SearchLoaderData } from "@/lib/video.service";
+import { searchKeys } from "@/lib/queryClient";
 
 const mockVideos: Video[] = [
     {
@@ -45,39 +46,55 @@ const mockVideos: Video[] = [
 ];
 
 /**
- * @description Renders AllVideos inside a memory router with a loader
- * that returns the given search data.
+ * @description Renders AllVideos inside a memory router with the TanStack
+ * Query cache pre-seeded for the empty search params key. The component
+ * reads results via `useSuspenseQuery(searchVideosQuery(searchParams))`, so
+ * the test has to prime the cache that the loader would otherwise populate.
  *
- * @param data - The SearchLoaderData to provide via the loader
+ * @param videos - Seeded video results for the default (empty) search params
  */
-function renderWithRouter(data: SearchLoaderData) {
+function renderWithRouter(videos: Video[]) {
+    const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+    });
+    const searchParams = "";
+    queryClient.setQueryData(searchKeys.list(searchParams), {
+        videos,
+        total: videos.length,
+        limit: 50,
+        offset: 0,
+    });
     const router = createMemoryRouter(
-        [{ path: "/", element: <AllVideos />, loader: () => data }],
+        [{ path: "/", element: <AllVideos />, loader: () => ({ searchParams, q: "" }) }],
         { initialEntries: ["/"] },
     );
-    return render(<RouterProvider router={router} />);
+    return render(
+        <QueryClientProvider client={queryClient}>
+            <RouterProvider router={router} />
+        </QueryClientProvider>,
+    );
 }
 
 describe("AllVideos", () => {
     it("renders all video titles", async () => {
-        renderWithRouter({ searchPromise: Promise.resolve({ videos: mockVideos, total: 3, limit: 50, offset: 0 }), q: "" });
+        renderWithRouter(mockVideos);
         expect((await screen.findAllByText("Eating Breakfast")).length).toBeGreaterThan(0);
         expect(screen.getAllByText("Morning Walk").length).toBeGreaterThan(0);
         expect(screen.getAllByText("Afternoon Nap").length).toBeGreaterThan(0);
     });
 
     it("shows correct video count", async () => {
-        renderWithRouter({ searchPromise: Promise.resolve({ videos: mockVideos, total: 3, limit: 50, offset: 0 }), q: "" });
+        renderWithRouter(mockVideos);
         expect(await screen.findByText("3 videos found")).toBeInTheDocument();
     });
 
     it("shows empty state when no videos", async () => {
-        renderWithRouter({ searchPromise: Promise.resolve({ videos: [], total: 0, limit: 50, offset: 0 }), q: "" });
+        renderWithRouter([]);
         expect((await screen.findAllByText("No videos found")).length).toBeGreaterThan(0);
     });
 
     it("renders the search input and filters button", async () => {
-        renderWithRouter({ searchPromise: Promise.resolve({ videos: mockVideos, total: 3, limit: 50, offset: 0 }), q: "" });
+        renderWithRouter(mockVideos);
         expect(await screen.findByPlaceholderText("Search by title or description...")).toBeInTheDocument();
         expect(screen.getByText("Filters")).toBeInTheDocument();
     });

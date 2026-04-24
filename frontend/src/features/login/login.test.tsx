@@ -36,7 +36,7 @@ describe("Login", () => {
   it("renders the login form with email and password fields", () => {
     renderLogin();
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("Password")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /log in/i })).toBeInTheDocument();
   });
 
@@ -95,7 +95,7 @@ describe("Login", () => {
   it("applies destructive style to password input when there is a password error", () => {
     mockUseActionData.mockReturnValue({ fieldErrors: { password: "Password is required" } });
     renderLogin();
-    expect(screen.getByLabelText(/password/i)).toHaveClass("border-destructive");
+    expect(screen.getByLabelText("Password")).toHaveClass("border-destructive");
   });
 
   it("form has correct method for action submission", () => {

@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -83,10 +84,9 @@ export function Login() {
                                 </Button>
                             </div>
 
-                            <Input
+                            <PasswordInput
                                 id="password"
                                 name="password"
-                                type="password"
                                 required
                                 autoComplete="current-password"
                                 className={fieldErrors.password ? "border-destructive focus-visible:ring-destructive" : ""}

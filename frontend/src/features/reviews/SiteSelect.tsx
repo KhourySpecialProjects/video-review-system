@@ -28,7 +28,11 @@ export function SiteSelect({ value, sites, onChange }: SiteSelectProps) {
                     {(selected: string | null) => selected ?? "All sites"}
                 </SelectValue>
             </SelectTrigger>
-            <SelectContent alignItemWithTrigger={false} side="bottom">
+            <SelectContent
+                alignItemWithTrigger={false}
+                side="bottom"
+                className="w-auto min-w-(--anchor-width) overflow-x-visible"
+            >
                 <SelectGroup>
                     <SelectItem value={null}>All sites</SelectItem>
                     {sites.map((site) => (

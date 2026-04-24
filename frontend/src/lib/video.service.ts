@@ -1,4 +1,4 @@
-import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
+import type { LoaderFunctionArgs, ActionFunctionArgs, ShouldRevalidateFunction } from "react-router";
 import { type QueryClient, queryOptions } from "@tanstack/react-query";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -366,6 +366,31 @@ export function videoReviewLoader(queryClient: QueryClient) {
         };
     };
 }
+
+/**
+ * @description Revalidation gate for the video review route. Fetcher submits
+ * to `/clips`, `/annotations`, and `/sequences` already update the TanStack
+ * Query caches the page reads from, so the route loader does not need to
+ * re-run. Returning false for those form actions prevents the stream URL
+ * from being refetched, which would otherwise remount the `<video>` element
+ * and reload playback on every sidebar edit.
+ *
+ * @param args - Revalidation arguments supplied by React Router
+ * @returns Whether React Router should revalidate the review loader
+ */
+export const videoReviewShouldRevalidate: ShouldRevalidateFunction = ({
+    formAction,
+    defaultShouldRevalidate,
+}) => {
+    if (
+        formAction === "/clips" ||
+        formAction === "/annotations" ||
+        formAction === "/sequences"
+    ) {
+        return false;
+    }
+    return defaultShouldRevalidate;
+};
 
 /**
  * @description Video review route action. Handles mutations for the review

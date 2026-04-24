@@ -22,8 +22,8 @@ function renderSidebar(props: Partial<AnnotationSidebarProps> = {}) {
 }
 
 const sampleClips = [
-  { id: "clip-1", title: "First clip", startTimeS: 0, endTimeS: 5, themeColor: "#f00" },
-  { id: "clip-2", title: "Second clip", startTimeS: 6, endTimeS: 12, themeColor: "#0f0" },
+  { id: "clip-1", title: "First clip", startTimeS: 0, endTimeS: 5, themeColor: "#f00", createdBy: "Tester" },
+  { id: "clip-2", title: "Second clip", startTimeS: 6, endTimeS: 12, themeColor: "#0f0", createdBy: "Tester" },
 ]
 
 describe("AnnotationSidebar", () => {

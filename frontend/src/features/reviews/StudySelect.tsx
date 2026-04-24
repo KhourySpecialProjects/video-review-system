@@ -30,7 +30,11 @@ export function StudySelect({ value, groupedStudies, onChange }: StudySelectProp
                     {(selected: string | null) => selected ?? "All studies"}
                 </SelectValue>
             </SelectTrigger>
-            <SelectContent alignItemWithTrigger={false} side="bottom">
+            <SelectContent
+                alignItemWithTrigger={false}
+                side="bottom"
+                className="w-auto min-w-(--anchor-width) overflow-x-visible"
+            >
                 <SelectGroup>
                     <SelectItem value={null}>All studies</SelectItem>
                 </SelectGroup>

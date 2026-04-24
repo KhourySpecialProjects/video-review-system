@@ -18,7 +18,7 @@ import { clientAction as forgotPasswordAction } from "./hooks/use-forgot-passwor
 import { ResetPassword } from "./features/login/reset-password";
 import { clientAction as resetPasswordAction } from "./hooks/use-reset-password";
 import { authGuardLoader, caregiverGuardLoader, nonCaregiverGuardLoader } from "./hooks/auth-guard";
-import { homeLoader, searchLoader, videoViewLoader, videoViewAction, videoReviewLoader, videoReviewAction } from "./lib/video.service";
+import { homeLoader, searchLoader, videoViewLoader, videoViewAction, videoReviewLoader, videoReviewAction, videoReviewShouldRevalidate } from "./lib/video.service";
 import { incompleteUploadsLoader, incompleteUploadsAction } from "./features/layout/incomplete-uploads.route";
 import { clipsLoader, clipsAction } from "./features/video/clips/clips.route";
 import { sequencesLoader, sequencesAction } from "./features/video/sequences/sequences.route";
@@ -68,6 +68,7 @@ export const router = createBrowserRouter([
                         element: <VideoReview />,
                         loader: videoReviewLoader(queryClient),
                         action: videoReviewAction,
+                        shouldRevalidate: videoReviewShouldRevalidate,
                     },
                     {
                         path: "reviews",

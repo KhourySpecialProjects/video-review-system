@@ -27,7 +27,11 @@ export function StatusSelect({ value, onChange }: StatusSelectProps) {
                     {(selected: string | null) => selected ?? "All statuses"}
                 </SelectValue>
             </SelectTrigger>
-            <SelectContent alignItemWithTrigger={false} side="bottom">
+            <SelectContent
+                alignItemWithTrigger={false}
+                side="bottom"
+                className="w-auto min-w-(--anchor-width) overflow-x-visible"
+            >
                 <SelectGroup>
                     <SelectItem value={null}>All statuses</SelectItem>
                     {REVIEW_STATUS_OPTIONS.map((status) => (
