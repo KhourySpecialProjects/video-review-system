@@ -1,6 +1,7 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { z } from "zod";
 import type { Video } from "./types";
+import { apiFetch } from "./api";
 
 const editVideoSchema = z.object({
     title: z.string().min(1, "Title is required."),
@@ -37,7 +38,7 @@ export async function fetchVideos(request: Request): Promise<VideoListResponse> 
     const limit = url.searchParams.get("limit") ?? "20";
     const offset = url.searchParams.get("offset") ?? "0";
 
-    const res = await fetch(`/domain/videos?limit=${limit}&offset=${offset}`, {
+    const res = await apiFetch(`/videos?limit=${limit}&offset=${offset}`, {
         signal: request.signal,
     });
     if (!res.ok) throw new Error("Failed to fetch videos");
@@ -62,8 +63,8 @@ export async function searchVideos(request: Request): Promise<VideoListResponse>
     const limit = url.searchParams.get("limit") ?? "50";
     const offset = url.searchParams.get("offset") ?? "0";
 
-    const res = await fetch(
-        `/domain/videos/search?${new URLSearchParams({
+    const res = await apiFetch(
+        `/videos/search?${new URLSearchParams({
             ...(q && { q }),
             ...(uploadedAfter && { uploadedAfter }),
             ...(uploadedBefore && { uploadedBefore }),
@@ -90,7 +91,7 @@ export async function fetchVideoById(
     videoId: string,
     request: Request,
 ): Promise<Video | null> {
-    const res = await fetch(`/domain/videos/${videoId}/detail`, {
+    const res = await apiFetch(`/videos/${videoId}/detail`, {
         signal: request.signal,
     });
     if (res.status === 404) return null;
@@ -109,7 +110,7 @@ export async function fetchStreamUrl(
     videoId: string,
     request: Request,
 ): Promise<StreamResponse> {
-    const res = await fetch(`/domain/videos/${videoId}/stream`, {
+    const res = await apiFetch(`/videos/${videoId}/stream`, {
         signal: request.signal,
     });
     if (!res.ok) throw new Error("Failed to fetch stream URL");
@@ -217,7 +218,7 @@ export async function videoViewAction({ params, request }: ActionFunctionArgs) {
         return { fieldErrors: errors };
     }
 
-    const res = await fetch(`/domain/videos/${params.videoId}`, {
+    const res = await apiFetch(`/videos/${params.videoId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

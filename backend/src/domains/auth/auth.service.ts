@@ -8,6 +8,7 @@ import {
   type CreateInviteInput,
   type ActivateInviteInput,
 } from "./auth.types.js";
+import { sendInviteEmail } from "../../lib/ses.js";
 
 /**
  * Creates a new user invitation.
@@ -42,14 +43,15 @@ export async function createInvite(input: CreateInviteInput) {
     },
   });
 
-  // TODO: dev-only: token returned in response for testing
-  // in production, send token via email instead
-  if (process.env.NODE_ENV !== "production") {
-    console.log("[DEV-ONLY] Activation token:", token);
-    return { id: invitation.id, token };
-  }
+  await sendInviteEmail(normalizedEmail, token);
 
-  return { id: invitation.id };
+  return {
+    id: invitation.id,
+    createdAt: invitation.createdAt,
+    expiresAt: invitation.expiresAt,
+    // in dev, also return token in response for API testing convenience
+    ...(process.env.NODE_ENV !== "production" && { token }),
+  };
 }
 
 /**

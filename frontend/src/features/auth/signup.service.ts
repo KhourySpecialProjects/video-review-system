@@ -6,8 +6,7 @@ import {
   type SignupFieldErrors,
   type SignupLoaderData,
 } from "./signup.types";
-
-const BACKEND_URL = "/domain/auth";
+import { apiFetch } from "@/lib/api";
 
 /**
  * Validates raw form data against the signup schema.
@@ -72,7 +71,7 @@ export async function signupAction({
 
   const parsed = signupFormSchema.parse(raw);
 
-  const response = await fetch(`${BACKEND_URL}/activate`, {
+  const response = await apiFetch("/auth/activate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

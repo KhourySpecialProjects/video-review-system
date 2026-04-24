@@ -1,6 +1,6 @@
 import { type ActionFunctionArgs } from "react-router";
 import { z } from "zod";
-// import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/lib/auth-client";
 
 const forgotPasswordSchema = z.object({
     email: z.string().min(1, "Email is required").pipe(z.email("Invalid email address")),
@@ -30,15 +30,17 @@ export async function clientAction({ request }: ActionFunctionArgs) {
         return { fieldErrors: errors };
     }
 
-    //implement later when we have email setup
-    // const { email } = result.data;
+    const { email } = result.data;
+    const redirectTo = `${window.location.origin}/reset-password`;
 
-    // const redirectTo = `${window.location.origin}/reset-password`;
-
-    // await authClient.forgetPassword({
-    //     email,
-    //     redirectTo,
-    // });
+    try {
+        await authClient.requestPasswordReset({
+            email,
+            redirectTo,
+        });
+    } catch {
+        // Swallow errors to prevent email enumeration
+    }
 
     // Always show success to avoid email enumeration
     return { success: true };
