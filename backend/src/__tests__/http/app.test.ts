@@ -24,9 +24,14 @@ vi.mock("better-auth/node", () => ({
   toNodeHandler: appMocks.toNodeHandler,
 }));
 
-vi.mock("../../lib/auth.js", () => ({
-  auth: appMocks.auth,
-}));
+vi.mock("../../lib/auth.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../lib/auth.js")>();
+
+  return {
+    ...actual,
+    auth: appMocks.auth,
+  };
+});
 
 vi.mock("../../domains/videos/videos.router.js", () => ({
   default: (req: any, res: any, next: any) => {
@@ -43,6 +48,28 @@ vi.mock("../../domains/auth/auth.router.js", () => ({
   default: (req: any, res: any, next: any) => {
     if (req.method === "GET" && req.path === "/mounted") {
       res.json({ route: "auth" });
+      return;
+    }
+
+    next();
+  },
+}));
+
+vi.mock("../../domains/clips/clips.router.js", () => ({
+  default: (req: any, res: any, next: any) => {
+    if (req.method === "GET" && req.path === "/mounted") {
+      res.json({ route: "clips" });
+      return;
+    }
+
+    next();
+  },
+}));
+
+vi.mock("../../domains/sequences/sequences.router.js", () => ({
+  default: (req: any, res: any, next: any) => {
+    if (req.method === "GET" && req.path === "/mounted") {
+      res.json({ route: "sequences" });
       return;
     }
 
@@ -78,27 +105,27 @@ describe("app wiring", () => {
     process.env.ALLOWED_ORIGIN = originalAllowedOrigin;
   });
 
-  // ========= GET /health =========
+  // ========= GET /api/health =========
 
-  it("GET /health returns the health payload", async () => {
-    // Input: GET /health.
+  it("GET /api/health returns the health payload", async () => {
+    // Input: GET /api/health.
     // Expected: the app returns status 200 with body { status: "ok" }.
     const app = await getApp();
 
-    const response = await request(app).get("/health");
+    const response = await request(app).get("/api/health");
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ status: "ok" });
   });
 
-  it("GET /health includes the configured CORS origin", async () => {
-    // Input: GET /health with Origin "http://localhost:5173".
+  it("GET /api/health includes the configured CORS origin", async () => {
+    // Input: GET /api/health with Origin "http://localhost:5173".
     // Expected: the response includes access-control-allow-origin with the same
     // configured origin value.
     const app = await getApp();
 
     const response = await request(app)
-      .get("/health")
+      .get("/api/health")
       .set("Origin", "http://localhost:5173");
 
     expect(response.headers["access-control-allow-origin"]).toBe(
@@ -142,6 +169,28 @@ describe("app wiring", () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ route: "auth" });
+  });
+
+  it("mounts the clips router at /domain/clips", async () => {
+    // Input: GET /domain/clips/mounted.
+    // Expected: the request reaches the mounted clips router.
+    const app = await getApp();
+
+    const response = await request(app).get("/domain/clips/mounted");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ route: "clips" });
+  });
+
+  it("mounts the sequences router at /domain/sequences", async () => {
+    // Input: GET /domain/sequences/mounted.
+    // Expected: the request reaches the mounted sequences router.
+    const app = await getApp();
+
+    const response = await request(app).get("/domain/sequences/mounted");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ route: "sequences" });
   });
 
   // ========= Better Auth Mount =========

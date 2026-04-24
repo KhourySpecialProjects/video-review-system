@@ -1,19 +1,21 @@
 import type { Request } from "express";
 import { describe, expect, it } from "vitest";
-import { buildAuditActorContext, getRequestIp } from "../../middleware/audit.js";
+import {
+  buildAuditActorContext,
+  getRequestIp,
+  requireAuditActorContext,
+} from "../../middleware/audit.js";
 
-function createRequest(
-  overrides: Partial<Request> & {
-    authSession?: { user?: { id?: string } };
-  } = {},
-) {
+type MockRequestInput = Omit<Partial<Request>, "authSession"> & {
+  authSession?: any;
+};
+
+function createRequest(overrides: MockRequestInput = {}) {
   return {
     headers: {},
     ip: undefined,
     ...overrides,
-  } as Request & {
-    authSession?: { user?: { id?: string } };
-  };
+  } as Request & { authSession?: any };
 }
 
 describe("audit.middleware", () => {
@@ -63,5 +65,27 @@ describe("audit.middleware", () => {
       actorUserId: null,
       ipAddress: "198.51.100.8",
     });
+  });
+
+  it("returns authenticated audit data when a user is present", () => {
+    const req = createRequest({
+      authSession: {
+        user: {
+          id: "user-123",
+        },
+      },
+      ip: "::1",
+    });
+
+    expect(requireAuditActorContext(req)).toEqual({
+      actorUserId: "user-123",
+      ipAddress: "::1",
+    });
+  });
+
+  it("throws when authenticated audit data is missing", () => {
+    const req = createRequest();
+
+    expect(() => requireAuditActorContext(req)).toThrow("Unauthorized");
   });
 });

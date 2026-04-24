@@ -1,4 +1,14 @@
 import { Prisma } from "../../generated/prisma/index.js";
+import {
+  recordAudit,
+  runAuditedDelete,
+  runAuditedUpdate,
+} from "../audit/audit.service.js";
+import {
+  buildAnnotationSnapshot,
+  buildAnnotationUpdateSnapshot,
+} from "../audit/audit.snapshots.js";
+import type { AuthenticatedAuditContext } from "../audit/audit.types.js";
 import prisma from "../../lib/prisma.js";
 import { AppError } from "../../middleware/errors.js";
 import type { CreateAnnotationParams, UpdateAnnotationInput } from "./annotations.types.js";
@@ -80,30 +90,45 @@ export async function createAnnotation({
   type,
   timestampSeconds,
   durationSeconds,
-  payload, }: CreateAnnotationParams) {
-
+  payload, }: CreateAnnotationParams,
+  audit: AuthenticatedAuditContext,
+) {
+  return prisma.$transaction(async (tx) => {
     // verify the video exists before creating an annotation
-    const video = await prisma.video.findUnique({
+    const video = await tx.video.findUnique({
       where: { id: videoId },
     });
 
     if (!video) {
       throw AppError.notFound("Video not found");
     }
-  
-  const annotation = await prisma.annotation.create({
-    data: {
-      videoId,
-      authorUserId,
-      studyId,
-      siteId,
-      type,
-      timestampS: timestampSeconds,
-      durationS: durationSeconds,
-      payload: payload as Prisma.InputJsonValue,
-    },
+
+    const annotation = await tx.annotation.create({
+      data: {
+        videoId,
+        authorUserId,
+        studyId,
+        siteId,
+        type,
+        timestampS: timestampSeconds,
+        durationS: durationSeconds,
+        payload: payload as Prisma.InputJsonValue,
+      },
+    });
+
+    await recordAudit(tx, {
+      actorUserId: audit.actorUserId,
+      actionType: "CREATE",
+      entityType: "ANNOTATION",
+      entityId: annotation.id,
+      siteId: annotation.siteId,
+      oldValues: {},
+      newValues: buildAnnotationSnapshot(annotation),
+      ipAddress: audit.ipAddress,
+    });
+
+    return annotation;
   });
-  return annotation;
 }
 
 /**
@@ -116,17 +141,35 @@ export async function createAnnotation({
  * 
  * @throws {P2025} if no annotation with that id exists
  */
-export async function updateAnnotation(id: string, data: UpdateAnnotationInput) {
-  // prisma will throw if annotation doesn't exist, can handle in the controller
-  const annotation = await prisma.annotation.update({
-    where: { id },
-    data: {
-      timestampS: data.timestampSeconds,
-      durationS: data.durationSeconds,
-      payload: data.payload as Prisma.InputJsonValue,
-    },
-  });
-  return annotation;
+export async function updateAnnotation(
+  id: string,
+  data: UpdateAnnotationInput,
+  audit: AuthenticatedAuditContext,
+) {
+  return prisma.$transaction((tx) =>
+    runAuditedUpdate({
+      client: tx,
+      loadBefore: () =>
+        tx.annotation.findUnique({
+          where: { id },
+        }),
+      update: () =>
+        tx.annotation.update({
+          where: { id },
+          data: {
+            timestampS: data.timestampSeconds,
+            durationS: data.durationSeconds,
+            payload: data.payload as Prisma.InputJsonValue,
+          },
+        }),
+      notFound: AppError.notFound("Annotation not found"),
+      actorUserId: audit.actorUserId,
+      entityType: "ANNOTATION",
+      snapshot: buildAnnotationUpdateSnapshot,
+      getSiteId: (annotation) => annotation.siteId,
+      ipAddress: audit.ipAddress,
+    }),
+  );
 }
 
 /**
@@ -136,9 +179,27 @@ export async function updateAnnotation(id: string, data: UpdateAnnotationInput) 
  * 
  * @throws {P2025} if no annotation with that id exists
  */
-export async function deleteAnnotation(id: string) {
-  await prisma.annotation.delete({
-    where: { id },
-  });
+export async function deleteAnnotation(
+  id: string,
+  audit: AuthenticatedAuditContext,
+) {
+  await prisma.$transaction((tx) =>
+    runAuditedDelete({
+      client: tx,
+      loadBefore: () =>
+        tx.annotation.findUnique({
+          where: { id },
+        }),
+      deleteRecord: () =>
+        tx.annotation.delete({
+          where: { id },
+        }),
+      notFound: AppError.notFound("Annotation not found"),
+      actorUserId: audit.actorUserId,
+      entityType: "ANNOTATION",
+      snapshot: buildAnnotationSnapshot,
+      getSiteId: (annotation) => annotation.siteId,
+      ipAddress: audit.ipAddress,
+    }),
+  );
 }
-

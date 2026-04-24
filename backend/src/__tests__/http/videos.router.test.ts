@@ -8,13 +8,16 @@ import {
   makeVideo,
 } from "../helpers/fixtures.js";
 
-const { authMock, videosServiceMock } = vi.hoisted(() => ({
+const { authMock, authHelpersMock, videosServiceMock } = vi.hoisted(() => ({
   authMock: {
     auth: {
       api: {
         getSession: vi.fn(),
       },
     },
+  },
+  authHelpersMock: {
+    buildVideoAccessFilter: vi.fn(),
   },
   videosServiceMock: {
     listVideos: vi.fn(),
@@ -27,8 +30,24 @@ const { authMock, videosServiceMock } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("../../lib/auth.js", () => ({
-  auth: authMock.auth,
+vi.mock("../../lib/auth.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../lib/auth.js")>();
+
+  return {
+    ...actual,
+    auth: authMock.auth,
+    buildVideoAccessFilter: authHelpersMock.buildVideoAccessFilter,
+  };
+});
+
+vi.mock("../../middleware/auth.js", () => ({
+  requireSession: async (req: any, _res: any, next: any) => {
+    const session = await authMock.auth.api.getSession();
+    req.authSession = session;
+    next();
+  },
+  requireInternalAuth: (_req: any, _res: any, next: any) => next(),
+  requirePermission: () => (_req: any, _res: any, next: any) => next(),
 }));
 
 vi.mock("../../domains/videos/videos.service.js", () => videosServiceMock);
@@ -43,6 +62,7 @@ describe("videos.router", () => {
     authMock.auth.api.getSession.mockResolvedValue({
       user: { id: "user-123", role: "CLINICAL_REVIEWER" },
     });
+    authHelpersMock.buildVideoAccessFilter.mockResolvedValue({});
   });
 
   // ========= GET /domain/videos =========
@@ -78,6 +98,7 @@ describe("videos.router", () => {
       userId: "user-123",
       limit: 5,
       offset: 10,
+      accessFilter: {},
     });
   });
 
@@ -101,6 +122,7 @@ describe("videos.router", () => {
       userId: "user-123",
       limit: 20,
       offset: 0,
+      accessFilter: {},
     });
   });
 
@@ -125,6 +147,7 @@ describe("videos.router", () => {
       userId: "user-123",
       limit: 20,
       offset: 0,
+      accessFilter: {},
     });
   });
 
@@ -151,7 +174,9 @@ describe("videos.router", () => {
     expect(videosServiceMock.initiateVideoUpload).toHaveBeenCalledWith({
       ...input,
       uploadedByUserId: "user-123",
-    });
+    }, expect.objectContaining({
+      actorUserId: "user-123",
+    }));
   });
 
   it("POST /domain/videos/upload rejects invalid payloads before the service is called", async () => {
@@ -194,7 +219,13 @@ describe("videos.router", () => {
       .send({ parts });
 
     expect(response.status).toBe(200);
-    expect(videosServiceMock.completeVideoUpload).toHaveBeenCalledWith(id, { parts });
+    expect(videosServiceMock.completeVideoUpload).toHaveBeenCalledWith(
+      id,
+      { parts },
+      expect.objectContaining({
+        actorUserId: "user-123",
+      }),
+    );
   });
 
   it("POST /domain/videos/:id/complete-upload rejects empty parts via error middleware", async () => {
@@ -234,7 +265,13 @@ describe("videos.router", () => {
       createdAt: updatedVideo.createdAt.toISOString(),
       takenAt: updatedVideo.takenAt?.toISOString(),
     });
-    expect(videosServiceMock.updateVideo).toHaveBeenCalledWith(id, patch);
+    expect(videosServiceMock.updateVideo).toHaveBeenCalledWith(
+      id,
+      patch,
+      expect.objectContaining({
+        actorUserId: "user-123",
+      }),
+    );
   });
 
   it("PUT /domain/videos/:id rejects invalid payloads before the service is called", async () => {
@@ -290,7 +327,12 @@ describe("videos.router", () => {
 
     expect(response.status).toBe(204);
     expect(response.text).toBe("");
-    expect(videosServiceMock.deleteVideo).toHaveBeenCalledWith(id);
+    expect(videosServiceMock.deleteVideo).toHaveBeenCalledWith(
+      id,
+      expect.objectContaining({
+        actorUserId: "user-123",
+      }),
+    );
   });
 
   it("DELETE /domain/videos/:id returns 404 when the service surfaces a Prisma not-found error", async () => {

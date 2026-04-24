@@ -1,8 +1,16 @@
 import prisma from "../../lib/prisma.js";
+import {
+  runAuditedCreate,
+  runAuditedDelete,
+} from "../audit/audit.service.js";
+import { buildClipSnapshot } from "../audit/audit.snapshots.js";
+import type { AuthenticatedAuditContext } from "../audit/audit.types.js";
 import { AppError } from "../../middleware/errors.js";
 import type {
   CreateClipInput,
 } from "./clips.types.js";
+
+type ClipWriteClient = Pick<typeof prisma, "videoClip">;
 
 // ────────────────────────────────────────────────────────────
 // CLIPS
@@ -19,7 +27,11 @@ import type {
  *
  * @throws {AppError} 404 if the source video does not exist
  */
-export async function createClip(input: CreateClipInput, createdByUserId: string) {
+export async function createClip(
+  input: CreateClipInput,
+  createdByUserId: string,
+  audit?: AuthenticatedAuditContext,
+) {
   const video = await prisma.video.findUnique({
     where: { id: input.sourceVideoId },
   });
@@ -35,19 +47,34 @@ export async function createClip(input: CreateClipInput, createdByUserId: string
     throw AppError.badRequest("Start time exceeds video duration");
   }
 
-  const clip = await prisma.videoClip.create({
-    data: {
-      sourceVideoId: input.sourceVideoId,
-      createdByUserId,
-      studyId: input.studyId,
-      siteId: input.siteId,
-      title: input.title,
-      startTimeS: input.startTimeS,
-      endTimeS: input.endTimeS,
-    },
-  });
+  const create = (client: ClipWriteClient) =>
+    client.videoClip.create({
+      data: {
+        sourceVideoId: input.sourceVideoId,
+        createdByUserId,
+        studyId: input.studyId,
+        siteId: input.siteId,
+        title: input.title,
+        startTimeS: input.startTimeS,
+        endTimeS: input.endTimeS,
+      },
+    });
 
-  return clip;
+  if (!audit) {
+    return create(prisma);
+  }
+
+  return prisma.$transaction((tx) =>
+    runAuditedCreate({
+      client: tx,
+      create: () => create(tx),
+      actorUserId: audit.actorUserId,
+      entityType: "CLIP",
+      snapshot: buildClipSnapshot,
+      getSiteId: (clip) => clip.siteId,
+      ipAddress: audit.ipAddress,
+    }),
+  );
 }
 
 /**
@@ -79,12 +106,34 @@ export async function getClip(clipId: string) {
  *
  * @throws {AppError} 404 if no clip with that id exists (Prisma P2025)
  */
-export async function deleteClip(clipId: string) {
-  const clip = await prisma.videoClip.findUnique({
-    where: { id: clipId },
-  });
+export async function deleteClip(
+  clipId: string,
+  audit?: AuthenticatedAuditContext,
+) {
+  if (!audit) {
+    await prisma.videoClip.delete({
+      where: { id: clipId },
+    });
+    return;
+  }
 
-  await prisma.videoClip.delete({
-    where: { id: clipId },
-  });
+  await prisma.$transaction((tx) =>
+    runAuditedDelete({
+      client: tx,
+      loadBefore: () =>
+        tx.videoClip.findUnique({
+          where: { id: clipId },
+        }),
+      deleteRecord: (clip) =>
+        tx.videoClip.delete({
+          where: { id: clip.id },
+        }),
+      notFound: AppError.notFound("Clip not found"),
+      actorUserId: audit.actorUserId,
+      entityType: "CLIP",
+      snapshot: buildClipSnapshot,
+      getSiteId: (clip) => clip.siteId,
+      ipAddress: audit.ipAddress,
+    }),
+  );
 }

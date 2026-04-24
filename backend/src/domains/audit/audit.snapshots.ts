@@ -10,6 +10,7 @@ import type {
 import type {
   AuditAnnotationPayloadSummary,
   AuditAnnotationSnapshot,
+  AuditAnnotationUpdateSnapshot,
   AuditClipSnapshot,
   AuditPermissionSnapshot,
   AuditSequenceSnapshot,
@@ -19,7 +20,7 @@ import type {
 
 type VideoSnapshotSource = Pick<
   Video,
-  "id" | "uploadedByUserId" | "status" | "durationSeconds" | "takenAt"
+  "uploadedByUserId" | "status" | "durationSeconds" | "takenAt"
 >;
 type VideoMetadataSnapshotSource = Pick<
   CaregiverVideoMetadata,
@@ -31,13 +32,11 @@ type UserSnapshotSource = Pick<
 >;
 type UserPermissionSnapshotSource = Pick<
   UserPermission,
-  "id" | "userId" | "permissionLevel" | "siteId" | "studyId" | "videoId"
+  "userId" | "permissionLevel" | "siteId" | "studyId" | "videoId"
 >;
 type AnnotationSnapshotSource = Pick<
   Annotation,
-  | "id"
   | "videoId"
-  | "authorUserId"
   | "studyId"
   | "siteId"
   | "type"
@@ -47,9 +46,7 @@ type AnnotationSnapshotSource = Pick<
 >;
 type ClipSnapshotSource = Pick<
   VideoClip,
-  | "id"
   | "sourceVideoId"
-  | "createdByUserId"
   | "studyId"
   | "siteId"
   | "title"
@@ -58,7 +55,7 @@ type ClipSnapshotSource = Pick<
 >;
 type SequenceSnapshotSource = Pick<
   StitchedSequence,
-  "id" | "videoId" | "createdByUserId" | "studyId" | "siteId" | "title"
+  "videoId" | "studyId" | "siteId" | "title"
 >;
 
 /** Returns true for plain objects. */
@@ -75,17 +72,12 @@ function pickString(
   return typeof value === "string" ? value : undefined;
 }
 
-/**
- * Builds a video snapshot.
- *
- * TODO: Title and notes live in caregiver_video_metadata, not videos.
- */
+/** Builds the safe video fields stored in audit JSON. */
 export function buildVideoSnapshot(
   video: VideoSnapshotSource,
   metadata?: VideoMetadataSnapshotSource | null,
 ): AuditVideoSnapshot {
   const snapshot: AuditVideoSnapshot = {
-    id: video.id,
     uploadedByUserId: video.uploadedByUserId,
     status: video.status,
     durationSeconds: video.durationSeconds,
@@ -116,7 +108,6 @@ export function buildPermissionSnapshot(
   permission: UserPermissionSnapshotSource,
 ): AuditPermissionSnapshot {
   return {
-    id: permission.id,
     userId: permission.userId,
     permissionLevel: permission.permissionLevel,
     siteId: permission.siteId,
@@ -169,9 +160,7 @@ export function buildAnnotationSnapshot(
   annotation: AnnotationSnapshotSource,
 ): AuditAnnotationSnapshot {
   return {
-    id: annotation.id,
     videoId: annotation.videoId,
-    authorUserId: annotation.authorUserId,
     studyId: annotation.studyId,
     siteId: annotation.siteId,
     type: annotation.type,
@@ -181,12 +170,21 @@ export function buildAnnotationSnapshot(
   };
 }
 
+/** Builds the safe fields stored for annotation updates. */
+export function buildAnnotationUpdateSnapshot(
+  annotation: AnnotationSnapshotSource,
+): AuditAnnotationUpdateSnapshot {
+  return {
+    timestampS: annotation.timestampS,
+    durationS: annotation.durationS,
+    payload: summarizeAnnotationPayload(annotation.type, annotation.payload),
+  };
+}
+
 /** Builds a clip snapshot. */
 export function buildClipSnapshot(clip: ClipSnapshotSource): AuditClipSnapshot {
   return {
-    id: clip.id,
     sourceVideoId: clip.sourceVideoId,
-    createdByUserId: clip.createdByUserId,
     studyId: clip.studyId,
     siteId: clip.siteId,
     title: clip.title,
@@ -200,9 +198,7 @@ export function buildSequenceSnapshot(
   sequence: SequenceSnapshotSource,
 ): AuditSequenceSnapshot {
   return {
-    id: sequence.id,
     videoId: sequence.videoId,
-    createdByUserId: sequence.createdByUserId,
     studyId: sequence.studyId,
     siteId: sequence.siteId,
     title: sequence.title,

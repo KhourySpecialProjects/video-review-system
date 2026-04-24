@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { buildAuditActorContext } from "../../middleware/audit.js";
+import { requireAuditActorContext } from "../../middleware/audit.js";
 import { requireSession } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/errors.js";
 import {
@@ -160,6 +160,7 @@ router.post("/:userId/permissions", async (req, res) => {
   const userPermission = await createUserPermission(
     req.params.userId,
     parsed.data,
+    requireAuditActorContext(req),
   );
   res.status(201).json(userPermission);
 });
@@ -201,7 +202,11 @@ router.delete("/:userId/permissions/:permissionId", async (req, res) => {
     }
   }
 
-  await deleteUserPermission(req.params.userId, req.params.permissionId);
+  await deleteUserPermission(
+    req.params.userId,
+    req.params.permissionId,
+    requireAuditActorContext(req),
+  );
   res.status(204).send();
 });
 
@@ -233,16 +238,11 @@ router.patch("/:userId/status", async (req, res) => {
     throw AppError.forbidden();
   }
 
-  const audit = buildAuditActorContext(req);
-
-  if (!audit.actorUserId) {
-    throw AppError.unauthorized();
-  }
-
-  const result = await updateUserStatus(req.params.userId, parsed.data, {
-    actorUserId: audit.actorUserId,
-    ipAddress: audit.ipAddress,
-  });
+  const result = await updateUserStatus(
+    req.params.userId,
+    parsed.data,
+    requireAuditActorContext(req),
+  );
   res.json(result);
 });
 

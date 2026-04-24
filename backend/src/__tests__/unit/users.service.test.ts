@@ -16,6 +16,7 @@ const { prismaMock } = vi.hoisted(() => ({
       delete: vi.fn(),
     },
     site: {
+      findUnique: vi.fn(),
       findMany: vi.fn(),
     },
     auditLog: {
@@ -43,6 +44,8 @@ vi.mock("../../lib/prisma.js", () => ({
 }));
 
 import {
+  createUserPermission,
+  deleteUserPermission,
   getManageableSiteIds,
   listUsers,
   resolvePermissionScopeAccess,
@@ -247,6 +250,118 @@ describe("users.service", () => {
           videoId: "44444444-4444-4444-8444-444444444444",
         }),
       ).rejects.toThrow("Invalid permission scope");
+    });
+  });
+
+  describe("createUserPermission", () => {
+    it("creates a permission and writes a CREATE audit row", async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: "user-1",
+        siteId: "11111111-1111-1111-8111-111111111111",
+      });
+      prismaMock.userPermission.findFirst.mockResolvedValue(null);
+      prismaMock.userPermission.create.mockResolvedValue({
+        id: "perm-1",
+        userId: "user-1",
+        permissionLevel: "READ",
+        siteId: null,
+        studyId: null,
+        videoId: null,
+      });
+      prismaMock.auditLog.create.mockResolvedValue({
+        id: "audit-1",
+      });
+
+      const result = await createUserPermission(
+        "user-1",
+        {
+          permissionLevel: "READ",
+          siteId: null,
+          studyId: null,
+          videoId: null,
+        },
+        {
+          actorUserId: "actor-1",
+          ipAddress: "203.0.113.10",
+        },
+      );
+
+      expect(result).toEqual({
+        id: "perm-1",
+        userId: "user-1",
+        permissionLevel: "READ",
+        siteId: null,
+        studyId: null,
+        videoId: null,
+      });
+      expect(prismaMock.auditLog.create).toHaveBeenCalledWith({
+        data: {
+          actorUserId: "actor-1",
+          actionType: "CREATE",
+          entityType: "PERMISSIONS",
+          entityId: "perm-1",
+          siteId: null,
+          oldValues: {},
+          newValues: {
+            userId: "user-1",
+            permissionLevel: "READ",
+            siteId: null,
+            studyId: null,
+            videoId: null,
+          },
+          ipAddress: "203.0.113.10",
+        },
+      });
+    });
+  });
+
+  describe("deleteUserPermission", () => {
+    it("deletes a permission and writes a DELETE audit row", async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: "user-1",
+        siteId: "11111111-1111-1111-8111-111111111111",
+      });
+      prismaMock.userPermission.findFirst.mockResolvedValue({
+        id: "perm-1",
+        userId: "user-1",
+        permissionLevel: "ADMIN",
+        siteId: "22222222-2222-2222-8222-222222222222",
+        studyId: null,
+        videoId: null,
+      });
+      prismaMock.userPermission.delete.mockResolvedValue({
+        id: "perm-1",
+      });
+      prismaMock.auditLog.create.mockResolvedValue({
+        id: "audit-1",
+      });
+
+      await deleteUserPermission("user-1", "perm-1", {
+        actorUserId: "actor-1",
+        ipAddress: "203.0.113.10",
+      });
+
+      expect(prismaMock.userPermission.delete).toHaveBeenCalledWith({
+        where: { id: "perm-1" },
+      });
+      expect(prismaMock.auditLog.create).toHaveBeenCalledWith({
+        data: {
+          actorUserId: "actor-1",
+          actionType: "DELETE",
+          entityType: "PERMISSIONS",
+          entityId: "perm-1",
+          siteId: "22222222-2222-2222-8222-222222222222",
+          oldValues: {
+            userId: "user-1",
+            permissionLevel: "ADMIN",
+            siteId: "22222222-2222-2222-8222-222222222222",
+            studyId: null,
+            videoId: null,
+          },
+          newValues: {},
+          ipAddress: "203.0.113.10",
+        },
+      });
     });
   });
 

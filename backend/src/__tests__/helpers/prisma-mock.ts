@@ -17,6 +17,7 @@ function resetMocks(collection: Record<string, AsyncMock>) {
  * Prisma surface area used by `videos.service.ts`.
  */
 export interface VideosPrismaMock {
+  $transaction: AsyncMock;
   video: {
     findMany: AsyncMock;
     count: AsyncMock;
@@ -24,6 +25,16 @@ export interface VideosPrismaMock {
     create: AsyncMock;
     update: AsyncMock;
     delete: AsyncMock;
+  };
+  videoStudy: {
+    findMany: AsyncMock;
+  };
+  caregiverVideoMetadata: {
+    create: AsyncMock;
+    findUnique: AsyncMock;
+  };
+  auditLog: {
+    create: AsyncMock;
   };
 }
 
@@ -61,7 +72,11 @@ export interface AuthPrismaMock extends AuthTransactionPrismaMock {
  * @param mock The hoisted Prisma mock backing `videos.service.ts`.
  */
 export function resetVideosPrismaMock(mock: VideosPrismaMock) {
+  mock.$transaction.mockReset();
   resetMocks(mock.video);
+  resetMocks(mock.videoStudy);
+  resetMocks(mock.caregiverVideoMetadata);
+  resetMocks(mock.auditLog);
 }
 
 /**

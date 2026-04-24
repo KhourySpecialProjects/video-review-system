@@ -394,14 +394,14 @@ model AuditLog {
   actionType  action_type @map("action_type")
   entityType  entity_type @map("entity_type")
   entityId    String      @map("entity_id") @db.Uuid
-  siteId      String      @map("site_id") @db.Uuid
+  siteId      String?     @map("site_id") @db.Uuid
   oldValues   Json        @map("old_values")
   newValues   Json        @map("new_values")
   ipAddress   String?     @map("ip_address")
   createdAt   DateTime    @default(now()) @map("created_at")
 
   actor User  @relation(fields: [actorUserId], references: [id])
-  site  Site  @relation(fields: [siteId], references: [id])
+  site  Site? @relation(fields: [siteId], references: [id], onDelete: SetNull)
 
   @@map("audit_logs")
 }

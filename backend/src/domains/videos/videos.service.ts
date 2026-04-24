@@ -1,5 +1,15 @@
 import prisma from "../../lib/prisma.js";
-import type { Video } from "../../generated/prisma/client.js";
+import type { CaregiverVideoMetadata, Video } from "../../generated/prisma/client.js";
+import {
+  recordAudit,
+  runAuditedDelete,
+  runAuditedUpdate,
+} from "../audit/audit.service.js";
+import { buildVideoSnapshot } from "../audit/audit.snapshots.js";
+import type {
+  AuthenticatedAuditContext,
+  AuditSnapshot,
+} from "../audit/audit.types.js";
 import { AppError } from "../../middleware/errors.js";
 import type { Prisma } from "../../generated/prisma/client.js";
 import type { CreateVideoInput, CompleteUploadInput, UpdateVideoInput, SearchVideosInput, VideoListItem } from "./videos.types.js";
@@ -66,6 +76,75 @@ async function toVideoListItem(
     takenAt: video.takenAt?.toISOString() ?? null,
     uploadedBy: video.uploadedBy.name,
   };
+}
+
+type VideoAuditClient = Prisma.TransactionClient | typeof prisma;
+
+type VideoAuditMetadata = Pick<
+  CaregiverVideoMetadata,
+  "privateTitle" | "privateNotes"
+>;
+
+/** Returns one site only when the video belongs to exactly one distinct site. */
+export async function resolveVideoAuditSiteId(
+  client: VideoAuditClient,
+  videoId: string,
+): Promise<string | null> {
+  const rows = await client.videoStudy.findMany({
+    where: { videoId },
+    select: { siteId: true },
+  });
+  const siteIds = [...new Set(rows.map((row) => row.siteId))];
+
+  return siteIds.length === 1 ? siteIds[0] : null;
+}
+
+/** Loads the uploader's private metadata for video audit snapshots. */
+async function getUploaderVideoMetadata(
+  client: VideoAuditClient,
+  video: Pick<Video, "id" | "uploadedByUserId">,
+): Promise<VideoAuditMetadata | null> {
+  return client.caregiverVideoMetadata.findUnique({
+    where: {
+      videoId_caregiverUserId: {
+        videoId: video.id,
+        caregiverUserId: video.uploadedByUserId,
+      },
+    },
+    select: {
+      privateTitle: true,
+      privateNotes: true,
+    },
+  });
+}
+
+/** Stores only the video status for upload completion audits. */
+function buildVideoStatusSnapshot(video: Pick<Video, "status">): AuditSnapshot {
+  return {
+    status: video.status,
+  };
+}
+
+/** Stores only safe fields that this endpoint changed. */
+function buildVideoUpdateSnapshot(
+  video: Pick<Video, "status" | "durationSeconds" | "takenAt">,
+  input: UpdateVideoInput,
+): AuditSnapshot {
+  const snapshot: AuditSnapshot = {};
+
+  if (input.status !== undefined) {
+    snapshot.status = video.status;
+  }
+
+  if (input.durationSeconds !== undefined) {
+    snapshot.durationSeconds = video.durationSeconds;
+  }
+
+  if (input.takenAt !== undefined) {
+    snapshot.takenAt = video.takenAt?.toISOString() ?? null;
+  }
+
+  return snapshot;
 }
 
 /**
@@ -224,7 +303,8 @@ export async function getVideoDetail(videoId: string, userId: string): Promise<V
  * @throws {AppError} 409 if the video status is not UPLOADED
  */
 export async function getVideoStreamUrl(
-  videoId: string
+  videoId: string,
+  audit?: AuthenticatedAuditContext,
 ): Promise<{ video: Video; url: string; expiresIn: number }> {
   const video = await prisma.video.findUnique({
     where: { id: videoId },
@@ -241,7 +321,19 @@ export async function getVideoStreamUrl(
   const expiresIn = 3600;
   const thumbKey = `${video.s3Key}.mp4`;
   const url = await generatePresignedGetUrl(video.s3Key, expiresIn);
-  
+
+  if (audit) {
+    await recordAudit(prisma, {
+      actorUserId: audit.actorUserId,
+      actionType: "DOWNLOAD",
+      entityType: "VIDEO",
+      entityId: video.id,
+      siteId: await resolveVideoAuditSiteId(prisma, video.id),
+      oldValues: {},
+      newValues: { access: "stream" },
+      ipAddress: audit.ipAddress,
+    });
+  }
 
   return { video, url, expiresIn };
 }
@@ -285,7 +377,9 @@ export async function initiateVideoUpload({
   durationSeconds,
   takenAt,
   contentType,
-}: CreateVideoParams): Promise<{
+}: CreateVideoParams,
+  audit?: AuthenticatedAuditContext,
+): Promise<{
   video: Video;
   parts: { partNumber: number; url: string }[];
   partSize: number;
@@ -311,7 +405,7 @@ export async function initiateVideoUpload({
     });
 
     // Build the final s3Key using the generated uuid
-    await tx.caregiverVideoMetadata.create({
+    const metadata = await tx.caregiverVideoMetadata.create({
       data: {
         videoId: created.id,
         caregiverUserId: uploadedByUserId,
@@ -322,10 +416,25 @@ export async function initiateVideoUpload({
     const s3Key = `uploads/${created.id}/${videoName}`;
     const s3UploadId = await initiateMultipartUpload(s3Key, contentType);
 
-    return await tx.video.update({
+    const updated = await tx.video.update({
       where: { id: created.id },
       data: { s3Key, s3UploadId },
     });
+
+    if (audit) {
+      await recordAudit(tx, {
+        actorUserId: audit.actorUserId,
+        actionType: "CREATE",
+        entityType: "VIDEO",
+        entityId: updated.id,
+        siteId: null,
+        oldValues: {},
+        newValues: buildVideoSnapshot(updated, metadata),
+        ipAddress: audit.ipAddress,
+      });
+    }
+
+    return updated;
   });
 
   const allPartNumbers = Array.from({ length: totalParts }, (_, i) => i + 1);
@@ -420,7 +529,8 @@ export async function getUploadStatus(videoId: string): Promise<{
  */
 export async function completeVideoUpload(
   videoId: string,
-  data: CompleteUploadInput
+  data: CompleteUploadInput,
+  audit?: AuthenticatedAuditContext,
 ): Promise<Video> {
   const video = await prisma.video.findUnique({
     where: { id: videoId },
@@ -440,12 +550,37 @@ export async function completeVideoUpload(
 
   await completeMultipartUpload(video.s3Key, video.s3UploadId, data.parts);
 
-  return await prisma.video.update({
-    where: { id: videoId },
-    data: {
-      status: "UPLOADED",
-      s3UploadId: null,
-    },
+  if (!audit) {
+    return prisma.video.update({
+      where: { id: videoId },
+      data: {
+        status: "UPLOADED",
+        s3UploadId: null,
+      },
+    });
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const siteId = await resolveVideoAuditSiteId(tx, videoId);
+
+    return runAuditedUpdate({
+      client: tx,
+      loadBefore: async () => video,
+      update: () =>
+        tx.video.update({
+          where: { id: videoId },
+          data: {
+            status: "UPLOADED",
+            s3UploadId: null,
+          },
+        }),
+      notFound: AppError.notFound("Video not found"),
+      actorUserId: audit.actorUserId,
+      entityType: "VIDEO",
+      snapshot: buildVideoStatusSnapshot,
+      getSiteId: () => siteId,
+      ipAddress: audit.ipAddress,
+    });
   });
 }
 
@@ -496,7 +631,10 @@ export async function listIncompleteUploads(userId: string) {
  * @throws {AppError} 404 if no video with that id exists
  * @throws {AppError} 409 if the video is not in UPLOADING status
  */
-export async function cancelVideoUpload(videoId: string): Promise<void> {
+export async function cancelVideoUpload(
+  videoId: string,
+  audit?: AuthenticatedAuditContext,
+): Promise<void> {
   const video = await prisma.video.findUnique({
     where: { id: videoId },
   });
@@ -513,7 +651,26 @@ export async function cancelVideoUpload(videoId: string): Promise<void> {
     await abortMultipartUpload(video.s3Key, video.s3UploadId);
   }
 
-  await prisma.video.delete({ where: { id: videoId } });
+  if (!audit) {
+    await prisma.video.delete({ where: { id: videoId } });
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const metadata = await getUploaderVideoMetadata(tx, video);
+
+    await runAuditedDelete({
+      client: tx,
+      loadBefore: async () => video,
+      deleteRecord: () => tx.video.delete({ where: { id: videoId } }),
+      notFound: AppError.notFound("Video not found"),
+      actorUserId: audit.actorUserId,
+      entityType: "VIDEO",
+      snapshot: (deletedVideo) => buildVideoSnapshot(deletedVideo, metadata),
+      getSiteId: () => resolveVideoAuditSiteId(tx, videoId),
+      ipAddress: audit.ipAddress,
+    });
+  });
 }
 
 /**
@@ -526,12 +683,40 @@ export async function cancelVideoUpload(videoId: string): Promise<void> {
  *
  * @throws {AppError} if no video with that id exists
  */
-export async function updateVideo(id: string, data: UpdateVideoInput) {
-  const video = await prisma.video.update({
-    where: { id },
-    data,
+export async function updateVideo(
+  id: string,
+  data: UpdateVideoInput,
+  audit?: AuthenticatedAuditContext,
+) {
+  if (!audit) {
+    return prisma.video.update({
+      where: { id },
+      data,
+    });
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const siteId = await resolveVideoAuditSiteId(tx, id);
+
+    return runAuditedUpdate({
+      client: tx,
+      loadBefore: () =>
+        tx.video.findUnique({
+          where: { id },
+        }),
+      update: () =>
+        tx.video.update({
+          where: { id },
+          data,
+        }),
+      notFound: AppError.notFound("Video not found"),
+      actorUserId: audit.actorUserId,
+      entityType: "VIDEO",
+      snapshot: (video) => buildVideoUpdateSnapshot(video, data),
+      getSiteId: () => siteId,
+      ipAddress: audit.ipAddress,
+    });
   });
-  return video;
 }
 
 /**
@@ -541,8 +726,45 @@ export async function updateVideo(id: string, data: UpdateVideoInput) {
  *
  * @throws {AppError} if no video with that id exists
  */
-export async function deleteVideo(id: string) {
-  await prisma.video.delete({
-    where: { id },
-  });
+export async function deleteVideo(
+  id: string,
+  audit?: AuthenticatedAuditContext,
+) {
+  if (!audit) {
+    await prisma.video.delete({
+      where: { id },
+    });
+    return;
+  }
+
+  await prisma.$transaction((tx) =>
+    runAuditedDelete({
+      client: tx,
+      loadBefore: async () => {
+        const video = await tx.video.findUnique({
+          where: { id },
+        });
+
+        if (!video) {
+          return null;
+        }
+
+        return {
+          ...video,
+          auditMetadata: await getUploaderVideoMetadata(tx, video),
+        };
+      },
+      deleteRecord: (video) =>
+        tx.video.delete({
+          where: { id: video.id },
+        }),
+      notFound: AppError.notFound("Video not found"),
+      actorUserId: audit.actorUserId,
+      entityType: "VIDEO",
+      snapshot: (video) =>
+        buildVideoSnapshot(video, video.auditMetadata),
+      getSiteId: (video) => resolveVideoAuditSiteId(tx, video.id),
+      ipAddress: audit.ipAddress,
+    }),
+  );
 }
