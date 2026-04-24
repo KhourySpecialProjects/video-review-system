@@ -1,4 +1,5 @@
 import type { Prisma } from "../../generated/prisma/index.js";
+import { runAuditedUpdate } from "../audit/audit.service.js";
 import prisma from "../../lib/prisma.js";
 import { AppError } from "../../middleware/errors.js";
 import type {
@@ -44,6 +45,12 @@ const userPermissionSelect = {
   videoId: true,
 } as const;
 
+const userStatusAuditSelect = {
+  id: true,
+  siteId: true,
+  isDeactivated: true,
+} as const;
+
 export type PermissionScope = Pick<
   CreateUserPermissionInput,
   "siteId" | "studyId" | "videoId"
@@ -58,6 +65,12 @@ export type UserManagementActor = {
   id: string;
   role: string;
   siteId: string;
+};
+
+/** Acting user ID and client IP for a user status audit row. */
+export type UserStatusAuditInput = {
+  actorUserId: string;
+  ipAddress: string | null;
 };
 
 /**
@@ -505,23 +518,43 @@ export async function deleteUserPermission(
  *
  * @param userId - Target user ID.
  * @param input - Requested deactivation status.
+ * @param audit - Acting user ID and client IP for the audit row.
  * @returns User ID and updated deactivation flag.
  * @throws {AppError} If the user does not exist.
  */
 export async function updateUserStatus(
   userId: string,
   input: UpdateUserStatusInput,
+  audit: UserStatusAuditInput,
 ): Promise<UpdateUserStatusResponse> {
-  await getUserSiteContext(userId);
-
-  return prisma.user.update({
-    where: { id: userId },
-    data: {
-      isDeactivated: input.isDeactivated,
-    },
-    select: {
-      id: true,
-      isDeactivated: true,
-    },
-  });
+  return prisma.$transaction((tx) =>
+    runAuditedUpdate({
+      client: tx,
+      loadBefore: () =>
+        tx.user.findUnique({
+          where: { id: userId },
+          select: userStatusAuditSelect,
+        }),
+      update: () =>
+        tx.user.update({
+          where: { id: userId },
+          data: {
+            isDeactivated: input.isDeactivated,
+          },
+          select: userStatusAuditSelect,
+        }),
+      notFound: AppError.notFound("User not found"),
+      actorUserId: audit.actorUserId,
+      entityType: "USER",
+      snapshot: (user) => ({
+        isDeactivated: user.isDeactivated,
+      }),
+      getSiteId: (beforeUser) => beforeUser.siteId,
+      ipAddress: audit.ipAddress,
+      mapResult: (user) => ({
+        id: user.id,
+        isDeactivated: user.isDeactivated,
+      }),
+    }),
+  );
 }

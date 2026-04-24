@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { buildAuditActorContext } from "../../middleware/audit.js";
 import { requireSession } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/errors.js";
 import {
@@ -232,7 +233,16 @@ router.patch("/:userId/status", async (req, res) => {
     throw AppError.forbidden();
   }
 
-  const result = await updateUserStatus(req.params.userId, parsed.data);
+  const audit = buildAuditActorContext(req);
+
+  if (!audit.actorUserId) {
+    throw AppError.unauthorized();
+  }
+
+  const result = await updateUserStatus(req.params.userId, parsed.data, {
+    actorUserId: audit.actorUserId,
+    ipAddress: audit.ipAddress,
+  });
   res.json(result);
 });
 
