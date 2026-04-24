@@ -1,6 +1,10 @@
 import type { AuditLog, Prisma } from "../../generated/prisma/index.js";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client.js";
 import type {
+  AuditedCreateInput,
+  AuditedDeleteInput,
   AuditedUpdateInput,
+  MappedAuditedCreateInput,
   MappedAuditedUpdateInput,
   AuditEventInput,
   AuditWriteClient,
@@ -58,6 +62,44 @@ function buildUpdateAuditEvent<T extends AuditedRecord>(
   };
 }
 
+/** Creates one entity and writes its CREATE audit row. */
+export async function runAuditedCreate<TRecord extends AuditedRecord>(
+  input: AuditedCreateInput<TRecord>,
+): Promise<TRecord>;
+export async function runAuditedCreate<
+  TRecord extends AuditedRecord,
+  TResult,
+>(
+  input: MappedAuditedCreateInput<TRecord, TResult>,
+): Promise<TResult>;
+export async function runAuditedCreate<
+  TRecord extends AuditedRecord,
+  TResult,
+>(
+  input:
+    | AuditedCreateInput<TRecord>
+    | MappedAuditedCreateInput<TRecord, TResult>,
+): Promise<TRecord | TResult> {
+  const created = await input.create();
+
+  await recordAudit(input.client, {
+    actorUserId: input.actorUserId,
+    actionType: "CREATE",
+    entityType: input.entityType,
+    entityId: created.id,
+    siteId: await input.getSiteId(created),
+    oldValues: {},
+    newValues: input.snapshot(created),
+    ipAddress: input.ipAddress ?? null,
+  });
+
+  if (input.mapResult) {
+    return input.mapResult(created);
+  }
+
+  return created;
+}
+
 /** Loads, updates, and audits one entity update. */
 export async function runAuditedUpdate<TRecord extends AuditedRecord>(
   input: AuditedUpdateInput<TRecord>,
@@ -82,14 +124,26 @@ export async function runAuditedUpdate<
     throw input.notFound;
   }
 
-  const after = await input.update();
+  let after: TRecord;
+  try {
+    after = await input.update();
+  } catch (error) {
+    if (
+      error instanceof PrismaClientKnownRequestError &&
+      error.code === "P2025"
+    ) {
+      throw input.notFound;
+    }
+
+    throw error;
+  }
 
   await recordAudit(
     input.client,
     buildUpdateAuditEvent({
       actorUserId: input.actorUserId,
       entityType: input.entityType,
-      siteId: input.getSiteId(before, after),
+      siteId: await input.getSiteId(before, after),
       before,
       after,
       snapshot: input.snapshot,
@@ -104,12 +158,42 @@ export async function runAuditedUpdate<
   return after;
 }
 
-/**
- * Writes one audit row.
- *
- * TODO: Some flows do not have a real `entityId` or `siteId`.
- * Skip those until the schema changes or the route is clearer.
- */
+/** Loads one entity, deletes it, and writes its DELETE audit row. */
+export async function runAuditedDelete<TRecord extends AuditedRecord>(
+  input: AuditedDeleteInput<TRecord>,
+): Promise<void> {
+  const before = await input.loadBefore();
+
+  if (!before) {
+    throw input.notFound;
+  }
+
+  try {
+    await input.deleteRecord(before);
+  } catch (error) {
+    if (
+      error instanceof PrismaClientKnownRequestError &&
+      error.code === "P2025"
+    ) {
+      throw input.notFound;
+    }
+
+    throw error;
+  }
+
+  await recordAudit(input.client, {
+    actorUserId: input.actorUserId,
+    actionType: "DELETE",
+    entityType: input.entityType,
+    entityId: before.id,
+    siteId: await input.getSiteId(before),
+    oldValues: input.snapshot(before),
+    newValues: {},
+    ipAddress: input.ipAddress ?? null,
+  });
+}
+
+/** Writes one audit row. */
 export async function recordAudit(
   client: AuditWriteClient,
   event: AuditEventInput,

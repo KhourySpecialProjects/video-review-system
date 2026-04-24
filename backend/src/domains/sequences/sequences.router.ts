@@ -1,6 +1,7 @@
 import { Router } from "express";
 import * as sequencesService from "./sequences.service.js";
 import { AppError } from "../../middleware/errors.js";
+import { requireAuditActorContext } from "../../middleware/audit.js";
 import { requireSession } from "../../middleware/auth.js";
 import {
   createSequenceSchema,
@@ -34,7 +35,11 @@ router.post("/", async (req, res) => {
     throw AppError.badRequest(parsed.error.issues[0].message);
   }
 
-  const sequence = await sequencesService.createSequence(parsed.data, req.authSession.user.id);
+  const sequence = await sequencesService.createSequence(
+    parsed.data,
+    req.authSession.user.id,
+    requireAuditActorContext(req),
+  );
   res.status(201).json(sequence);
 });
 
@@ -59,7 +64,11 @@ router.post("/:id", async (req, res) => {
     throw AppError.badRequest(parsed.error.issues[0].message);
   }
 
-  const item = await sequencesService.addClipToSequence(req.params.id, parsed.data);
+  const item = await sequencesService.addClipToSequence(
+    req.params.id,
+    parsed.data,
+    requireAuditActorContext(req),
+  );
   res.status(201).json(item);
 });
 
@@ -82,7 +91,11 @@ router.put("/:id", async (req, res) => {
     throw AppError.badRequest(parsed.error.issues[0].message);
   }
 
-  const sequence = await sequencesService.reorderSequenceClips(req.params.id, parsed.data);
+  const sequence = await sequencesService.reorderSequenceClips(
+    req.params.id,
+    parsed.data,
+    requireAuditActorContext(req),
+  );
   res.json(sequence);
 });
 
@@ -98,7 +111,11 @@ router.put("/:id", async (req, res) => {
  * @returns 404 if clip is not in this sequence
  */
 router.delete("/:id/clip/:clipId", async (req, res) => {
-  await sequencesService.removeClipFromSequence(req.params.id, req.params.clipId);
+  await sequencesService.removeClipFromSequence(
+    req.params.id,
+    req.params.clipId,
+    requireAuditActorContext(req),
+  );
   res.status(204).send();
 });
 
@@ -114,7 +131,10 @@ router.delete("/:id/clip/:clipId", async (req, res) => {
  * @returns 404 if no sequence with that id exists
  */
 router.delete("/:id", async (req, res) => {
-  await sequencesService.deleteSequence(req.params.id);
+  await sequencesService.deleteSequence(
+    req.params.id,
+    requireAuditActorContext(req),
+  );
   res.status(204).send();
 });
 

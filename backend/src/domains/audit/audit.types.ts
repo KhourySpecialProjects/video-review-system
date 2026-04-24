@@ -28,16 +28,19 @@ export interface AuditActorContext {
   ipAddress: string | null;
 }
 
-/**
- * Audit event input for the current schema.
- * Use `{}` when one snapshot side does not apply.
- */
+/** Authenticated request data needed to write an audit row. */
+export interface AuthenticatedAuditContext {
+  actorUserId: string;
+  ipAddress: string | null;
+}
+
+/** Audit event input. Use `{}` when one snapshot side does not apply. */
 export interface AuditEventInput {
   actorUserId: string;
   actionType: AuditActionType;
   entityType: AuditEntityType;
   entityId: string;
-  siteId: string;
+  siteId: string | null;
   oldValues: AuditSnapshot;
   newValues: AuditSnapshot;
   ipAddress?: string | null;
@@ -57,15 +60,41 @@ export type AuditedRecord = {
   id: string;
 };
 
+export type AuditSiteIdResult = string | null | Promise<string | null>;
+
 /** Input for an update audit event. */
 export type UpdateAuditEventInput<T extends AuditedRecord> = {
   actorUserId: string;
   entityType: AuditEntityType;
-  siteId: string;
+  siteId: string | null;
   before: T;
   after: T;
   snapshot: (value: T) => AuditSnapshot;
   ipAddress?: string | null;
+};
+
+export type AuditedCreateBaseInput<TRecord extends AuditedRecord> = {
+  client: AuditWriteClient;
+  create: () => Promise<TRecord>;
+  actorUserId: string;
+  entityType: AuditEntityType;
+  snapshot: (value: TRecord) => AuditSnapshot;
+  getSiteId: (value: TRecord) => AuditSiteIdResult;
+  ipAddress?: string | null;
+};
+
+/** Input for a transaction-safe audited create. */
+export type AuditedCreateInput<TRecord extends AuditedRecord> =
+  AuditedCreateBaseInput<TRecord> & {
+    mapResult?: undefined;
+  };
+
+/** Input for a transaction-safe audited create with mapped output. */
+export type MappedAuditedCreateInput<
+  TRecord extends AuditedRecord,
+  TResult,
+> = AuditedCreateBaseInput<TRecord> & {
+  mapResult: (value: TRecord) => TResult;
 };
 
 export type AuditedUpdateBaseInput<TRecord extends AuditedRecord> = {
@@ -76,7 +105,7 @@ export type AuditedUpdateBaseInput<TRecord extends AuditedRecord> = {
   actorUserId: string;
   entityType: AuditEntityType;
   snapshot: (value: TRecord) => AuditSnapshot;
-  getSiteId: (before: TRecord, after: TRecord) => string;
+  getSiteId: (before: TRecord, after: TRecord) => AuditSiteIdResult;
   ipAddress?: string | null;
 };
 
@@ -94,9 +123,21 @@ export type MappedAuditedUpdateInput<
   mapResult: (value: TRecord) => TResult;
 };
 
+/** Input for a transaction-safe audited delete. */
+export type AuditedDeleteInput<TRecord extends AuditedRecord> = {
+  client: AuditWriteClient;
+  loadBefore: () => Promise<TRecord | null>;
+  deleteRecord: (value: TRecord) => Promise<unknown>;
+  notFound: Error;
+  actorUserId: string;
+  entityType: AuditEntityType;
+  snapshot: (value: TRecord) => AuditSnapshot;
+  getSiteId: (value: TRecord) => AuditSiteIdResult;
+  ipAddress?: string | null;
+};
+
 /** Video snapshot for audit rows. */
 export interface AuditVideoSnapshot extends AuditSnapshot {
-  id: string;
   uploadedByUserId: string;
   status: video_status;
   durationSeconds: number;
@@ -116,7 +157,6 @@ export interface AuditUserSnapshot extends AuditSnapshot {
 
 /** Permission snapshot for audit rows. */
 export interface AuditPermissionSnapshot extends AuditSnapshot {
-  id: string;
   userId: string;
   permissionLevel: permission_level;
   siteId: string | null;
@@ -134,7 +174,6 @@ export interface AuditAnnotationPayloadSummary extends AuditSnapshot {
 
 /** Annotation snapshot for audit rows. */
 export interface AuditAnnotationSnapshot extends AuditSnapshot {
-  id: string;
   videoId: string;
   authorUserId: string;
   studyId: string;
@@ -145,9 +184,15 @@ export interface AuditAnnotationSnapshot extends AuditSnapshot {
   payload: AuditAnnotationPayloadSummary;
 }
 
+/** Annotation update snapshot for audit rows. */
+export interface AuditAnnotationUpdateSnapshot extends AuditSnapshot {
+  timestampS: number;
+  durationS: number;
+  payload: AuditAnnotationPayloadSummary;
+}
+
 /** Clip snapshot for audit rows. */
 export interface AuditClipSnapshot extends AuditSnapshot {
-  id: string;
   sourceVideoId: string;
   createdByUserId: string;
   studyId: string;
@@ -159,7 +204,6 @@ export interface AuditClipSnapshot extends AuditSnapshot {
 
 /** Sequence snapshot for audit rows. */
 export interface AuditSequenceSnapshot extends AuditSnapshot {
-  id: string;
   videoId: string;
   createdByUserId: string;
   studyId: string;

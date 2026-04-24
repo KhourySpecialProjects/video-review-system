@@ -10,6 +10,7 @@ import {
 // before `videos.service.ts` is evaluated.
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
+    $transaction: vi.fn(),
     video: {
       findMany: vi.fn(),
       count: vi.fn(),
@@ -17,6 +18,16 @@ const { prismaMock } = vi.hoisted(() => ({
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+    },
+    videoStudy: {
+      findMany: vi.fn(),
+    },
+    caregiverVideoMetadata: {
+      create: vi.fn(),
+      findUnique: vi.fn(),
+    },
+    auditLog: {
+      create: vi.fn(),
     },
   } satisfies VideosPrismaMock,
 }));
@@ -38,12 +49,17 @@ vi.mock("../../lib/s3.js", () => ({
 import {
   deleteVideo,
   listVideos,
+  resolveVideoAuditSiteId,
   updateVideo,
 } from "../../domains/videos/videos.service.js";
 
 describe("videos.service", () => {
   beforeEach(() => {
     resetVideosPrismaMock(prismaMock);
+    prismaMock.$transaction.mockImplementation(
+      async (callback: (client: typeof prismaMock) => Promise<unknown>) =>
+        callback(prismaMock),
+    );
   });
 
   // ========= listVideos =========
@@ -82,6 +98,7 @@ describe("videos.service", () => {
       userId: "user-123",
       limit: 5,
       offset: 10,
+      accessFilter: {},
     });
 
     expect(prismaMock.video.findMany).toHaveBeenCalledWith({
@@ -149,6 +166,73 @@ describe("videos.service", () => {
       where: { id: updatedVideo.id },
       data: input,
     });
+  });
+
+  it("updates a video and writes only changed safe fields to audit", async () => {
+    const id = "55555555-5555-5555-8555-555555555555";
+    const beforeVideo = makeVideo({
+      id,
+      status: "UPLOADING",
+      durationSeconds: 12,
+      takenAt: new Date("2026-04-20T10:00:00.000Z"),
+    });
+    const updatedVideo = makeVideo({
+      id,
+      status: "UPLOADED",
+      durationSeconds: 12,
+      takenAt: new Date("2026-04-20T10:00:00.000Z"),
+    });
+
+    prismaMock.videoStudy.findMany.mockResolvedValue([
+      { siteId: "22222222-2222-2222-8222-222222222222" },
+    ]);
+    prismaMock.video.findUnique.mockResolvedValue(beforeVideo);
+    prismaMock.video.update.mockResolvedValue(updatedVideo);
+    prismaMock.auditLog.create.mockResolvedValue({
+      id: "audit-1",
+    });
+
+    await expect(
+      updateVideo(
+        id,
+        { status: "UPLOADED" },
+        {
+          actorUserId: "actor-1",
+          ipAddress: "203.0.113.10",
+        },
+      ),
+    ).resolves.toEqual(updatedVideo);
+
+    expect(prismaMock.auditLog.create).toHaveBeenCalledWith({
+      data: {
+        actorUserId: "actor-1",
+        actionType: "UPDATE",
+        entityType: "VIDEO",
+        entityId: id,
+        siteId: "22222222-2222-2222-8222-222222222222",
+        oldValues: {
+          status: "UPLOADING",
+        },
+        newValues: {
+          status: "UPLOADED",
+        },
+        ipAddress: "203.0.113.10",
+      },
+    });
+  });
+
+  it("returns null audit site when a video has no single site", async () => {
+    prismaMock.videoStudy.findMany.mockResolvedValue([
+      { siteId: "11111111-1111-1111-8111-111111111111" },
+      { siteId: "22222222-2222-2222-8222-222222222222" },
+    ]);
+
+    await expect(
+      resolveVideoAuditSiteId(
+        prismaMock as any,
+        "55555555-5555-5555-8555-555555555555",
+      ),
+    ).resolves.toBeNull();
   });
 
   // ========= deleteVideo =========

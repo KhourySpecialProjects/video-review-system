@@ -20,9 +20,14 @@ const { authMock, authServiceMock } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("../../lib/auth.js", () => ({
-  auth: authMock.auth,
-}));
+vi.mock("../../lib/auth.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../lib/auth.js")>();
+
+  return {
+    ...actual,
+    auth: authMock.auth,
+  };
+});
 
 vi.mock("../../domains/auth/auth.service.js", () => authServiceMock);
 

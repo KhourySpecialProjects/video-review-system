@@ -1,6 +1,7 @@
 import { Router } from "express";
 import * as clipsService from "./clips.service.js";
 import { AppError } from "../../middleware/errors.js";
+import { requireAuditActorContext } from "../../middleware/audit.js";
 import { requireSession } from "../../middleware/auth.js";
 import { createClipSchema } from "./clips.types.js";
 
@@ -32,7 +33,11 @@ router.post("/", async (req, res) => {
     throw AppError.badRequest(parsed.error.issues[0].message);
   }
 
-  const clip = await clipsService.createClip(parsed.data, req.authSession.user.id);
+  const clip = await clipsService.createClip(
+    parsed.data,
+    req.authSession.user.id,
+    requireAuditActorContext(req),
+  );
   res.status(201).json(clip);
 });
 
@@ -47,7 +52,7 @@ router.post("/", async (req, res) => {
  * @returns 404 if no clip with that id exists
  */
 router.delete("/:id", async (req, res) => {
-  await clipsService.deleteClip(req.params.id);
+  await clipsService.deleteClip(req.params.id, requireAuditActorContext(req));
   res.status(204).send();
 });
 

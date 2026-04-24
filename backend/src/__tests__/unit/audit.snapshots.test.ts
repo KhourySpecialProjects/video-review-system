@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildAnnotationSnapshot,
+  buildAnnotationUpdateSnapshot,
   buildClipSnapshot,
   buildPermissionSnapshot,
   buildSequenceSnapshot,
@@ -39,7 +40,6 @@ describe("audit.snapshots", () => {
     };
 
     expect(buildVideoSnapshot(baseVideo)).toEqual({
-      id: "video-1",
       uploadedByUserId: "user-1",
       status: "UPLOADED",
       durationSeconds: 42,
@@ -52,7 +52,6 @@ describe("audit.snapshots", () => {
         privateNotes: "Occurred after waking up",
       }),
     ).toEqual({
-      id: "video-1",
       uploadedByUserId: "user-1",
       status: "UPLOADED",
       durationSeconds: 42,
@@ -107,12 +106,19 @@ describe("audit.snapshots", () => {
     };
 
     expect(buildAnnotationSnapshot(annotation)).toEqual({
-      id: "annotation-1",
       videoId: "video-1",
       authorUserId: "user-1",
       studyId: "study-1",
       siteId: "site-1",
       type: "drawing_box",
+      timestampS: 34,
+      durationS: 5,
+      payload: {
+        changed: true,
+      },
+    });
+
+    expect(buildAnnotationUpdateSnapshot(annotation)).toEqual({
       timestampS: 34,
       durationS: 5,
       payload: {
@@ -133,7 +139,6 @@ describe("audit.snapshots", () => {
     };
 
     expect(buildPermissionSnapshot(permission)).toEqual({
-      id: "perm-1",
       userId: "user-1",
       permissionLevel: "ADMIN",
       siteId: "site-1",
@@ -145,7 +150,6 @@ describe("audit.snapshots", () => {
   it("buildClipSnapshot and buildSequenceSnapshot keep only stable fields", () => {
     expect(
       buildClipSnapshot({
-        id: "clip-1",
         sourceVideoId: "video-1",
         createdByUserId: "user-1",
         studyId: "study-1",
@@ -155,7 +159,6 @@ describe("audit.snapshots", () => {
         endTimeS: 12,
       }),
     ).toEqual({
-      id: "clip-1",
       sourceVideoId: "video-1",
       createdByUserId: "user-1",
       studyId: "study-1",
@@ -167,7 +170,6 @@ describe("audit.snapshots", () => {
 
     expect(
       buildSequenceSnapshot({
-        id: "sequence-1",
         videoId: "video-1",
         createdByUserId: "user-1",
         studyId: "study-1",
@@ -175,7 +177,6 @@ describe("audit.snapshots", () => {
         title: "Episode highlights",
       }),
     ).toEqual({
-      id: "sequence-1",
       videoId: "video-1",
       createdByUserId: "user-1",
       studyId: "study-1",

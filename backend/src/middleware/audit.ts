@@ -1,5 +1,9 @@
 import type { Request } from "express";
-import type { AuditActorContext } from "../domains/audit/audit.types.js";
+import type {
+  AuditActorContext,
+  AuthenticatedAuditContext,
+} from "../domains/audit/audit.types.js";
+import { AppError } from "./errors.js";
 
 type RequestWithOptionalAuth = Request & {
   authSession?: {
@@ -32,16 +36,28 @@ export function getRequestIp(req: Request): string | null {
   return req.ip ?? null;
 }
 
-/**
- * Returns the acting user ID and client IP from the current request.
- *
- * TODO: Public flows may need a different actor model later.
- */
+/** Returns request data used for audit writes. This is not an audit log row. */
 export function buildAuditActorContext(req: Request): AuditActorContext {
   const requestWithOptionalAuth = req as RequestWithOptionalAuth;
 
   return {
     actorUserId: requestWithOptionalAuth.authSession?.user?.id ?? null,
     ipAddress: getRequestIp(req),
+  };
+}
+
+/** Returns authenticated request data used for audit writes. */
+export function requireAuditActorContext(
+  req: Request,
+): AuthenticatedAuditContext {
+  const audit = buildAuditActorContext(req);
+
+  if (!audit.actorUserId) {
+    throw AppError.unauthorized();
+  }
+
+  return {
+    actorUserId: audit.actorUserId,
+    ipAddress: audit.ipAddress,
   };
 }

@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import * as videosService from "./videos.service.js";
 import { AppError } from "../../middleware/errors.js";
+import { requireAuditActorContext } from "../../middleware/audit.js";
 import { requireInternalAuth, requireSession, requirePermission } from "../../middleware/auth.js";
 import { buildVideoAccessFilter } from "../../lib/auth.js";
 import { resolveVideoContexts, checkCaregiverVideoOwnership } from "./videos.perms.js";
@@ -79,7 +80,7 @@ router.post("/upload", async (req, res) => {
   const result = await videosService.initiateVideoUpload({
     ...parsed.data,
     uploadedByUserId: req.authSession.user.id,
-  });
+  }, requireAuditActorContext(req));
 
   res.status(201).json(result);
 });
@@ -113,7 +114,10 @@ router.get("/:id/detail",
 router.get("/:id/stream",
   requirePermission("READ", resolveVideoContexts, checkCaregiverVideoOwnership),
   async (req, res) => {
-    const result = await videosService.getVideoStreamUrl(req.params.id as string);
+    const result = await videosService.getVideoStreamUrl(
+      req.params.id as string,
+      requireAuditActorContext(req),
+    );
     if (!result) throw AppError.notFound("Video not found");
     res.json(result);
   }
@@ -138,7 +142,11 @@ router.post("/:id/complete-upload",
   requirePermission("WRITE", resolveVideoContexts, checkCaregiverVideoOwnership),
   async (req, res) => {
     const data = completeUploadSchema.parse(req.body);
-    const video = await videosService.completeVideoUpload(req.params.id as string, data);
+    const video = await videosService.completeVideoUpload(
+      req.params.id as string,
+      data,
+      requireAuditActorContext(req),
+    );
     res.json(video);
   }
 );
@@ -149,7 +157,10 @@ router.post("/:id/complete-upload",
 router.post("/:id/cancel-upload",
   requirePermission("WRITE", resolveVideoContexts, checkCaregiverVideoOwnership),
   async (req, res) => {
-    await videosService.cancelVideoUpload(req.params.id as string);
+    await videosService.cancelVideoUpload(
+      req.params.id as string,
+      requireAuditActorContext(req),
+    );
     res.status(204).send();
   }
 );
@@ -164,7 +175,11 @@ router.put("/:id",
     if (!parsed.success) {
       throw AppError.badRequest(parsed.error.issues[0].message);
     }
-    const video = await videosService.updateVideo(req.params.id as string, parsed.data);
+    const video = await videosService.updateVideo(
+      req.params.id as string,
+      parsed.data,
+      requireAuditActorContext(req),
+    );
     res.json(video);
   }
 );
@@ -175,7 +190,10 @@ router.put("/:id",
 router.delete("/:id",
   requirePermission("ADMIN", resolveVideoContexts, checkCaregiverVideoOwnership),
   async (req, res) => {
-    await videosService.deleteVideo(req.params.id as string);
+    await videosService.deleteVideo(
+      req.params.id as string,
+      requireAuditActorContext(req),
+    );
     res.status(204).send();
   }
 );
