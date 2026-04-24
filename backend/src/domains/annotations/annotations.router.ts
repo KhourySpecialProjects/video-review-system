@@ -33,9 +33,14 @@ router.get("/", async (req, res) => {
 
   const { id: userId, role } = req.authSession.user;
   const accessFilter = await buildDirectAccessFilter(userId, role as user_role, "READ");
+  
+  const videoId = req.query.videoId;
+  if (typeof videoId !== "string" || videoId.length === 0) {
+    throw AppError.badRequest("videoId query parameter is required");
+  }
 
   const result = await annotationsService.listAnnotationsByVideo(
-    req.query.videoId as string,
+    videoId,
     { limit, offset, accessFilter }
   );
   res.json(result);

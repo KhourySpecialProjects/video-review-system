@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
-import { permission_level } from '../generated/prisma';
+import type { permission_level } from "../generated/prisma/client.js";
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

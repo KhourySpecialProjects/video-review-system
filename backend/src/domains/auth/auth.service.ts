@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import prisma from "../../lib/prisma.js";
-import { auth, seedDefaultPermission } from "../../lib/auth.js";
+import { auth } from "../../lib/auth.js";
 import { AppError } from "../../middleware/errors.js";
 import {
   createInviteSchema,
