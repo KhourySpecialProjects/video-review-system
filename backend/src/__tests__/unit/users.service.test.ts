@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client.js";
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
@@ -312,6 +313,67 @@ describe("users.service", () => {
           ipAddress: "203.0.113.10",
         },
       });
+    });
+
+    it("rejects duplicate permissions found inside the create transaction", async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: "user-1",
+        siteId: "11111111-1111-1111-8111-111111111111",
+      });
+      prismaMock.userPermission.findFirst.mockResolvedValue({
+        id: "perm-duplicate",
+      });
+
+      await expect(
+        createUserPermission(
+          "user-1",
+          {
+            permissionLevel: "READ",
+            siteId: null,
+            studyId: null,
+            videoId: null,
+          },
+          {
+            actorUserId: "actor-1",
+            ipAddress: "203.0.113.10",
+          },
+        ),
+      ).rejects.toThrow("Duplicate user permission already exists");
+
+      expect(prismaMock.userPermission.create).not.toHaveBeenCalled();
+      expect(prismaMock.auditLog.create).not.toHaveBeenCalled();
+    });
+
+    it("maps database duplicate errors to a conflict", async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: "user-1",
+        siteId: "11111111-1111-1111-8111-111111111111",
+      });
+      prismaMock.userPermission.findFirst.mockResolvedValue(null);
+      prismaMock.userPermission.create.mockRejectedValue(
+        new PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "test",
+        }),
+      );
+
+      await expect(
+        createUserPermission(
+          "user-1",
+          {
+            permissionLevel: "READ",
+            siteId: null,
+            studyId: null,
+            videoId: null,
+          },
+          {
+            actorUserId: "actor-1",
+            ipAddress: "203.0.113.10",
+          },
+        ),
+      ).rejects.toThrow("Duplicate user permission already exists");
+
+      expect(prismaMock.auditLog.create).not.toHaveBeenCalled();
     });
   });
 

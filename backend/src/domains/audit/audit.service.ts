@@ -124,7 +124,19 @@ export async function runAuditedUpdate<
     throw input.notFound;
   }
 
-  const after = await input.update();
+  let after: TRecord;
+  try {
+    after = await input.update();
+  } catch (error) {
+    if (
+      error instanceof PrismaClientKnownRequestError &&
+      error.code === "P2025"
+    ) {
+      throw input.notFound;
+    }
+
+    throw error;
+  }
 
   await recordAudit(
     input.client,

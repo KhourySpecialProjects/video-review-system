@@ -256,6 +256,33 @@ describe("audit.service", () => {
         }),
       });
     });
+
+    it("maps update-time Prisma not-found errors to the provided notFound error", async () => {
+      const notFound = new Error("Video not found");
+
+      await expect(
+        runAuditedUpdate({
+          client,
+          loadBefore: async () => ({
+            id: "11111111-1111-1111-8111-111111111111",
+            status: "UPLOADING",
+          }),
+          update: async () => {
+            throw new PrismaClientKnownRequestError("Record not found", {
+              code: "P2025",
+              clientVersion: "test",
+            });
+          },
+          notFound,
+          actorUserId: "user-1",
+          entityType: "VIDEO",
+          snapshot: () => ({}),
+          getSiteId: () => null,
+        }),
+      ).rejects.toBe(notFound);
+
+      expect(createMock).not.toHaveBeenCalled();
+    });
   });
 
   describe("runAuditedDelete", () => {

@@ -87,11 +87,11 @@ describe("audit.middleware", () => {
   it("throws when authenticated audit data is missing", () => {
     const req = createRequest();
 
+    expect(() => requireAuditActorContext(req)).toThrowError(AppError);
+
     try {
       requireAuditActorContext(req);
-      throw new Error("Expected requireAuditActorContext to throw");
     } catch (error) {
-      expect(error).toBeInstanceOf(AppError);
       expect((error as AppError).statusCode).toBe(401);
     }
   });

@@ -1,4 +1,5 @@
 import type { Prisma } from "../../generated/prisma/index.js";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client.js";
 import {
   runAuditedCreate,
   runAuditedDelete,
@@ -443,42 +444,54 @@ export async function createUserPermission(
   await getUserSiteContext(userId);
   await resolvePermissionScopeAccess(input);
 
-  const existing = await prisma.userPermission.findFirst({
-    where: {
-      userId,
-      permissionLevel: input.permissionLevel,
-      siteId: input.siteId,
-      studyId: input.studyId,
-      videoId: input.videoId,
-    },
-    select: { id: true },
-  });
+  try {
+    return await prisma.$transaction((tx) =>
+      runAuditedCreate({
+        client: tx,
+        create: async () => {
+          const existing = await tx.userPermission.findFirst({
+            where: {
+              userId,
+              permissionLevel: input.permissionLevel,
+              siteId: input.siteId,
+              studyId: input.studyId,
+              videoId: input.videoId,
+            },
+            select: { id: true },
+          });
 
-  if (existing) {
-    throw AppError.conflict("Duplicate user permission already exists");
+          if (existing) {
+            throw AppError.conflict("Duplicate user permission already exists");
+          }
+
+          return tx.userPermission.create({
+            data: {
+              userId,
+              permissionLevel: input.permissionLevel,
+              siteId: input.siteId,
+              studyId: input.studyId,
+              videoId: input.videoId,
+            },
+            select: userPermissionSelect,
+          });
+        },
+        actorUserId: audit.actorUserId,
+        entityType: "PERMISSIONS",
+        snapshot: buildPermissionSnapshot,
+        getSiteId: (permission) => permission.siteId,
+        ipAddress: audit.ipAddress,
+      }),
+    );
+  } catch (error) {
+    if (
+      error instanceof PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      throw AppError.conflict("Duplicate user permission already exists");
+    }
+
+    throw error;
   }
-
-  return prisma.$transaction((tx) =>
-    runAuditedCreate({
-      client: tx,
-      create: () =>
-        tx.userPermission.create({
-          data: {
-            userId,
-            permissionLevel: input.permissionLevel,
-            siteId: input.siteId,
-            studyId: input.studyId,
-            videoId: input.videoId,
-          },
-          select: userPermissionSelect,
-        }),
-      actorUserId: audit.actorUserId,
-      entityType: "PERMISSIONS",
-      snapshot: buildPermissionSnapshot,
-      getSiteId: (permission) => permission.siteId,
-      ipAddress: audit.ipAddress,
-    }),
-  );
 }
 
 /**

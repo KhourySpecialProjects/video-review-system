@@ -565,7 +565,10 @@ export async function completeVideoUpload(
 
     return runAuditedUpdate({
       client: tx,
-      loadBefore: async () => video,
+      loadBefore: () =>
+        tx.video.findUnique({
+          where: { id: videoId },
+        }),
       update: () =>
         tx.video.update({
           where: { id: videoId },
@@ -662,8 +665,12 @@ export async function cancelVideoUpload(
 
     await runAuditedDelete({
       client: tx,
-      loadBefore: async () => video,
-      deleteRecord: () => tx.video.delete({ where: { id: videoId } }),
+      loadBefore: () =>
+        tx.video.findUnique({
+          where: { id: videoId },
+        }),
+      deleteRecord: (deletedVideo) =>
+        tx.video.delete({ where: { id: deletedVideo.id } }),
       notFound: AppError.notFound("Video not found"),
       actorUserId: audit.actorUserId,
       entityType: "VIDEO",
