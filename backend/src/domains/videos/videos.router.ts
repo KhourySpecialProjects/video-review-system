@@ -3,7 +3,7 @@ import * as videosService from "./videos.service.js";
 import { AppError } from "../../middleware/errors.js";
 import { requireInternalAuth, requireSession, requirePermission } from "../../middleware/auth.js";
 import { buildVideoAccessFilter } from "../../lib/auth.js";
-import { resolveVideoContexts, checkCaregiverVideoOwnership } from "./video.perms.js";
+import { resolveVideoContexts, checkCaregiverVideoOwnership } from "./videos.perms.js";
 import { createVideoSchema, completeUploadSchema, updateVideoSchema, searchVideosSchema, updateS3KeySchema } from "./videos.types.js";
 import type { user_role } from "../../generated/prisma/client.js";
 

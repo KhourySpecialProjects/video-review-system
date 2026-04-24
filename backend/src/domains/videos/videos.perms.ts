@@ -1,4 +1,3 @@
-// backend/src/domains/videos/videos.perms.ts
 
 import prisma from "../../lib/prisma.js";
 import type { ResourceContext } from "../../lib/auth.js";
