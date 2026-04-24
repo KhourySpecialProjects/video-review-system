@@ -3,7 +3,7 @@
  */
 export type Clip = {
   id: string;
-  sourceVideoId: string;
+  videoId: string;
   studyId: string;
   siteId: string;
   title: string;

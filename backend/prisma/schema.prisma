@@ -337,7 +337,7 @@ model Annotation {
 
 model VideoClip {
   id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sourceVideoId   String   @map("source_video_id") @db.Uuid
+  videoId         String   @map("video_id") @db.Uuid
   createdByUserId String   @map("created_by_user_id")
   studyId         String   @map("study_id") @db.Uuid
   siteId          String   @map("site_id") @db.Uuid
@@ -346,7 +346,7 @@ model VideoClip {
   endTimeS        Int      @map("end_time_S")
   createdAt       DateTime @default(now()) @map("created_at")
 
-  sourceVideo   Video          @relation(fields: [sourceVideoId], references: [id], onDelete: Cascade)
+  video         Video          @relation(fields: [videoId], references: [id], onDelete: Cascade)
   createdBy     User           @relation(fields: [createdByUserId], references: [id])
   study         Study          @relation(fields: [studyId], references: [id], onDelete: Cascade)
   site          Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)

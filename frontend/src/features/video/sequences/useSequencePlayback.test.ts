@@ -5,7 +5,7 @@ import type { Clip } from "@shared/clip";
 
 const makeClip = (startTimeS: number, endTimeS: number): Clip => ({
   id: `clip-${startTimeS}-${endTimeS}`,
-  sourceVideoId: "video-1",
+  videoId: "video-1",
   studyId: "study-1",
   siteId: "site-1",
   title: `Clip ${startTimeS}-${endTimeS}`,

@@ -40,7 +40,7 @@ export function clipsAction(queryClient: QueryClient) {
           const clip = await createClip(payload);
           toast.success(`Clip "${payload.title}" created`);
           await queryClient.invalidateQueries({
-            queryKey: reviewKeys.clips(payload.sourceVideoId, payload.studyId),
+            queryKey: reviewKeys.clips(payload.videoId, payload.studyId),
           });
           return { ok: true, clip };
         } catch {

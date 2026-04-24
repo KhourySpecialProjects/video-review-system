@@ -71,3 +71,14 @@ export type AddClipToSequenceInput = z.infer<typeof addClipToSequenceSchema>;
 
 /** Input type for reordering clips in a sequence, inferred from reorderSequenceSchema */
 export type ReorderSequenceInput = z.infer<typeof reorderSequenceSchema>;
+
+/**
+ * @description Validation schema for the sequences list query params.
+ *
+ * @field videoId - uuid of the source video
+ * @field studyId - uuid of the study to scope sequences to
+ */
+export const listSequencesQuerySchema = z.object({
+  videoId: z.uuid("Invalid video ID"),
+  studyId: z.uuid("Invalid study ID"),
+});

@@ -23,7 +23,7 @@ type RawClip = Omit<Clip, "createdByName"> & {
 function normalizeClip(raw: RawClip): Clip {
   return {
     id: raw.id,
-    sourceVideoId: raw.sourceVideoId,
+    videoId: raw.videoId,
     studyId: raw.studyId,
     siteId: raw.siteId,
     title: raw.title,
@@ -40,7 +40,7 @@ function normalizeClip(raw: RawClip): Clip {
  * @description Payload for creating a new clip.
  */
 export type CreateClipPayload = {
-  sourceVideoId: string;
+  videoId: string;
   studyId: string;
   siteId: string;
   title: string;

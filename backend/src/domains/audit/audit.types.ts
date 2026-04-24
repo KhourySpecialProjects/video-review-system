@@ -148,7 +148,7 @@ export interface AuditAnnotationSnapshot extends AuditSnapshot {
 /** Clip snapshot for audit rows. */
 export interface AuditClipSnapshot extends AuditSnapshot {
   id: string;
-  sourceVideoId: string;
+  videoId: string;
   createdByUserId: string;
   studyId: string;
   siteId: string;

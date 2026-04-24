@@ -48,7 +48,7 @@ type AnnotationSnapshotSource = Pick<
 type ClipSnapshotSource = Pick<
   VideoClip,
   | "id"
-  | "sourceVideoId"
+  | "videoId"
   | "createdByUserId"
   | "studyId"
   | "siteId"
@@ -185,7 +185,7 @@ export function buildAnnotationSnapshot(
 export function buildClipSnapshot(clip: ClipSnapshotSource): AuditClipSnapshot {
   return {
     id: clip.id,
-    sourceVideoId: clip.sourceVideoId,
+    videoId: clip.videoId,
     createdByUserId: clip.createdByUserId,
     studyId: clip.studyId,
     siteId: clip.siteId,

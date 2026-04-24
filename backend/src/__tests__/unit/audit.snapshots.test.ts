@@ -146,7 +146,7 @@ describe("audit.snapshots", () => {
     expect(
       buildClipSnapshot({
         id: "clip-1",
-        sourceVideoId: "video-1",
+        videoId: "video-1",
         createdByUserId: "user-1",
         studyId: "study-1",
         siteId: "site-1",
@@ -156,7 +156,7 @@ describe("audit.snapshots", () => {
       }),
     ).toEqual({
       id: "clip-1",
-      sourceVideoId: "video-1",
+      videoId: "video-1",
       createdByUserId: "user-1",
       studyId: "study-1",
       siteId: "site-1",

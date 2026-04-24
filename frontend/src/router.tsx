@@ -76,6 +76,10 @@ export const router = createBrowserRouter([
                         element: <Reviews />,
                         loader: reviewsLoader,
                     },
+                    {
+                        path: "admin",
+                        element: <SystemAdminDashboard />,
+                    }
                 ],
             },
             {

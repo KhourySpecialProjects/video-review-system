@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireSession } from "../../middleware/auth.js";
+import { requireSession, denyCaregiver } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/errors.js";
 import { listReviewsForUser } from "./reviews.service.js";
 import { reviewsQuerySchema } from "./reviews.types.js";
@@ -7,6 +7,7 @@ import { reviewsQuerySchema } from "./reviews.types.js";
 const router = Router();
 
 router.use(requireSession);
+router.use(denyCaregiver);
 
 /**
  * GET /domain/reviews - list video-review assignments for the current user.

@@ -230,7 +230,7 @@ export function useClipTimeline(
                 const start = Math.round(Math.min(startTime, time));
                 const end = Math.round(Math.max(startTime, time));
                 const payload = {
-                    sourceVideoId: videoId,
+                    videoId: videoId,
                     studyId,
                     siteId,
                     title: `Clip ${start.toFixed(1)}s–${end.toFixed(1)}s`,

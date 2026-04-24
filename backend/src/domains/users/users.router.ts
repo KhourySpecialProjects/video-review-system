@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { buildAuditActorContext } from "../../middleware/audit.js";
-import { requireSession } from "../../middleware/auth.js";
+import { requireSession, denyCaregiver } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/errors.js";
 import {
   createUserPermission,
@@ -24,6 +24,7 @@ import {
 const router = Router();
 
 router.use(requireSession);
+router.use(denyCaregiver);
 
 /**
  * Ensures the actor can use the user-management routes in this router.

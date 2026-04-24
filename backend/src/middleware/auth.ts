@@ -39,6 +39,7 @@ declare global {
     interface Request {
       user?: AuthenticatedUser;
       authSession: Session;
+      caregiverAuthorized?: boolean;
     }
   }
 }
@@ -102,6 +103,45 @@ export function requireRole(...roles: user_role[]) {
 }
 
 // ────────────────────────────────────────────────────────────
+// Caregiver Access Control
+// ────────────────────────────────────────────────────────────
+
+/**
+ * @description Blocks caregivers from accessing the route. Apply at router level
+ * for entire domains caregivers should never reach.
+ */
+export function denyCaregiver(req: Request, _res: Response, next: NextFunction) {
+  if (req.authSession?.user?.role === "CAREGIVER") {
+    throw AppError.forbidden();
+  }
+  next();
+}
+
+/**
+ * @description For caregiver-accessible routes: verifies the caregiver owns the
+ * resource. Non-caregivers pass through to the next middleware (typically
+ * requirePermission). Sets `req.caregiverAuthorized` so downstream permission
+ * checks know to skip the caregiver.
+ *
+ * @param resolveOwnerId - Async function that returns the resource owner's user ID
+ */
+export function requireCaregiverOwnership(
+  resolveOwnerId: (req: Request) => Promise<string | null>
+) {
+  return async (req: Request, _res: Response, next: NextFunction) => {
+    if (req.authSession.user.role !== "CAREGIVER") return next();
+
+    const ownerId = await resolveOwnerId(req);
+    if (ownerId !== req.authSession.user.id) {
+      throw AppError.forbidden();
+    }
+
+    req.caregiverAuthorized = true;
+    next();
+  };
+}
+
+// ────────────────────────────────────────────────────────────
 // Permission check (single resource)
 // ────────────────────────────────────────────────────────────
 
@@ -110,30 +150,27 @@ type ContextResolver =
   | ((req: Request) => ResourceContext[]);
 
 /**
- * Middleware factory: checks that the user has at least `requiredLevel`
+ * @description Middleware factory: checks that the user has at least `requiredLevel`
  * permission for the resource resolved from the request.
  *
- * For CAREGIVER: delegates to `caregiverCheck` if provided, otherwise denies.
+ * Caregivers are denied unless `req.caregiverAuthorized` was set by a
+ * prior `requireCaregiverOwnership` middleware. This makes caregiver
+ * access explicitly opt-in per route.
  */
 export function requirePermission(
   requiredLevel: permission_level,
   resolveContexts: ContextResolver,
-  caregiverCheck?: (req: Request) => Promise<boolean>
 ) {
   return async (req: Request, _res: Response, next: NextFunction) => {
     const { id: userId, role } = req.authSession.user;
 
-    // Validate role is a known user_role
     const validRoles: user_role[] = ["CAREGIVER", "CLINICAL_REVIEWER", "SITE_COORDINATOR", "SYSADMIN"];
     if (!validRoles.includes(role as user_role)) {
       throw AppError.forbidden("Invalid user role");
     }
 
     if (role === "CAREGIVER") {
-      if (caregiverCheck) {
-        const allowed = await caregiverCheck(req);
-        if (allowed) return next();
-      }
+      if (req.caregiverAuthorized) return next();
       throw AppError.forbidden();
     }
 

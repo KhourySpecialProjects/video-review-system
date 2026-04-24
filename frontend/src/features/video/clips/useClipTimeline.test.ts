@@ -33,7 +33,7 @@ function makeRect(width: number, left = 0): DOMRect {
 function makeClip(startTimeS: number, endTimeS: number): Clip {
     return {
         id: crypto.randomUUID(),
-        sourceVideoId: "video-1",
+        videoId: "video-1",
         studyId: "study-1",
         siteId: "site-1",
         title: `Clip ${startTimeS}s–${endTimeS}s`,

@@ -22,7 +22,7 @@ import type {
  */
 export async function createClip(input: CreateClipInput, createdByUserId: string) {
   const video = await prisma.video.findUnique({
-    where: { id: input.sourceVideoId },
+    where: { id: input.videoId },
   });
 
   if (!video) {
@@ -38,7 +38,7 @@ export async function createClip(input: CreateClipInput, createdByUserId: string
 
   const clip = await prisma.videoClip.create({
     data: {
-      sourceVideoId: input.sourceVideoId,
+      videoId: input.videoId,
       createdByUserId,
       studyId: input.studyId,
       siteId: input.siteId,
@@ -53,15 +53,16 @@ export async function createClip(input: CreateClipInput, createdByUserId: string
 }
 
 /**
- * Lists all clips for a given source video within a study.
+ * @description Lists all clips for a given source video within a study.
  *
  * @param videoId - uuid of the source video
  * @param studyId - uuid of the study to scope clips to
+ * @param accessFilter - Prisma where clause from buildDirectAccessFilter
  * @returns array of clip records ordered by startTimeS ascending
  */
 export async function listClipsByVideo(videoId: string, studyId: string) {
   return prisma.videoClip.findMany({
-    where: { sourceVideoId: videoId, studyId },
+    where: { videoId, studyId },
     orderBy: { startTimeS: "asc" },
     include: { createdBy: { select: { name: true } } },
   });
@@ -121,10 +122,6 @@ export async function updateClip(clipId: string, input: UpdateClipInput) {
  * @throws {AppError} 404 if no clip with that id exists (Prisma P2025)
  */
 export async function deleteClip(clipId: string) {
-  const clip = await prisma.videoClip.findUnique({
-    where: { id: clipId },
-  });
-
   await prisma.videoClip.delete({
     where: { id: clipId },
   });

@@ -45,10 +45,11 @@ export async function createSequence(input: CreateSequenceInput, createdByUserId
 }
 
 /**
- * Lists all sequences for a given video within a study, including ordered items.
+ * @description Lists all sequences for a given video within a study, including ordered items.
  *
  * @param videoId - uuid of the source video
  * @param studyId - uuid of the study to scope sequences to
+ * @param accessFilter - Prisma where clause from buildDirectAccessFilter
  * @returns array of sequence records with their items ordered by playOrder
  */
 export async function listSequencesByVideo(videoId: string, studyId: string) {
@@ -248,7 +249,7 @@ export async function deleteSequence(sequenceId: string) {
  * target sequence. Throws 400 if there's a mismatch.
  *
  * Both stitched sequences and video clips carry studyId, siteId, and a
- * video reference (videoId on sequence, sourceVideoId on clip), so this
+ * video reference (videoId on both sequence and clip), so this
  * is a direct field comparison.
  *
  * @param clip     - The video clip to validate
@@ -257,10 +258,10 @@ export async function deleteSequence(sequenceId: string) {
  * @throws {AppError} with 400 status if any of the three fields don't match
  */
 function assertClipMatchesSequence(
-  clip: { sourceVideoId: string; siteId: string; studyId: string },
+  clip: { videoId: string; siteId: string; studyId: string },
   sequence: { videoId: string; siteId: string; studyId: string }
 ): void {
-  if (clip.sourceVideoId !== sequence.videoId) {
+  if (clip.videoId !== sequence.videoId) {
     throw AppError.badRequest("Clip must belong to the same video as the sequence.");
   }
   if (clip.siteId !== sequence.siteId) {

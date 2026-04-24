@@ -9,7 +9,7 @@ import { z } from "zod";
  * The clip defines a time range (startTimeS to endTimeS) within the source video.
  * The authenticated user's ID is set server-side as createdByUserId.
  *
- * @field sourceVideoId - uuid of the video this clip is carved from
+ * @field videoId - uuid of the video this clip is carved from
  * @field studyId - uuid of the study this clip belongs to
  * @field siteId - uuid of the site this clip belongs to
  * @field title - descriptive name for the clip
@@ -18,7 +18,7 @@ import { z } from "zod";
  */
 export const createClipSchema = z
   .object({
-    sourceVideoId: z.uuid("Invalid source video ID"),
+    videoId: z.uuid("Invalid video ID"),
     studyId: z.uuid("Invalid study ID"),
     siteId: z.uuid("Invalid site ID"),
     title: z.string().min(1, "Title is required"),
@@ -59,3 +59,14 @@ export const updateClipSchema = z
 
 /** Input type for updating a clip, inferred from updateClipSchema */
 export type UpdateClipInput = z.infer<typeof updateClipSchema>;
+
+/**
+ * @description Validation schema for the clips list query params.
+ *
+ * @field videoId - uuid of the source video
+ * @field studyId - uuid of the study to scope clips to
+ */
+export const listClipsQuerySchema = z.object({
+  videoId: z.uuid("Invalid video ID"),
+  studyId: z.uuid("Invalid study ID"),
+});

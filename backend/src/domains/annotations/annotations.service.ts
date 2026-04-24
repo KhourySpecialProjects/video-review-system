@@ -19,14 +19,12 @@ export async function listAnnotationsByVideo(
   {
     limit = 20,
     offset = 0,
-    accessFilter,
   }: {
     limit?: number;
     offset?: number;
-    accessFilter: Record<string, any>;
   }
 ) {
-  const where = { videoId, ...accessFilter };
+  const where = { videoId };
 
   const [annotations, total] = await Promise.all([
     prisma.annotation.findMany({
