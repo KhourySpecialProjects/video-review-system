@@ -21,7 +21,7 @@ export async function resolveVideoContexts(req: Request): Promise<ResourceContex
   });
 
   if (videoStudies.length === 0) {
-    return [{ studyId: null, siteId: null, videoId: videoId as string }];
+    return [];
   }
 
   return videoStudies.map((vs) => ({
