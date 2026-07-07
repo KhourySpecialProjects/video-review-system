@@ -12,8 +12,9 @@ export type MainOutletContext = {
 /**
  * @description Root layout shell. Wraps all routes with the navbar, toaster,
  * and an AnimatePresence for shared element transitions between pages.
- * Routes that need an edge-to-edge canvas (e.g. the clinical review page)
- * get an unpadded main via the `isFullBleed` branch.
+ * Routes that need an edge-to-edge canvas (the clinical review page and
+ * the admin dashboard, which brings its own sidebar layout) get an
+ * unpadded main via the `isFullBleed` branch.
  *
  * The `<main>` element is the app's primary scroll container (the shell
  * uses `h-screen overflow-hidden`). Its ref is handed to the `Navbar`
@@ -22,7 +23,9 @@ export type MainOutletContext = {
  */
 export default function Root() {
     const location = useLocation();
-    const isFullBleed = location.pathname.startsWith("/review/");
+    const isFullBleed =
+        location.pathname.startsWith("/review/") ||
+        location.pathname.startsWith("/admin");
     const mainRef = useRef<HTMLElement | null>(null);
 
     const outletContext: MainOutletContext = { mainRef };

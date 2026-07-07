@@ -111,12 +111,16 @@ body.light {
   --input: var(--custom-border);
   --ring: var(--custom-primary);
 
-  /* Charts — swap in your palette */
-  --chart-1: var(--custom-primary);
-  --chart-2: var(--custom-secondary);
-  --chart-3: var(--success);
-  --chart-4: var(--warning);
-  --chart-5: var(--info);
+  /* Charts — chart-only categorical palette (dark mode defaults).
+     Same hue families as the app tokens, but lightness/chroma are
+     snapped so every series clears 3:1 contrast on the card surface
+     and adjacent series stay separable under color-vision deficiency.
+     Don't point these back at the semantic tokens. */
+  --chart-1: oklch(0.66 0.13 45);
+  --chart-2: oklch(0.62 0.11 225);
+  --chart-3: oklch(0.58 0.15 151.85);
+  --chart-4: oklch(0.66 0.13 85);
+  --chart-5: oklch(0.55 0.12 260);
 
   /* Sidebar */
   --sidebar: var(--bg-dark);
@@ -151,6 +155,13 @@ body.light {
   --border: var(--custom-border);
   --input: var(--custom-border);
   --ring: var(--custom-primary);
+
+  /* Charts — light-mode steps of the same hue families (see :root note) */
+  --chart-1: oklch(0.55 0.14 45);
+  --chart-2: oklch(0.55 0.14 225);
+  --chart-3: oklch(0.62 0.16 151);
+  --chart-4: oklch(0.65 0.145 85);
+  --chart-5: oklch(0.6 0.12 255);
 
   --sidebar: var(--bg-light);
   --sidebar-foreground: var(--text);

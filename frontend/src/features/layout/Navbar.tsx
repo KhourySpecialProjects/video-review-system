@@ -30,7 +30,7 @@ export function Navbar({ scrollContainerRef }: NavbarProps) {
     const logout = useLogout();
     const [menuOpen, setMenuOpen] = useState(false);
     const [scrollDirection, setScrollDirection] = useState<"up" | "down">("up");
-    const { uploads, busy, isLoading, fileInputRef, onResume, onCancel, onFileChange } =
+    const { uploads, busy, isLoading, isCaregiver, fileInputRef, onResume, onCancel, onFileChange } =
         useIncompleteUploads();
 
     const { scrollY } = useScroll({ container: scrollContainerRef });
@@ -73,13 +73,15 @@ export function Navbar({ scrollContainerRef }: NavbarProps) {
                 (menuOpen ? "overflow-visible" : "overflow-hidden")
             }
         >
-            <input
-                ref={fileInputRef}
-                type="file"
-                accept="video/mp4,video/quicktime,video/x-msvideo"
-                className="hidden"
-                onChange={onFileChange}
-            />
+            {isCaregiver && (
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="video/mp4,video/quicktime,video/x-msvideo"
+                    className="hidden"
+                    onChange={onFileChange}
+                />
+            )}
 
             <Link
                 to="/"
@@ -101,14 +103,16 @@ export function Navbar({ scrollContainerRef }: NavbarProps) {
                     </Link>
                 </div>
 
-                <div className="hidden md:block">
-                    <DesktopUploadIndicator
-                        uploads={uploads}
-                        busy={busy}
-                        onResume={onResume}
-                        onCancel={onCancel}
-                    />
-                </div>
+                {isCaregiver && (
+                    <div className="hidden md:block">
+                        <DesktopUploadIndicator
+                            uploads={uploads}
+                            busy={busy}
+                            onResume={onResume}
+                            onCancel={onCancel}
+                        />
+                    </div>
+                )}
 
                 <Button
                     variant="ghost"
@@ -150,7 +154,7 @@ export function Navbar({ scrollContainerRef }: NavbarProps) {
                             {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
                         </motion.span>
                     </AnimatePresence>
-                    {uploads.length > 0 && (
+                    {isCaregiver && uploads.length > 0 && (
                         <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
                             {uploads.length}
                         </span>
@@ -169,18 +173,19 @@ export function Navbar({ scrollContainerRef }: NavbarProps) {
                         className="absolute left-0 top-full w-full overflow-hidden border-b border-border/50 bg-bg-light z-50 md:hidden"
                     >
                         <div className="flex flex-col gap-2 p-4">
-                            {isLoading ? (
-                                <div className="flex justify-center py-3">
-                                    <Spinner />
-                                </div>
-                            ) : (
-                                <UploadCardStack
-                                    uploads={uploads}
-                                    busy={busy}
-                                    onResume={onResume}
-                                    onCancel={onCancel}
-                                />
-                            )}
+                            {isCaregiver &&
+                                (isLoading ? (
+                                    <div className="flex justify-center py-3">
+                                        <Spinner />
+                                    </div>
+                                ) : (
+                                    <UploadCardStack
+                                        uploads={uploads}
+                                        busy={busy}
+                                        onResume={onResume}
+                                        onCancel={onCancel}
+                                    />
+                                ))}
 
                             <Link
                                 to="/tutorials"

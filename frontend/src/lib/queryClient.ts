@@ -52,6 +52,37 @@ export const videoViewKeys = {
   stream: (videoId: string) => [...videoViewKeys.all, "stream", videoId] as const,
 };
 
+/**
+ * @description Query key factory for the admin dashboard page. Keys are
+ * organized by the data they cache:
+ *
+ * - `stats` — aggregate counts for stat cards (users, sites, studies, audits).
+ * - `chart` — time-series data for the area chart, scoped by tab and month range.
+ * - `users` — paginated user list, keyed by serialized filter/search params.
+ * - `sites` — paginated site list, keyed by serialized filter/search params.
+ * - `siteOptions` — minimal site list for Select dropdowns (no pagination).
+ * - `siteCaregivers` — caregivers at the given sites, keyed by comma-separated site IDs.
+ * - `studies` — paginated study list, keyed by serialized filter/search params.
+ * - `audit` — paginated audit log list, keyed by serialized filter params.
+ * - `userDetail` — single user with permissions, keyed by user ID.
+ * - `siteDetail` — single site with users and studies, keyed by site ID.
+ */
+export const adminKeys = {
+  all: ["admin"] as const,
+  stats: () => [...adminKeys.all, "stats"] as const,
+  chart: (tab: string, months: number) =>
+    [...adminKeys.all, "chart", tab, months] as const,
+  users: (params: string) => [...adminKeys.all, "users", params] as const,
+  sites: (params: string) => [...adminKeys.all, "sites", params] as const,
+  siteOptions: () => [...adminKeys.all, "siteOptions"] as const,
+  siteCaregivers: (siteIds: string) =>
+    [...adminKeys.all, "siteCaregivers", siteIds] as const,
+  studies: (params: string) => [...adminKeys.all, "studies", params] as const,
+  audit: (params: string) => [...adminKeys.all, "audit", params] as const,
+  userDetail: (id: string) => [...adminKeys.all, "user", id] as const,
+  siteDetail: (id: string) => [...adminKeys.all, "site", id] as const,
+};
+
 export const reviewKeys = {
   all: ["review"] as const,
   stream: (videoId: string) => [...reviewKeys.all, "stream", videoId] as const,

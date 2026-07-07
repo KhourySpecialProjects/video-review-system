@@ -18,8 +18,17 @@ import { ForgotPassword } from "./features/login/forgot-password";
 import { clientAction as forgotPasswordAction } from "./hooks/use-forgot-password";
 import { ResetPassword } from "./features/login/reset-password";
 import { clientAction as resetPasswordAction } from "./hooks/use-reset-password";
-import { authGuardLoader, caregiverGuardLoader, nonCaregiverGuardLoader } from "./hooks/auth-guard";
+import { authGuardLoader, caregiverGuardLoader, nonCaregiverGuardLoader, adminGuardLoader } from "./hooks/auth-guard";
 import { homeLoader, searchLoader, videoViewLoader, videoViewAction, videoReviewLoader, videoReviewAction, videoReviewShouldRevalidate } from "./lib/video.service";
+import { adminLoader, adminAction } from "./features/admin/admin.route";
+import { inviteUserAction } from "./features/admin/invite.route";
+import { createSiteAction } from "./features/admin/create-site.route";
+import { createStudyAction } from "./features/admin/create-study.route";
+import { userDetailLoader } from "./features/admin/user-detail.route";
+import { siteOptionsLoader } from "./features/admin/site-options.route";
+import { siteCaregiversLoader } from "./features/admin/study-caregivers.route";
+import { siteDetailLoader, siteDetailAction } from "./features/admin/site-detail.route";
+import { studyDetailLoader, studyDetailAction } from "./features/admin/study-detail.route";
 import { incompleteUploadsLoader, incompleteUploadsAction } from "./features/layout/incomplete-uploads.route";
 import { clipsLoader, clipsAction } from "./features/video/clips/clips.route";
 import { sequencesLoader, sequencesAction } from "./features/video/sequences/sequences.route";
@@ -76,10 +85,18 @@ export const router = createBrowserRouter([
                         element: <Reviews />,
                         loader: reviewsLoader,
                     },
+                ]
+            },
+            // Admin-only pages (SYSADMIN + SITE_COORDINATOR)
+            {
+                loader: adminGuardLoader,
+                children: [
                     {
                         path: "admin",
                         element: <SystemAdminDashboard />,
-                    }
+                        loader: adminLoader(queryClient),
+                        action: adminAction(queryClient),
+                    },
                 ],
             },
             {
@@ -90,6 +107,40 @@ export const router = createBrowserRouter([
               },
             }
         ],
+    },
+    {
+        path: "/admin/invite",
+        action: inviteUserAction(queryClient),
+    },
+    {
+        path: "/admin/create-site",
+        action: createSiteAction(queryClient),
+    },
+    {
+        path: "/admin/create-study",
+        action: createStudyAction(queryClient),
+    },
+    {
+        path: "/admin/user-detail",
+        loader: userDetailLoader(queryClient),
+    },
+    {
+        path: "/admin/site-detail",
+        loader: siteDetailLoader(queryClient),
+        action: siteDetailAction(queryClient),
+    },
+    {
+        path: "/admin/study-detail",
+        loader: studyDetailLoader(),
+        action: studyDetailAction(queryClient),
+    },
+    {
+        path: "/sites/options",
+        loader: siteOptionsLoader(queryClient),
+    },
+    {
+        path: "/studies/caregivers-for-sites",
+        loader: siteCaregiversLoader(queryClient),
     },
     {
         path: "/incomplete-uploads",

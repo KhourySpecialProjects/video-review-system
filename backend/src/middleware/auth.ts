@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { auth, type Session } from "../lib/auth.js";
-import { permission_level } from '../generated/prisma';
+import type { permission_level } from "../generated/prisma/index.js";
 import { AppError } from "./errors.js";
 import { fromNodeHeaders } from "better-auth/node";
 import type { user_role } from "../generated/prisma/client.js";
@@ -12,7 +12,6 @@ import {
   checkPermission,
   getHighestPermission,
   getPermissionRows,
-  PERMISSION_RANK,
   type ResourceContext,
 } from "../lib/auth.js";
 import type { PermissionRow } from "../lib/permissions.js";
@@ -189,6 +188,27 @@ export function buildScopeFilter(ctx: PermissionContext): Record<string, any> {
       return clause;
     }),
   };
+}
+
+/**
+ * @description Extracts the unique site IDs the user has permission on from
+ * a PermissionContext. Returns undefined for global access (no restriction).
+ * Use this for models where the filter targets `id` rather than `siteId`,
+ * such as the Site model itself or junction-scoped models like Study.
+ *
+ * @param ctx - The permission context from requirePermissionContext.
+ * @returns Array of site IDs, or undefined for unrestricted access.
+ */
+export function getSiteIdsFromContext(
+  ctx: PermissionContext,
+): string[] | undefined {
+  if (ctx.isGlobal) return undefined;
+
+  const ids = new Set<string>();
+  for (const row of ctx.rows) {
+    if (row.siteId) ids.add(row.siteId);
+  }
+  return [...ids];
 }
 
 // ────────────────────────────────────────────────────────────

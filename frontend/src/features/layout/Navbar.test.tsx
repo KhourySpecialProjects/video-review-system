@@ -23,9 +23,9 @@ function ScrollShell() {
 
 /**
  * @description Renders the Navbar inside a memory data router. The Navbar's
- * `useIncompleteUploads` hook kicks off a fetcher.load for
- * `/incomplete-uploads`, so that route must exist in the router config;
- * a stub loader returning `{ uploads: [] }` keeps it quiet.
+ * `useIncompleteUploads` hook only loads `/incomplete-uploads` for caregiver
+ * sessions; these tests render without an `AuthProvider`, so the fetch never
+ * fires. The stub route is kept so the config stays valid regardless.
  */
 function renderNavbar() {
     const router = createMemoryRouter([

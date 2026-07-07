@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type {
   AuditLog,
   Prisma,
@@ -12,6 +13,41 @@ import type {
 
 /** Prisma audit action enum. */
 export type AuditActionType = action_type;
+
+/**
+ * @description Validation schema for listing audit logs.
+ *
+ * @field actionType - Optional filter by action type.
+ * @field entityType - Optional filter by entity type.
+ * @field actorUserId - Optional filter by actor.
+ * @field siteId - Optional filter by site.
+ * @field limit - Page size.
+ * @field offset - Page offset.
+ */
+export const listAuditLogsQuerySchema = z.object({
+  actionType: z
+    .enum(["CREATE", "READ", "UPDATE", "DELETE", "DOWNLOAD", "LOGIN"])
+    .optional(),
+  entityType: z
+    .enum([
+      "VIDEO",
+      "ANNOTATION",
+      "USER",
+      "STUDY",
+      "SEQUENCE",
+      "CLIP",
+      "SITE",
+      "PERMISSIONS",
+      "INVITATION",
+    ])
+    .optional(),
+  actorUserId: z.string().optional(),
+  siteId: z.uuid("Invalid site ID").optional(),
+  limit: z.coerce.number().int().positive().optional().default(20),
+  offset: z.coerce.number().int().nonnegative().optional().default(0),
+});
+
+export type ListAuditLogsQuery = z.infer<typeof listAuditLogsQuerySchema>;
 
 /** Prisma audit entity enum. */
 export type AuditEntityType = entity_type;

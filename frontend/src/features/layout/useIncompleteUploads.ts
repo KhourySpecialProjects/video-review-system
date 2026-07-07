@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useFetcher } from "react-router";
 import type { IncompleteUpload } from "@shared-types/video";
 import { cancelUpload, resumeUpload } from "@/features/video/videoUpload/upload.service";
+import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
 
 const ROUTE = "/incomplete-uploads";
@@ -11,18 +12,25 @@ const ROUTE = "/incomplete-uploads";
  * and provides resume/cancel actions. Actions call the service directly
  * and show toast notifications, then reload the list via fetcher.
  *
- * @returns Upload data, loading state, file input ref, and action handlers
+ * Incomplete uploads are a caregiver-only concept, and the backing endpoint
+ * is caregiver-only (403 for everyone else), so the fetch is skipped entirely
+ * for non-caregivers and `isCaregiver` is surfaced so callers can hide the UI.
+ *
+ * @returns Upload data, loading state, whether the user is a caregiver, the
+ *   file input ref, and action handlers
  */
 export function useIncompleteUploads() {
+    const { user } = useAuth();
+    const isCaregiver = user?.role === "CAREGIVER";
     const fetcher = useFetcher<{ uploads: IncompleteUpload[] }>();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const pendingResumeId = useRef<string | null>(null);
 
     useEffect(() => {
-        if (fetcher.state === "idle" && !fetcher.data) {
+        if (isCaregiver && fetcher.state === "idle" && !fetcher.data) {
             fetcher.load(ROUTE);
         }
-    }, [fetcher]);
+    }, [fetcher, isCaregiver]);
 
     const uploads = fetcher.data?.uploads ?? [];
     const isLoading = fetcher.state === "loading" && !fetcher.data;
@@ -74,5 +82,5 @@ export function useIncompleteUploads() {
         }
     }
 
-    return { uploads, busy, isLoading, fileInputRef, onResume, onCancel, onFileChange };
+    return { uploads, busy, isLoading, isCaregiver, fileInputRef, onResume, onCancel, onFileChange };
 }

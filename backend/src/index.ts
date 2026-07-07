@@ -29,8 +29,8 @@ import sequencesRouter from "./domains/sequences/sequences.router.js";
 import reviewsRouter from "./domains/reviews/reviews.router.js";
 import sitesRouter from "./domains/sites/sites.router.js";
 import studiesRouter from "./domains/studies/studies.router.js";
-// import accountsRouter from "./domains/accounts/accounts.router.js";
-// import auditRouter from "./domains/audit/audit.router";
+import auditRouter from "./domains/audit/audit.router.js";
+import adminRouter from "./domains/admin/admin.router.js";
 
 dotenv.config();
 
@@ -67,8 +67,8 @@ export function createApp() {
   app.use("/api/domain/reviews", reviewsRouter);
   app.use("/api/domain/sites", sitesRouter);
   app.use("/api/domain/studies", studiesRouter);
-  // app.use("/api/domain/accounts", accountsRouter);
-  // app.use("/api/domain/audit", auditRouter);
+  app.use("/api/domain/audit", auditRouter);
+  app.use("/api/domain/admin", adminRouter);
 
   // error handling — must be registered after all routes
   app.use(notFoundHandler);

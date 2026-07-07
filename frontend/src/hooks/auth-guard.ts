@@ -59,3 +59,20 @@ export async function nonCaregiverGuardLoader() {
     if (role === "CAREGIVER") return redirect("/");
     return null;
 }
+
+/**
+ * @description Role guard that only lets `SYSADMIN` and `SITE_COORDINATOR`
+ * users through. Caregivers are sent to `/` (their home dashboard).
+ * Other authenticated roles are sent to `/reviews`.
+ *
+ * @returns `null` on success, or a redirect response when the role is wrong.
+ */
+export async function adminGuardLoader() {
+    const role = await getSessionRole();
+    if (!role) return redirect("/login");
+    if (role === "CAREGIVER") return redirect("/");
+    if (role !== "SYSADMIN" && role !== "SITE_COORDINATOR") {
+        return redirect("/reviews");
+    }
+    return null;
+}

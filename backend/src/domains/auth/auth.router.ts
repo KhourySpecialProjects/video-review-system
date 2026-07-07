@@ -2,7 +2,12 @@ import { Router } from "express";
 import { createInvite, activateInvite } from "./auth.service.js";
 import { createInviteSchema, activateInviteSchema } from "./auth.types.js";
 import { AppError } from "../../middleware/errors.js";
-import { requireSession } from "../../middleware/auth.js";
+import {
+  requireSession,
+  requireRole,
+  requirePermissionContext,
+  getSiteIdsFromContext,
+} from "../../middleware/auth.js";
 import { requireAuditActorContext } from "../../middleware/audit.js";
 
 /**
@@ -23,20 +28,34 @@ const router = Router();
  *
  * @todo Replace admin-secret with authenticated admin route once real admins exist
  */
-router.post("/invite", requireSession, async (req, res) => {
+router.post(
+  "/invite",
+  requireSession,
+  requireRole("SYSADMIN", "SITE_COORDINATOR"),
+  requirePermissionContext("ADMIN"),
+  async (req, res) => {
+    const input = createInviteSchema.parse(req.body);
+    const { role: actorRole } = req.authSession.user;
 
-  if (req.authSession.user.role !== "SYSADMIN") {
-    throw AppError.forbidden();
-  }
+    if (actorRole === "SITE_COORDINATOR") {
+      if (input.role !== "CAREGIVER" && input.role !== "CLINICAL_REVIEWER") {
+        throw AppError.forbidden(
+          "Site coordinators can only invite caregivers and clinical reviewers.",
+        );
+      }
 
+      const siteRestrictions = getSiteIdsFromContext(req.permissionContext!);
+      if (siteRestrictions && !siteRestrictions.includes(input.siteId)) {
+        throw AppError.forbidden(
+          "You do not have admin access to the selected site.",
+        );
+      }
+    }
 
-
-  // Parse and validate request body at the HTTP boundary
-  // Throws ZodError on failure — caught by errorHandler
-  const input = createInviteSchema.parse(req.body);
-  const result = await createInvite(input, requireAuditActorContext(req));
-  res.json(result);
-});
+    const result = await createInvite(input, requireAuditActorContext(req));
+    res.json(result);
+  },
+);
 
 /**
  * POST /activate - Activate an invitation and create user account
