@@ -1,7 +1,19 @@
 import { useRef } from "react";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider, Outlet } from "react-router";
+
+/**
+ * @description Mutable auth state consumed by the mocked useAuth below.
+ * Tests set `authState.user` before rendering to simulate different roles;
+ * beforeEach resets it to a logged-out state.
+ */
+const authState: { user: { role?: string } | null } = { user: null };
+
+vi.mock("@/context/auth-context", () => ({
+    useAuth: () => ({ user: authState.user, isLoading: false }),
+}));
+
 import { Navbar } from "./Navbar";
 
 /**
@@ -22,10 +34,10 @@ function ScrollShell() {
 }
 
 /**
- * @description Renders the Navbar inside a memory data router. The Navbar's
- * `useIncompleteUploads` hook only loads `/incomplete-uploads` for caregiver
- * sessions; these tests render without an `AuthProvider`, so the fetch never
- * fires. The stub route is kept so the config stays valid regardless.
+ * @description Renders the Navbar inside a memory data router. The auth
+ * context is mocked (see `authState` above); the `/incomplete-uploads`
+ * stub route serves the fetch that `useIncompleteUploads` fires for
+ * caregiver sessions.
  */
 function renderNavbar() {
     const router = createMemoryRouter([
@@ -36,6 +48,10 @@ function renderNavbar() {
 }
 
 describe("Navbar", () => {
+    beforeEach(() => {
+        authState.user = null;
+    });
+
     it("renders the logo", () => {
         renderNavbar();
         expect(screen.getByText("CV")).toBeInTheDocument();
@@ -58,5 +74,33 @@ describe("Navbar", () => {
         fireEvent.click(menuButton);
 
         expect(screen.getByText("Log out")).toBeInTheDocument();
+    });
+
+    it("shows Reviews and Admin links for a sysadmin", () => {
+        authState.user = { role: "SYSADMIN" };
+        renderNavbar();
+        expect(screen.getByText("Reviews")).toBeInTheDocument();
+        expect(screen.getByText("Admin")).toBeInTheDocument();
+    });
+
+    it("shows Reviews and Admin links for a site coordinator", () => {
+        authState.user = { role: "SITE_COORDINATOR" };
+        renderNavbar();
+        expect(screen.getByText("Reviews")).toBeInTheDocument();
+        expect(screen.getByText("Admin")).toBeInTheDocument();
+    });
+
+    it("shows Reviews but not Admin for a clinical reviewer", () => {
+        authState.user = { role: "CLINICAL_REVIEWER" };
+        renderNavbar();
+        expect(screen.getByText("Reviews")).toBeInTheDocument();
+        expect(screen.queryByText("Admin")).not.toBeInTheDocument();
+    });
+
+    it("hides Reviews and Admin for caregivers", () => {
+        authState.user = { role: "CAREGIVER" };
+        renderNavbar();
+        expect(screen.queryByText("Reviews")).not.toBeInTheDocument();
+        expect(screen.queryByText("Admin")).not.toBeInTheDocument();
     });
 });

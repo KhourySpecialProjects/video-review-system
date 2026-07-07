@@ -3,6 +3,7 @@ import { Sun, Moon, LogOut, Menu, X } from "lucide-react";
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "motion/react";
 import { useTheme } from "@/hooks/use-theme";
 import { useLogout } from "@/hooks/use-logout";
+import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useIncompleteUploads } from "./useIncompleteUploads";
@@ -13,6 +14,14 @@ import { Spinner } from "@/components/ui/spinner";
 type NavbarProps = {
     scrollContainerRef: React.RefObject<HTMLElement | null>;
 };
+
+/** @description Shared styles for desktop nav links. */
+const desktopLinkClass =
+    "inline-flex items-center justify-center rounded-md px-2.5 h-8 text-sm font-medium text-text hover:bg-muted transition-all";
+
+/** @description Shared styles for mobile dropdown menu links. */
+const mobileLinkClass =
+    "flex items-center rounded-md px-2.5 py-2 text-sm font-medium text-text hover:bg-muted transition-all";
 
 /**
  * @description Top navigation bar. Slides out of view when the user
@@ -28,10 +37,16 @@ type NavbarProps = {
 export function Navbar({ scrollContainerRef }: NavbarProps) {
     const { theme, toggleTheme } = useTheme();
     const logout = useLogout();
+    const { user } = useAuth();
     const [menuOpen, setMenuOpen] = useState(false);
     const [scrollDirection, setScrollDirection] = useState<"up" | "down">("up");
     const { uploads, busy, isLoading, isCaregiver, fileInputRef, onResume, onCancel, onFileChange } =
         useIncompleteUploads();
+
+    /** @description Reviews is open to every authenticated non-caregiver. */
+    const showReviews = !!user?.role && user.role !== "CAREGIVER";
+    /** @description Admin is guarded to SYSADMIN and SITE_COORDINATOR only. */
+    const showAdmin = user?.role === "SYSADMIN" || user?.role === "SITE_COORDINATOR";
 
     const { scrollY } = useScroll({ container: scrollContainerRef });
 
@@ -95,10 +110,17 @@ export function Navbar({ scrollContainerRef }: NavbarProps) {
 
             <div className="flex items-center gap-1">
                 <div className="hidden items-center gap-1 md:flex">
-                    <Link
-                        to="/tutorials"
-                        className="inline-flex items-center justify-center rounded-md px-2.5 h-8 text-sm font-medium text-text hover:bg-muted transition-all"
-                    >
+                    {showReviews && (
+                        <Link to="/reviews" className={desktopLinkClass}>
+                            Reviews
+                        </Link>
+                    )}
+                    {showAdmin && (
+                        <Link to="/admin" className={desktopLinkClass}>
+                            Admin
+                        </Link>
+                    )}
+                    <Link to="/tutorials" className={desktopLinkClass}>
                         Tutorial
                     </Link>
                 </div>
@@ -187,10 +209,28 @@ export function Navbar({ scrollContainerRef }: NavbarProps) {
                                     />
                                 ))}
 
+                            {showReviews && (
+                                <Link
+                                    to="/reviews"
+                                    onClick={() => setMenuOpen(false)}
+                                    className={mobileLinkClass}
+                                >
+                                    Reviews
+                                </Link>
+                            )}
+                            {showAdmin && (
+                                <Link
+                                    to="/admin"
+                                    onClick={() => setMenuOpen(false)}
+                                    className={mobileLinkClass}
+                                >
+                                    Admin
+                                </Link>
+                            )}
                             <Link
                                 to="/tutorials"
                                 onClick={() => setMenuOpen(false)}
-                                className="flex items-center rounded-md px-2.5 py-2 text-sm font-medium text-text hover:bg-muted transition-all"
+                                className={mobileLinkClass}
                             >
                                 Tutorial
                             </Link>
