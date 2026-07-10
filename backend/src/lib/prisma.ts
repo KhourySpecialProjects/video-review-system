@@ -24,9 +24,9 @@ console.log("Using database connection string:", connectionString);
 // create postgres connection pool
 const pool = new pg.Pool({
   connectionString: connectionString,
-  ssl: {
-    rejectUnauthorized: false // This bypasses the strict CA check
-  }
+  // Local Postgres (Docker) doesn't speak SSL; RDS requires it. When running
+  // fully local (LOCAL=true) disable SSL, otherwise bypass the strict CA check.
+  ssl: process.env.LOCAL === "true" ? false : { rejectUnauthorized: false },
 });
 
 // create prisma client with pg adapter (required in Prisma 7)
