@@ -18,6 +18,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { auth } from "./lib/auth.js";
 import { notFoundHandler, errorHandler } from "./middleware/errors.js";
+import { requestLogger } from "./middleware/logging.js";
 
 import videosRouter from "./domains/videos/videos.router.js";
 import authRouter from "./domains/auth/auth.router.js";
@@ -25,7 +26,11 @@ import annotationsRouter from "./domains/annotations/annotations.router.js";
 import usersRouter from "./domains/users/users.router.js";
 import clipsRouter from "./domains/clips/clips.router.js";
 import sequencesRouter from "./domains/sequences/sequences.router.js";
-// import auditRouter from "./domains/audit/audit.router";
+import reviewsRouter from "./domains/reviews/reviews.router.js";
+import sitesRouter from "./domains/sites/sites.router.js";
+import studiesRouter from "./domains/studies/studies.router.js";
+import auditRouter from "./domains/audit/audit.router.js";
+import adminRouter from "./domains/admin/admin.router.js";
 
 dotenv.config();
 
@@ -35,6 +40,7 @@ export function createApp() {
   const app = express();
 
   // middleware
+  app.use(requestLogger);
   app.use(cors({
     origin: process.env.ALLOWED_ORIGIN?.split(",") || ["https://localhost:5173"],
     credentials: true,
@@ -52,13 +58,17 @@ export function createApp() {
   });
 
   // domain routes
-  app.use("/domain/videos", videosRouter);
-  app.use("/domain/auth", authRouter);
-  app.use("/domain/annotations", annotationsRouter);
-  app.use("/domain/users", usersRouter);
-  app.use("/domain/clips", clipsRouter);
-  app.use("/domain/sequences", sequencesRouter);
-  // app.use("/domain/audit", auditRouter);
+  app.use("/api/domain/videos", videosRouter);
+  app.use("/api/domain/auth", authRouter);
+  app.use("/api/domain/annotations", annotationsRouter);
+  app.use("/api/domain/users", usersRouter);
+  app.use("/api/domain/clips", clipsRouter);
+  app.use("/api/domain/sequences", sequencesRouter);
+  app.use("/api/domain/reviews", reviewsRouter);
+  app.use("/api/domain/sites", sitesRouter);
+  app.use("/api/domain/studies", studiesRouter);
+  app.use("/api/domain/audit", auditRouter);
+  app.use("/api/domain/admin", adminRouter);
 
   // error handling — must be registered after all routes
   app.use(notFoundHandler);

@@ -53,6 +53,18 @@ export interface AuthTransactionPrismaMock {
   account: {
     create: AsyncMock;
   };
+  userPermission: {
+    create: AsyncMock;
+  };
+  study: {
+    findFirst: AsyncMock;
+  };
+  caregiverPatient: {
+    create: AsyncMock;
+  };
+  auditLog: {
+    create: AsyncMock;
+  };
 }
 
 /**
@@ -88,5 +100,9 @@ export function resetAuthPrismaMock(mock: AuthPrismaMock) {
   resetMocks(mock.invitation);
   resetMocks(mock.user);
   resetMocks(mock.account);
+  resetMocks(mock.userPermission);
+  resetMocks(mock.study);
+  resetMocks(mock.caregiverPatient);
+  resetMocks(mock.auditLog);
   mock.$transaction.mockReset();
 }

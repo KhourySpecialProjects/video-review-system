@@ -1,9 +1,10 @@
-import { Video, CheckCircle } from "lucide-react"
+import { Video, Pause } from "lucide-react"
 import {
   Progress,
   ProgressLabel,
   ProgressValue,
 } from "@/components/ui/progress"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { formatDuration } from "@/lib/format"
 import { DropZone } from "./DropZone"
@@ -14,15 +15,20 @@ type SelectStepProps = {
   onFileSelected: (file: File) => void
   /** @description Current upload status from the useVideoUpload hook */
   upload: UploadStatus
+  /** @description Called when the user wants to pause and resume later */
+  onPause?: () => void
 }
 
 /**
- * Presentational step for selecting a video file and displaying upload progress.
+ * @description Presentational step for selecting a video file and displaying
+ * upload progress. Includes a pause button to save progress and resume later.
  * All business logic (downscaling, uploading) is handled by the parent.
  *
- * @param props - @see SelectStepProps
+ * @param onFileSelected - Called when the user picks a file
+ * @param upload - Current upload status from the useVideoUpload hook
+ * @param onPause - Called when the user wants to pause and resume later
  */
-export function SelectStep({ onFileSelected, upload }: SelectStepProps) {
+export function SelectStep({ onFileSelected, upload, onPause }: SelectStepProps) {
   if (upload.status === "idle") {
     return <DropZone onFileSelected={onFileSelected} error={null} />
   }
@@ -31,13 +37,13 @@ export function SelectStep({ onFileSelected, upload }: SelectStepProps) {
     return <DropZone onFileSelected={onFileSelected} error={upload.error} />
   }
 
-  const isComplete = upload.status === "complete"
+  const isUploading = upload.status === "uploading"
   const label = upload.status === "processing" ? "Processing video" : "Uploading video"
 
   return (
     <section aria-label="Upload progress" aria-live="polite">
       <p className="text-xs font-semibold uppercase tracking-widest text-text-muted mb-3">
-        {isComplete ? "Upload complete" : label}
+        {label}
       </p>
 
       <Card className="mb-4">
@@ -47,26 +53,27 @@ export function SelectStep({ onFileSelected, upload }: SelectStepProps) {
         </CardContent>
       </Card>
 
-      {!isComplete && (
-        <>
-          <Progress value={upload.progress} className="w-full max-w-sm">
-            <ProgressLabel className="text-text">{label}</ProgressLabel>
-            <ProgressValue />
-          </Progress>
+      <Progress value={upload.progress} className="w-full max-w-sm">
+        <ProgressLabel className="text-text">{label}</ProgressLabel>
+        <ProgressValue />
+      </Progress>
 
-          {upload.eta > 0 && (
-            <p className="mt-2 text-xs text-text-muted">
-              ~{formatDuration(upload.eta)} remaining
-            </p>
-          )}
-        </>
+      {upload.eta > 0 && (
+        <p className="mt-2 text-xs text-text-muted">
+          ~{formatDuration(upload.eta)} remaining
+        </p>
       )}
 
-      {isComplete && (
-        <p className="flex items-center gap-2 mt-4 text-sm font-semibold text-success">
-          <CheckCircle className="size-4 shrink-0" strokeWidth={1.75} />
-          Video uploaded successfully
-        </p>
+      {isUploading && onPause && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-4 gap-2 text-text-muted"
+          onClick={onPause}
+        >
+          <Pause className="size-3.5" />
+          Upload Later
+        </Button>
       )}
     </section>
   )

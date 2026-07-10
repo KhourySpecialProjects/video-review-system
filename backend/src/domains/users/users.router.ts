@@ -1,6 +1,7 @@
 import { Router } from "express";
+import { buildAuditActorContext } from "../../middleware/audit.js";
+import { requireSession, denyCaregiver } from "../../middleware/auth.js";
 import { requireAuditActorContext } from "../../middleware/audit.js";
-import { requireSession } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/errors.js";
 import {
   createUserPermission,
@@ -24,6 +25,7 @@ import {
 const router = Router();
 
 router.use(requireSession);
+router.use(denyCaregiver);
 
 /**
  * Ensures the actor can use the user-management routes in this router.
@@ -135,31 +137,34 @@ router.post("/:userId/permissions", async (req, res) => {
     throw AppError.forbidden();
   }
 
-  const rawBody =
-    typeof req.body === "object" && req.body !== null ? req.body : {};
+  const data = createUserPermissionSchema.parse(req.body);
+  const scopeAccess = await resolvePermissionScopeAccess(data);
 
-  const parsed = createUserPermissionSchema.safeParse(rawBody);
+  if (actor.role === "SITE_COORDINATOR") {
+    if (
+      data.permissionLevel === "EXPORT" ||
+      data.permissionLevel === "ADMIN"
+    ) {
+      throw AppError.forbidden(
+        "Site coordinators can only assign READ or WRITE permissions.",
+      );
+    }
 
-  if (!parsed.success) {
-    throw AppError.badRequest(parsed.error.issues[0].message);
-  }
-
-  const scopeAccess = await resolvePermissionScopeAccess(parsed.data);
-
-  if (
-    actor.role === "SITE_COORDINATOR" &&
-    (scopeAccess.isGlobal ||
-      scopeAccess.siteIds.some((siteId) => !manageableSiteIds.includes(siteId)))
-  ) {
-    // Coordinators may only assign permissions within the sites they administer.
-    throw AppError.forbidden(
-      "Site coordinator cannot assign permissions outside their managed sites",
-    );
+    if (
+      scopeAccess.isGlobal ||
+      scopeAccess.siteIds.some(
+        (siteId) => !manageableSiteIds.includes(siteId),
+      )
+    ) {
+      throw AppError.forbidden(
+        "Site coordinator cannot assign permissions outside their managed sites",
+      );
+    }
   }
 
   const userPermission = await createUserPermission(
     req.params.userId,
-    parsed.data,
+    data,
     requireAuditActorContext(req),
   );
   res.status(201).json(userPermission);

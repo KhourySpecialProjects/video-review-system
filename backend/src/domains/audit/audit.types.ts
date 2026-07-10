@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type {
   AuditLog,
   Prisma,
@@ -5,6 +6,7 @@ import type {
   annotation_type,
   entity_type,
   permission_level,
+  study_status,
   user_role,
   video_status,
 } from "../../generated/prisma/index.js";
@@ -13,10 +15,41 @@ import type {
 export type AuditActionType = action_type;
 
 /**
- * Prisma audit entity enum.
+ * @description Validation schema for listing audit logs.
  *
- * TODO: Add `INVITATION` to the schema if we audit invites later.
+ * @field actionType - Optional filter by action type.
+ * @field entityType - Optional filter by entity type.
+ * @field actorUserId - Optional filter by actor.
+ * @field siteId - Optional filter by site.
+ * @field limit - Page size.
+ * @field offset - Page offset.
  */
+export const listAuditLogsQuerySchema = z.object({
+  actionType: z
+    .enum(["CREATE", "READ", "UPDATE", "DELETE", "DOWNLOAD", "LOGIN"])
+    .optional(),
+  entityType: z
+    .enum([
+      "VIDEO",
+      "ANNOTATION",
+      "USER",
+      "STUDY",
+      "SEQUENCE",
+      "CLIP",
+      "SITE",
+      "PERMISSIONS",
+      "INVITATION",
+    ])
+    .optional(),
+  actorUserId: z.string().optional(),
+  siteId: z.uuid("Invalid site ID").optional(),
+  limit: z.coerce.number().int().positive().optional().default(20),
+  offset: z.coerce.number().int().nonnegative().optional().default(0),
+});
+
+export type ListAuditLogsQuery = z.infer<typeof listAuditLogsQuerySchema>;
+
+/** Prisma audit entity enum. */
 export type AuditEntityType = entity_type;
 
 /** Snapshot stored in `oldValues` and `newValues`. */
@@ -193,7 +226,8 @@ export interface AuditAnnotationUpdateSnapshot extends AuditSnapshot {
 
 /** Clip snapshot for audit rows. */
 export interface AuditClipSnapshot extends AuditSnapshot {
-  sourceVideoId: string;
+  id: string;
+  videoId: string;
   createdByUserId: string;
   studyId: string;
   siteId: string;
@@ -209,4 +243,22 @@ export interface AuditSequenceSnapshot extends AuditSnapshot {
   studyId: string;
   siteId: string;
   title: string;
+}
+
+/** Study snapshot for audit rows. */
+export interface AuditStudySnapshot extends AuditSnapshot {
+  name: string;
+  status: study_status;
+}
+
+/** Site snapshot for audit rows. */
+export interface AuditSiteSnapshot extends AuditSnapshot {
+  name: string;
+}
+
+/** Invitation snapshot for audit rows. */
+export interface AuditInvitationSnapshot extends AuditSnapshot {
+  email: string;
+  role: user_role;
+  siteId: string;
 }

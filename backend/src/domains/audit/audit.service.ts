@@ -1,5 +1,10 @@
 import type { AuditLog, Prisma } from "../../generated/prisma/index.js";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client.js";
+import prisma from "../../lib/prisma.js";
+import type {
+  AuditLogListItem,
+  ListAuditLogsResponse,
+} from "@shared/audit.js";
 import type {
   AuditedCreateInput,
   AuditedDeleteInput,
@@ -11,6 +16,7 @@ import type {
   AuditSnapshot,
   UpdateAuditEventInput,
   AuditedRecord,
+  ListAuditLogsQuery,
 } from "./audit.types.js";
 
 /**
@@ -201,4 +207,83 @@ export async function recordAudit(
   return client.auditLog.create({
     data: toAuditCreateInput(event),
   });
+}
+
+/**
+ * @description Lists audit logs with optional filters and pagination.
+ * When site restrictions are provided, only logs for those sites are returned.
+ *
+ * @param query - Parsed query params (actionType, entityType, actorUserId, siteId, limit, offset).
+ * @param siteRestrictions - Optional site ID restriction from ADMIN permissions.
+ * @returns Paginated list of audit logs with actor and site names.
+ */
+export async function listAuditLogs(
+  query: ListAuditLogsQuery,
+  siteRestrictions?: string[],
+): Promise<ListAuditLogsResponse> {
+  const where: Prisma.AuditLogWhereInput = {};
+
+  if (siteRestrictions !== undefined) {
+    where.siteId = { in: siteRestrictions };
+  }
+
+  if (query.actionType) {
+    where.actionType = query.actionType;
+  }
+
+  if (query.entityType) {
+    where.entityType = query.entityType;
+  }
+
+  if (query.actorUserId) {
+    where.actorUserId = query.actorUserId;
+  }
+
+  if (query.siteId) {
+    where.siteId = query.siteId;
+  }
+
+  const [logs, total] = await Promise.all([
+    prisma.auditLog.findMany({
+      where,
+      select: {
+        id: true,
+        actorUserId: true,
+        actionType: true,
+        entityType: true,
+        entityId: true,
+        siteId: true,
+        oldValues: true,
+        newValues: true,
+        ipAddress: true,
+        createdAt: true,
+        actor: { select: { name: true } },
+        site: { select: { name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: query.offset,
+      take: query.limit,
+    }),
+    prisma.auditLog.count({ where }),
+  ]);
+
+  return {
+    logs: logs.map((log): AuditLogListItem => ({
+      id: log.id,
+      actorUserId: log.actorUserId,
+      actorName: log.actor.name,
+      actionType: log.actionType,
+      entityType: log.entityType,
+      entityId: log.entityId,
+      siteId: log.siteId,
+      siteName: log.site?.name ?? null,
+      oldValues: (log.oldValues ?? {}) as Record<string, unknown>,
+      newValues: (log.newValues ?? {}) as Record<string, unknown>,
+      ipAddress: log.ipAddress,
+      createdAt: log.createdAt.toISOString(),
+    })),
+    total,
+    limit: query.limit,
+    offset: query.offset,
+  };
 }

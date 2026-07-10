@@ -1,4 +1,5 @@
-import * as React from "react"
+import { useState, type CSSProperties } from "react"
+import { motion } from "motion/react"
 import {
   Sidebar,
   SidebarContent,
@@ -6,164 +7,111 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Plus } from "lucide-react"
-import { useAuth } from "@/context/auth-context"
-
-import { ClipCard } from "./ClipCard"
-import { TimestampAnnotation } from "./TimestampAnnotation"
-import { DrawingCard, type DrawingToolType } from "./DrawingCard"
+import { useSidebarMutations } from "./useSidebarMutations"
+import { ClipsTab } from "./ClipsTab"
+import { NotesTab } from "./NotesTab"
+import { DrawingsTab } from "./DrawingsTab"
+import type { DrawingToolType } from "./DrawingCard"
 
 const SIDEBAR_PROVIDER_STYLE = {
   "--sidebar-width": "100%",
   width: "100%",
   height: "100%",
-} as React.CSSProperties
+} as CSSProperties
 
 /**
- * Interface defining the properties of a Clip Annotation.
+ * @description Properties of a clip displayed in the sidebar.
  */
-export interface ClipAnnotation {
+export type ClipAnnotation = {
   id: string
   title: string
-  startMs: number
-  endMs: number
-  /** The theme color applied to the clip's visual indicators (hex or rgba) */
+  startTimeS: number
+  endTimeS: number
   themeColor: string
+  /** @description Display name of the user who created this clip. */
+  createdBy: string
 }
 
 /**
- * Interface defining the properties of a Note Annotation.
+ * @description Properties of a timestamped note displayed in the sidebar.
  */
-export interface NoteAnnotation {
+export type NoteAnnotation = {
   id: string
-  author: string
+  /** @description Display name of the user who authored this note. */
+  createdBy: string
+  title: string
   content: string
   timestamp: string
 }
 
 /**
- * Interface defining the properties of a Draw Annotation.
+ * @description Properties of a drawing annotation displayed in the sidebar.
  */
-export interface DrawAnnotation {
+export type DrawAnnotation = {
   id: string
   type: DrawingToolType
   color: string
   timestamp: number
   duration: number
+  thumbnailUrl?: string
+  /** @description Display name of the user who created this drawing. */
+  createdBy: string
 }
 
 /**
- * Props for the AnnotationSidebar component.
+ * @description Props for the AnnotationSidebar component.
  */
-export interface AnnotationSidebarProps {
-  /** Optional array of clip annotations */
+export type AnnotationSidebarProps = {
   clips?: ClipAnnotation[]
-  /** Optional array of note annotations */
   notes?: NoteAnnotation[]
-  /** Optional array of draw annotations */
   drawings?: DrawAnnotation[]
-
-  /** Optional callback fired when a user creates a new string note dynamically via sidebar */
-  onAddNoteRequest?: (author: string, content: string, timestampStr: string) => void
-
-  /** Optional callback fired when a user successfully edits a note text string */
-  onUpdateNote?: (id: string, content: string) => void
-
-  /** Optional callbacks triggered when the user hits delete on a respective card */
-  onDeleteClip?: (id: string) => void
-  onDeleteNote?: (id: string) => void
-  onDeleteDrawing?: (id: string) => void
-
-  /** Optional callback fired when the user clicks the play/jump button on any card */
+  /** @description Called when the user clicks jump/play on any card. */
   onJumpToTime?: (timeSeconds: number) => void
-
-  /** Optional callback fired when a user successfully edits and saves a clip card */
-  onUpdateClip?: (id: string, updates: { title?: string; startMs?: number; endMs?: number }) => void
-
-  /** Optional callback fired when a user modifies a drawing's visibility playback duration */
-  onUpdateDrawingDuration?: (id: string, duration: number) => void
-
-  /** Optional state indicating data is fetching, renders skeleton card loaders when true */
-  isLoading?: boolean
-
-  /** Optional reference to the current video playback time in seconds */
+  /** @description Current video playback time in seconds. */
   currentVideoTime?: number
-}
-
-/** Parses a "MM:SS" timestamp string into total seconds. Returns 0 for malformed input. */
-function parseTimestamp(ts: string): number {
-  const parts = ts.split(':')
-  if (parts.length !== 2) return 0
-  const mins = parseInt(parts[0], 10)
-  const secs = parseInt(parts[1], 10)
-  if (isNaN(mins) || isNaN(secs)) return 0
-  return mins * 60 + secs
-}
-
-/**
- * Standardized skeleton loader mirroring the dimensions of a SidebarCard.
- */
-function SidebarCardSkeleton() {
-  return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 w-full">
-          <Skeleton className="h-6 w-6 rounded-md" />
-          <Skeleton className="h-4 w-3/4" />
-        </div>
-      </div>
-      <div className="mt-1 flex flex-col gap-2">
-        <Skeleton className="h-3 w-1/2" />
-        <Skeleton className="h-3 w-1/3" />
-      </div>
-    </div>
-  )
-}
-
-function SkeletonList() {
-  return (
-    <>
-      {Array.from({ length: 3 }).map((_, i) => <SidebarCardSkeleton key={i} />)}
-    </>
-  )
+  /** @description Whether data is loading (shows skeletons). */
+  isLoading?: boolean
+  /** @description Video ID for annotation create payloads. */
+  videoId: string
+  /** @description Study ID for annotation create payloads. */
+  studyId: string
+  /** @description Site ID for annotation create payloads. */
+  siteId: string
+  /**
+   * @description Called when the user clicks "Add to sequence" on a clip.
+   * When omitted, the button is hidden — callers should only pass this when
+   * a sequence is actively selected.
+   */
+  onAddClipToSequence?: (clipId: string) => void
 }
 
 /**
- * Annotation Sidebar Component
- * Displays a reviewer's annotations including Clips, Notes, and Drawings in a tabbed interface.
- * Designed to encapsulate its own layout inside a SidebarProvider.
- *
- * @param props - See AnnotationSidebarProps for details.
+ * @description Annotation sidebar that owns its own mutation fetchers.
+ * Displays clips, notes, and drawings in a tabbed interface. All CRUD
+ * operations are handled internally via the useSidebarMutations hook.
  */
 export function AnnotationSidebar({
   clips: propClips,
   notes: propNotes,
   drawings: propDrawings,
-  onDeleteClip,
-  onDeleteNote,
-  onDeleteDrawing,
   onJumpToTime,
-  onAddNoteRequest,
-  onUpdateNote,
-  onUpdateClip,
-  onUpdateDrawingDuration,
-  isLoading,
   currentVideoTime,
+  isLoading,
+  videoId,
+  studyId,
+  siteId,
+  onAddClipToSequence,
 }: AnnotationSidebarProps) {
-  const { user } = useAuth()
-  const authorName = user?.name ?? "Unknown User"
+  const mutations = useSidebarMutations(videoId, currentVideoTime ?? 0, studyId, siteId)
 
   const clips = propClips ?? []
   const notes = propNotes ?? []
   const drawings = propDrawings ?? []
+  const loading = isLoading ?? false
 
-  const handleAddNote = () => {
-    const timeSecs = currentVideoTime ?? 0
-    const formattedTime = `${Math.floor(timeSecs / 60)}:${String(Math.floor(timeSecs % 60)).padStart(2, '0')}`
-    onAddNoteRequest?.(authorName, "", formattedTime)
-  }
+  const jumpTo = onJumpToTime ?? (() => {})
+
+  const [activeTab, setActiveTab] = useState("clips")
 
   return (
     <SidebarProvider
@@ -172,120 +120,67 @@ export function AnnotationSidebar({
       style={SIDEBAR_PROVIDER_STYLE}
     >
       <Sidebar side="right" collapsible="none" className="border-l border-border bg-background w-full h-full">
-        <Tabs defaultValue="clips" className="flex flex-col h-full w-full overflow-hidden">
-          {/* Top Navigation Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full w-full overflow-hidden">
           <SidebarHeader className="p-4 pb-3 border-b border-border bg-background">
             <h2 className="font-semibold text-lg mb-2 text-foreground">Annotations</h2>
             <TabsList className="w-full grid grid-cols-3 bg-muted p-1 rounded-lg h-11">
-              <TabsTrigger
-                value="clips"
-                className="cursor-pointer rounded-md data-active:bg-background data-active:text-foreground data-active:shadow-sm text-muted-foreground h-full font-medium transition-all border border-transparent data-active:border-border"
-              >
-                Clips
-              </TabsTrigger>
-              <TabsTrigger
-                value="notes"
-                className="cursor-pointer rounded-md data-active:bg-background data-active:text-foreground data-active:shadow-sm text-muted-foreground h-full font-medium transition-all border border-transparent data-active:border-border"
-              >
-                Notes
-              </TabsTrigger>
-              <TabsTrigger
-                value="draw"
-                className="cursor-pointer rounded-md data-active:bg-background data-active:text-foreground data-active:shadow-sm text-muted-foreground h-full font-medium transition-all border border-transparent data-active:border-border"
-              >
-                Draw
-              </TabsTrigger>
+              {(["clips", "notes", "draw"] as const).map((value) => (
+                <TabsTrigger
+                  key={value}
+                  value={value}
+                  className="relative cursor-pointer rounded-md data-active:text-foreground text-muted-foreground h-full font-medium transition-colors bg-transparent shadow-none border-0"
+                >
+                  {activeTab === value && (
+                    <motion.div
+                      layoutId="sidebar-tab-indicator"
+                      className="absolute inset-0 rounded-md bg-background border border-border shadow-sm"
+                      transition={{ type: "spring", stiffness: 420, damping: 36 }}
+                    />
+                  )}
+                  <span className="relative z-10">
+                    {value === "clips" ? "Clips" : value === "notes" ? "Notes" : "Draw"}
+                  </span>
+                </TabsTrigger>
+              ))}
             </TabsList>
           </SidebarHeader>
 
-          {/* Scrollable Content Area */}
           <SidebarContent>
-              <div className="p-4">
-                {/* Clips Tab Content */}
-                <TabsContent
-                  value="clips"
-                  className="m-0 flex flex-col gap-4 focus-visible:outline-none"
-                >
-                  {isLoading ? (
-                    <SkeletonList />
-                  ) : clips.length > 0 ? (
-                    clips.map((clip) => (
-                      <ClipCard
-                        key={clip.id}
-                        title={clip.title}
-                        startMs={clip.startMs}
-                        endMs={clip.endMs}
-                        color={clip.themeColor}
-                        onJumpStart={() => onJumpToTime?.(clip.startMs / 1000)}
-                        onUpdateClip={(updates) => onUpdateClip?.(clip.id, updates)}
-                        onDelete={() => onDeleteClip?.(clip.id)}
-                      />
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground text-center py-8">
-                      No clips available.
-                    </p>
-                  )}
-                </TabsContent>
+            <div className="p-4">
+              <TabsContent value="clips" className="m-0 flex flex-col gap-4 focus-visible:outline-none">
+                <ClipsTab
+                  key={activeTab === "clips" ? "clips-active" : "clips-idle"}
+                  clips={clips}
+                  isLoading={loading}
+                  onJumpToTime={jumpTo}
+                  onUpdateClip={mutations.updateClip}
+                  onDeleteClip={mutations.deleteClip}
+                  onAddToSequence={onAddClipToSequence}
+                />
+              </TabsContent>
 
-                {/* Notes Tab Content */}
-                <TabsContent
-                  value="notes"
-                  className="m-0 flex flex-col gap-4 focus-visible:outline-none"
-                >
-                  <Button variant="outline" size="sm" className="cursor-pointer w-full flex items-center justify-center border-dashed" onClick={handleAddNote} disabled={isLoading}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Note
-                  </Button>
+              <TabsContent value="notes" className="m-0 flex flex-col gap-4 focus-visible:outline-none">
+                <NotesTab
+                  notes={notes}
+                  isLoading={loading}
+                  currentVideoTime={currentVideoTime ?? 0}
+                  onJumpToTime={jumpTo}
+                  onCreateNote={mutations.createNote}
+                  onUpdateNote={mutations.updateNote}
+                  onDeleteNote={mutations.deleteNote}
+                />
+              </TabsContent>
 
-                  {isLoading ? (
-                    <SkeletonList />
-                  ) : notes.length > 0 ? (
-                    notes.map((note) => (
-                      <TimestampAnnotation
-                        key={note.id}
-                        timestamp={note.timestamp}
-                        comment={note.content}
-                        onNavigate={(ts) => onJumpToTime?.(parseTimestamp(ts))}
-                        onEdit={(newComment) => onUpdateNote?.(note.id, newComment)}
-                        onDelete={() => onDeleteNote?.(note.id)}
-                      />
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground text-center py-8">
-                      No notes available.
-                    </p>
-                  )}
-                </TabsContent>
-
-                {/* Draw Tab Content */}
-                <TabsContent
-                  value="draw"
-                  className="m-0 flex flex-col gap-4 focus-visible:outline-none"
-                >
-                  {isLoading ? (
-                    <SkeletonList />
-                  ) : drawings.length > 0 ? (
-                    drawings.map((draw) => (
-                      <DrawingCard
-                        key={draw.id}
-                        id={draw.id}
-                        type={draw.type}
-                        color={draw.color}
-                        timestamp={draw.timestamp}
-                        duration={draw.duration}
-                        onJumpStart={(ts) => onJumpToTime?.(ts)}
-                        onEditDuration={(id, dur) => onUpdateDrawingDuration?.(id, dur)}
-                        onDelete={(id) => onDeleteDrawing?.(id)}
-                      />
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground text-center py-8">
-                      No drawings available.
-                    </p>
-                  )}
-                </TabsContent>
-              </div>
+              <TabsContent value="draw" className="m-0 flex flex-col gap-4 focus-visible:outline-none">
+                <DrawingsTab
+                  drawings={drawings}
+                  isLoading={loading}
+                  onJumpToTime={jumpTo}
+                  onUpdateDuration={mutations.updateDrawingDuration}
+                  onDeleteDrawing={mutations.deleteDrawing}
+                />
+              </TabsContent>
+            </div>
           </SidebarContent>
         </Tabs>
       </Sidebar>

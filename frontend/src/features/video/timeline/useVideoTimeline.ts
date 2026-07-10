@@ -26,7 +26,7 @@ export type TimelineMarker = {
  */
 export const MARKER_COLORS: Record<TimelineMarkerType, string> = {
     "drawing": "bg-red-500",
-    "timestamp-comment": "bg-amber-400",
+    "timestamp-comment": "bg-amber-500",
 };
 
 /**

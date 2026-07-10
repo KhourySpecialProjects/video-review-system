@@ -21,6 +21,7 @@ const includeDeactivatedSchema = z.preprocess((value) => {
 export const listUsersQuerySchema = z.object({
   role: roleSchema.optional(),
   siteId: z.uuid("Invalid site ID").optional(),
+  name: z.string().optional(),
   includeDeactivated: includeDeactivatedSchema,
   limit: z.coerce.number().int().positive().optional().default(20),
   offset: z.coerce.number().int().nonnegative().optional().default(0),

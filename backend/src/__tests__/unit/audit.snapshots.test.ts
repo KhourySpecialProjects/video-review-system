@@ -3,8 +3,11 @@ import {
   buildAnnotationSnapshot,
   buildAnnotationUpdateSnapshot,
   buildClipSnapshot,
+  buildInvitationSnapshot,
   buildPermissionSnapshot,
   buildSequenceSnapshot,
+  buildSiteSnapshot,
+  buildStudySnapshot,
   buildUserSnapshot,
   buildVideoSnapshot,
   summarizeAnnotationPayload,
@@ -150,7 +153,8 @@ describe("audit.snapshots", () => {
   it("buildClipSnapshot and buildSequenceSnapshot keep only stable fields", () => {
     expect(
       buildClipSnapshot({
-        sourceVideoId: "video-1",
+        id: "clip-1",
+        videoId: "video-1",
         createdByUserId: "user-1",
         studyId: "study-1",
         siteId: "site-1",
@@ -159,7 +163,8 @@ describe("audit.snapshots", () => {
         endTimeS: 12,
       }),
     ).toEqual({
-      sourceVideoId: "video-1",
+      id: "clip-1",
+      videoId: "video-1",
       createdByUserId: "user-1",
       studyId: "study-1",
       siteId: "site-1",
@@ -182,6 +187,34 @@ describe("audit.snapshots", () => {
       studyId: "study-1",
       siteId: "site-1",
       title: "Episode highlights",
+    });
+  });
+
+  it("buildStudySnapshot returns name and status", () => {
+    expect(
+      buildStudySnapshot({ name: "Motor skills", status: "IN_PROGRESS" }),
+    ).toEqual({ name: "Motor skills", status: "IN_PROGRESS" });
+  });
+
+  it("buildSiteSnapshot returns name only", () => {
+    expect(buildSiteSnapshot({ name: "Boston Children's" })).toEqual({
+      name: "Boston Children's",
+    });
+  });
+
+  it("buildInvitationSnapshot excludes tokenHash", () => {
+    const invitation = {
+      id: "inv-1",
+      email: "invitee@example.com",
+      role: "CAREGIVER" as const,
+      siteId: "site-1",
+      tokenHash: "should-not-appear",
+    };
+
+    expect(buildInvitationSnapshot(invitation)).toEqual({
+      email: "invitee@example.com",
+      role: "CAREGIVER",
+      siteId: "site-1",
     });
   });
 });

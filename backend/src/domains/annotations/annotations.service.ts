@@ -29,14 +29,12 @@ export async function listAnnotationsByVideo(
   {
     limit = 20,
     offset = 0,
-    accessFilter,
   }: {
     limit?: number;
     offset?: number;
-    accessFilter: Record<string, any>;
   }
 ) {
-  const where = { videoId, ...accessFilter };
+  const where = { videoId };
 
   const [annotations, total] = await Promise.all([
     prisma.annotation.findMany({
@@ -44,6 +42,7 @@ export async function listAnnotationsByVideo(
       orderBy: { timestampS: "asc" },
       skip: offset,
       take: limit,
+      include: { author: { select: { name: true } } },
     }),
     prisma.annotation.count({ where }),
   ]);
@@ -55,13 +54,14 @@ export async function listAnnotationsByVideo(
  * finds a single annotation by its uuid
  *
  * @param id - uuid of the annotation
- * 
+ *
  * @returns the annotation object, or null if not found
  */
 export async function getAnnotationById(id: string) {
   // findUnique returns null if not found, can handle in the controller
   const annotation = await prisma.annotation.findUnique({
     where: { id },
+    include: { author: { select: { name: true } } },
   });
   return annotation;
 }
@@ -77,13 +77,13 @@ export async function getAnnotationById(id: string) {
  * @param data.timestampSeconds - position in the video in seconds
  * @param data.durationSeconds - how long the annotation spans
  * @param data.payload - (optional) type-specific JSON data
- * 
+ *
  * @returns the newly created annotation
- * 
+ *
  * @throws Error if the referenced video does not exist
  */
-export async function createAnnotation({   
-  videoId, 
+export async function createAnnotation({
+  videoId,
   authorUserId,
   studyId,
   siteId,
@@ -105,7 +105,7 @@ export async function createAnnotation({
           throw AppError.notFound("Video not found");
         }
 
-        return tx.annotation.create({
+        const annotation = await tx.annotation.create({
           data: {
             videoId,
             authorUserId,
@@ -116,7 +116,10 @@ export async function createAnnotation({
             durationS: durationSeconds,
             payload: payload as Prisma.InputJsonValue,
           },
+          include: { author: { select: { name: true } } },
         });
+
+        return annotation;
       },
       actorUserId: audit.actorUserId,
       entityType: "ANNOTATION",
@@ -132,9 +135,9 @@ export async function createAnnotation({
  *
  * @param id - uuid of the annotation to update
  * @param data - partial fields to update
- * 
+ *
  * @returns the updated annotation
- * 
+ *
  * @throws {P2025} if no annotation with that id exists
  */
 export async function updateAnnotation(
@@ -172,7 +175,7 @@ export async function updateAnnotation(
  * permanently deletes an annotation by its uuid
  *
  * @param id - uuid of the annotation to delete
- * 
+ *
  * @throws {P2025} if no annotation with that id exists
  */
 export async function deleteAnnotation(

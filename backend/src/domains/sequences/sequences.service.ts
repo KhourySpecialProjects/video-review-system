@@ -3,6 +3,7 @@ import {
   recordAudit,
   runAuditedCreate,
   runAuditedDelete,
+  runAuditedUpdate,
 } from "../audit/audit.service.js";
 import { buildSequenceSnapshot } from "../audit/audit.snapshots.js";
 import type { AuthenticatedAuditContext } from "../audit/audit.types.js";
@@ -11,6 +12,7 @@ import type {
   CreateSequenceInput,
   AddClipToSequenceInput,
   ReorderSequenceInput,
+  UpdateSequenceInput,
 } from "./sequences.types.js";
 
 // ────────────────────────────────────────────────────────────
@@ -95,6 +97,28 @@ export async function createSequence(
 }
 
 /**
+ * @description Lists all sequences for a given video within a study, including ordered items.
+ *
+ * @param videoId - uuid of the source video
+ * @param studyId - uuid of the study to scope sequences to
+ * @param accessFilter - Prisma where clause from buildDirectAccessFilter
+ * @returns array of sequence records with their items ordered by playOrder
+ */
+export async function listSequencesByVideo(videoId: string, studyId: string) {
+  return prisma.stitchedSequence.findMany({
+    where: { videoId, studyId },
+    orderBy: { createdAt: "asc" },
+    include: {
+      createdBy: { select: { name: true } },
+      sequenceItems: {
+        orderBy: { playOrder: "asc" },
+        include: { clip: true },
+      },
+    },
+  });
+}
+
+/**
  * Retrieves a sequence by its ID, including its ordered clips.
  *
  * @param sequenceId - uuid of the sequence
@@ -121,6 +145,58 @@ export async function getSequence(sequenceId: string) {
   }
 
   return sequence;
+}
+
+/**
+ * Updates a sequence's title.
+ *
+ * @param sequenceId - uuid of the sequence to update
+ * @param input - fields to update (title)
+ * @returns the updated sequence with its items
+ * @throws {AppError} 404 if no sequence with that id exists
+ */
+export async function updateSequence(
+  sequenceId: string,
+  input: UpdateSequenceInput,
+  audit?: AuthenticatedAuditContext,
+) {
+  if (!audit) {
+    const sequence = await prisma.stitchedSequence.findUnique({
+      where: { id: sequenceId },
+    });
+
+    if (!sequence) {
+      throw AppError.notFound("Sequence not found");
+    }
+
+    await prisma.stitchedSequence.update({
+      where: { id: sequenceId },
+      data: { title: input.title },
+    });
+
+    return getSequence(sequenceId);
+  }
+
+  await prisma.$transaction((tx) =>
+    runAuditedUpdate({
+      client: tx,
+      loadBefore: () =>
+        tx.stitchedSequence.findUnique({ where: { id: sequenceId } }),
+      update: () =>
+        tx.stitchedSequence.update({
+          where: { id: sequenceId },
+          data: { title: input.title },
+        }),
+      notFound: AppError.notFound("Sequence not found"),
+      actorUserId: audit.actorUserId,
+      entityType: "SEQUENCE",
+      snapshot: buildSequenceSnapshot,
+      getSiteId: (seq) => seq.siteId,
+      ipAddress: audit.ipAddress,
+    }),
+  );
+
+  return getSequence(sequenceId);
 }
 
 /**
@@ -369,7 +445,7 @@ export async function deleteSequence(
  * target sequence. Throws 400 if there's a mismatch.
  *
  * Both stitched sequences and video clips carry studyId, siteId, and a
- * video reference (videoId on sequence, sourceVideoId on clip), so this
+ * video reference (videoId on both sequence and clip), so this
  * is a direct field comparison.
  *
  * @param clip     - The video clip to validate
@@ -378,10 +454,10 @@ export async function deleteSequence(
  * @throws {AppError} with 400 status if any of the three fields don't match
  */
 function assertClipMatchesSequence(
-  clip: { sourceVideoId: string; siteId: string; studyId: string },
+  clip: { videoId: string; siteId: string; studyId: string },
   sequence: { videoId: string; siteId: string; studyId: string }
 ): void {
-  if (clip.sourceVideoId !== sequence.videoId) {
+  if (clip.videoId !== sequence.videoId) {
     throw AppError.badRequest("Clip must belong to the same video as the sequence.");
   }
   if (clip.siteId !== sequence.siteId) {

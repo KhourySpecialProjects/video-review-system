@@ -1,164 +1,305 @@
-import { useState } from "react";
+import { Suspense, useCallback } from "react";
+import { useLoaderData, useSearchParams } from "react-router";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import {
-    LayoutDashboard,
-    Users,
-    Building2,
-    ScrollText,
-    Shield,
-    Video,
-    Clock,
-} from "lucide-react";
-import {
-    SidebarProvider,
-    Sidebar,
-    SidebarContent,
-    SidebarHeader,
-    SidebarFooter,
-    SidebarMenu,
-    SidebarMenuItem,
-    SidebarMenuButton,
-    SidebarInset,
-    SidebarTrigger,
+  SidebarProvider,
+  SidebarInset,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/context/auth-context";
 import {
-    Card,
-    CardHeader,
-    CardContent,
-    CardTitle,
-} from "@/components/ui/card";
-import { AdminTable } from "@/features/admin/AdminTable";
+  adminStatsQuery,
+  adminUsersQuery,
+  adminSitesQuery,
+  adminStudiesQuery,
+  adminAuditQuery,
+} from "@/lib/admin.service";
+import { AdminSidebar } from "@/features/admin/AdminSidebar";
+import { AdminTabBar } from "@/features/admin/AdminTabBar";
+import { AdminStatCards } from "@/features/admin/AdminStatCards";
+import { AdminChart } from "@/features/admin/AdminChart";
+import { AdminTableToolbar } from "@/features/admin/AdminTableToolbar";
+import { TabContent } from "@/features/admin/TabContent";
+import { usersColumns } from "@/features/admin/columns/usersColumns";
+import { sitesColumns } from "@/features/admin/columns/sitesColumns";
+import { studiesColumns } from "@/features/admin/columns/studiesColumns";
+import { auditColumns } from "@/features/admin/columns/auditColumns";
+import { UserSheet } from "@/features/admin/sheets/UserSheet";
+import { SiteSheet } from "@/features/admin/sheets/SiteSheet";
+import { StudySheet } from "@/features/admin/sheets/StudySheet";
+import { AuditSheet } from "@/features/admin/sheets/AuditSheet";
+import type { AdminLoaderData } from "@/features/admin/admin.route";
+import type { AdminTab } from "@/features/admin/admin.types";
 
-type Section = "dashboard" | "users" | "sites" | "audit-logs";
-
-const navItems: { label: string; icon: React.ElementType; section: Section }[] = [
-    { label: "Dashboard", icon: LayoutDashboard, section: "dashboard" },
-    { label: "Users", icon: Users, section: "users" },
-    { label: "Sites", icon: Building2, section: "sites" },
-    { label: "Audit Logs", icon: ScrollText, section: "audit-logs" },
-];
-
-// TODO: wire to backend API
-const dashboardStats = [
-    {
-        title: "Total Users",
-        value: 24,
-        icon: Users,
-        trend: "+12% from last month",
-        trendPositive: true,
-    },
-    {
-        title: "Active Sites",
-        value: 3,
-        icon: Building2,
-        trend: "+1 new this month",
-        trendPositive: true,
-    },
-    {
-        title: "Videos Uploaded",
-        value: 147,
-        icon: Video,
-        trend: "+8% from last month",
-        trendPositive: true,
-    },
-    {
-        title: "Pending Reviews",
-        value: 12,
-        icon: Clock,
-        trend: "-20% from last month",
-        trendPositive: false,
-    },
+/** @description Filter keys stored as URL search params. */
+const FILTER_KEYS = [
+  "role",
+  "siteId",
+  "status",
+  "actionType",
+  "entityType",
+  "includeDeactivated",
 ] as const;
 
-const sectionLabels: Record<Section, string> = {
-    dashboard: "Dashboard",
-    users: "Users",
-    sites: "Sites",
-    "audit-logs": "Audit Logs",
+type TabProps = {
+  queryParams: URLSearchParams;
+  setSearchParams: (
+    setter: (prev: URLSearchParams) => URLSearchParams,
+  ) => void;
 };
 
-const sectionDescriptions: Record<Section, string> = {
-    dashboard: "Overview of system activity and key metrics.",
-    users: "Manage user accounts, roles, and permissions.",
-    sites: "Configure and monitor registered sites.",
-    "audit-logs": "Review a full history of administrative actions.",
-};
+/**
+ * @description Extracts current filter values from URL search params
+ * into a plain object for the toolbar component.
+ *
+ * @param searchParams - The current URL search params.
+ * @returns Record of active filter keys to their values.
+ */
+function deriveFilters(searchParams: URLSearchParams): Record<string, string> {
+  const filters: Record<string, string> = {};
+  for (const key of FILTER_KEYS) {
+    const value = searchParams.get(key);
+    if (value) filters[key] = value;
+  }
+  return filters;
+}
 
+/**
+ * @description Skeleton placeholder shown while tab data suspends.
+ */
+function TableSkeleton() {
+  return (
+    <div className="space-y-3">
+      <Skeleton className="h-10 w-full rounded-md" />
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Skeleton key={i} className="h-12 w-full rounded-md" />
+      ))}
+    </div>
+  );
+}
+
+/** @description Users tab — fetches user list and renders TabContent. */
+function UsersTab({
+  queryParams,
+  setSearchParams,
+  actorRole,
+}: TabProps & { actorRole: string }) {
+  const { data } = useSuspenseQuery(adminUsersQuery(queryParams));
+  return (
+    <TabContent
+      rows={data.users}
+      total={data.total}
+      columns={usersColumns}
+      queryParams={queryParams}
+      setSearchParams={setSearchParams}
+      renderSheet={(row, open, onClose) => (
+        <UserSheet
+          key={row.id}
+          userId={row.id}
+          open={open}
+          onOpenChange={onClose}
+          actorRole={actorRole}
+        />
+      )}
+    />
+  );
+}
+
+/** @description Sites tab — fetches site list and renders TabContent. */
+function SitesTab({ queryParams, setSearchParams }: TabProps) {
+  const { data } = useSuspenseQuery(adminSitesQuery(queryParams));
+  return (
+    <TabContent
+      rows={data.sites}
+      total={data.total}
+      columns={sitesColumns}
+      queryParams={queryParams}
+      setSearchParams={setSearchParams}
+      renderSheet={(row, open, onClose) => (
+        <SiteSheet
+          key={row.id}
+          siteId={row.id}
+          open={open}
+          onOpenChange={onClose}
+        />
+      )}
+    />
+  );
+}
+
+/** @description Studies tab — fetches study list and renders TabContent. */
+function StudiesTab({ queryParams, setSearchParams }: TabProps) {
+  const { data } = useSuspenseQuery(adminStudiesQuery(queryParams));
+  return (
+    <TabContent
+      rows={data.studies}
+      total={data.total}
+      columns={studiesColumns}
+      queryParams={queryParams}
+      setSearchParams={setSearchParams}
+      renderSheet={(row, open, onClose) => (
+        <StudySheet key={row.id} study={row} open={open} onOpenChange={onClose} />
+      )}
+    />
+  );
+}
+
+/** @description Audits tab — fetches audit log list and renders TabContent. */
+function AuditTab({ queryParams, setSearchParams }: TabProps) {
+  const { data } = useSuspenseQuery(adminAuditQuery(queryParams));
+  return (
+    <TabContent
+      rows={data.logs}
+      total={data.total}
+      columns={auditColumns}
+      queryParams={queryParams}
+      setSearchParams={setSearchParams}
+      renderSheet={(row, open, onClose) => (
+        <AuditSheet
+          key={row.id}
+          auditLog={row}
+          open={open}
+          onOpenChange={onClose}
+        />
+      )}
+    />
+  );
+}
+
+/**
+ * @description Admin dashboard page component. Reads loader data and URL
+ * search params to orchestrate the sidebar, tab bar, stat cards, chart,
+ * toolbar, and the active tab's content. All initial data is prefetched
+ * by the loader — components read from TanStack Query cache via
+ * useSuspenseQuery.
+ */
 export default function SystemAdminDashboard() {
-    const [activeSection, setActiveSection] = useState<Section>("dashboard");
+  const { activeTab, queryParams } = useLoaderData() as AdminLoaderData;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
+  const actorRole = user?.role ?? "";
 
-    return (
-        <SidebarProvider className="h-screen overflow-hidden">
-            <Sidebar collapsible="offcanvas">
-                <SidebarHeader className="flex flex-row items-center gap-2 px-4 py-3">
-                    <Shield className="size-5 text-primary" />
-                    <span className="text-sm font-semibold">Admin Panel</span>
-                </SidebarHeader>
+  const { data: stats } = useSuspenseQuery(adminStatsQuery());
 
-                <SidebarContent className="px-2 py-2">
-                    <SidebarMenu>
-                        {navItems.map(({ label, icon: Icon, section }) => (
-                            <SidebarMenuItem key={section}>
-                                <SidebarMenuButton
-                                    isActive={activeSection === section}
-                                    onClick={() => setActiveSection(section)}
-                                    className="flex items-center gap-2"
-                                >
-                                    <Icon className="size-4 shrink-0" />
-                                    <span>{label}</span>
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
-                        ))}
-                    </SidebarMenu>
-                </SidebarContent>
+  const filters = deriveFilters(searchParams);
+  const searchValue = searchParams.get("name") ?? "";
 
-                <SidebarFooter className="px-4 py-3">
-                    <p className="text-xs text-muted-foreground">System Admin</p>
-                </SidebarFooter>
-            </Sidebar>
+  /** @description Switches to a new tab, resetting all filters and pagination. */
+  const handleTabChange = useCallback(
+    (tab: AdminTab) => {
+      setSearchParams({ tab });
+    },
+    [setSearchParams],
+  );
 
-            <SidebarInset className="flex flex-col overflow-hidden bg-muted/30">
-                <div className="flex items-center gap-2 border-b border-border bg-background px-4 py-2">
-                    <SidebarTrigger />
-                </div>
+  /** @description Updates a filter param and resets pagination to page 0. */
+  const handleFilterChange = useCallback(
+    (key: string, value: string) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (value && value !== "all") {
+          next.set(key, value);
+        } else {
+          next.delete(key);
+        }
+        next.set("offset", "0");
+        return next;
+      });
+    },
+    [setSearchParams],
+  );
 
-                <div className="flex-1 overflow-y-auto p-8">
-                    <div className="mb-6">
-                        <h1 className="text-2xl font-semibold tracking-tight">
-                            {sectionLabels[activeSection]}
-                        </h1>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            {sectionDescriptions[activeSection]}
-                        </p>
-                    </div>
+  /** @description Updates the name search param and resets pagination. */
+  const handleSearch = useCallback(
+    (value: string) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (value) {
+          next.set("name", value);
+        } else {
+          next.delete("name");
+        }
+        next.set("offset", "0");
+        return next;
+      });
+    },
+    [setSearchParams],
+  );
 
-                    {activeSection === "dashboard" && (
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                            {dashboardStats.map(({ title, value, icon: Icon, trend, trendPositive }) => (
-                                <Card key={title} className="bg-background shadow-sm">
-                                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                                            {title}
-                                        </CardTitle>
-                                        <Icon className="size-4 text-muted-foreground" />
-                                    </CardHeader>
-                                    <CardContent>
-                                        <p className="text-2xl font-bold">{value}</p>
-                                        <p className={`mt-1 text-xs ${trendPositive ? "text-green-600" : "text-red-500"}`}>
-                                            {trend}
-                                        </p>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    )}
+  return (
+    // The root layout's <main> is the app's only scroll container; this
+    // page must not introduce its own (min-h-full instead of min-h-svh,
+    // and no overflow on descendants) or nested scrollbars appear.
+    <SidebarProvider className="min-h-full">
+      <AdminSidebar actorRole={actorRole} />
+      <SidebarInset className="bg-muted/30">
+        <div className="flex items-center gap-2 border-b border-border bg-background px-4 py-2">
+          <SidebarTrigger />
+          <span className="text-sm font-semibold md:hidden">Admin Panel</span>
+        </div>
 
-                    {activeSection === "users" && <AdminTable defaultTab="users" />}
+        <div className="p-4 md:p-8">
+          <div className="mb-6">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Admin Dashboard
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Manage users, sites, studies, and review audit logs.
+            </p>
+          </div>
 
-                    {activeSection === "sites" && <AdminTable defaultTab="sites" />}
+          <div className="space-y-6">
+            <AdminTabBar
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+            />
+            <AdminStatCards stats={stats} activeTab={activeTab} />
 
-                    {activeSection === "audit-logs" && <AdminTable defaultTab="audit-logs" />}
-                </div>
-            </SidebarInset>
-        </SidebarProvider>
-    );
+            <Suspense
+              fallback={<Skeleton className="h-62.5 w-full rounded-lg" />}
+            >
+              <AdminChart activeTab={activeTab} />
+            </Suspense>
+
+            <AdminTableToolbar
+              activeTab={activeTab}
+              filters={filters}
+              onFilterChange={handleFilterChange}
+              onSearch={handleSearch}
+              searchValue={searchValue}
+            />
+
+            <Suspense fallback={<TableSkeleton />}>
+              {activeTab === "users" && (
+                <UsersTab
+                  queryParams={queryParams}
+                  setSearchParams={setSearchParams}
+                  actorRole={actorRole}
+                />
+              )}
+              {activeTab === "sites" && (
+                <SitesTab
+                  queryParams={queryParams}
+                  setSearchParams={setSearchParams}
+                />
+              )}
+              {activeTab === "studies" && (
+                <StudiesTab
+                  queryParams={queryParams}
+                  setSearchParams={setSearchParams}
+                />
+              )}
+              {activeTab === "audits" && (
+                <AuditTab
+                  queryParams={queryParams}
+                  setSearchParams={setSearchParams}
+                />
+              )}
+            </Suspense>
+          </div>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
+  );
 }

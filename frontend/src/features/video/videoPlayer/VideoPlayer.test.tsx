@@ -12,11 +12,13 @@ const mockUseVideoPlayer = vi.mocked(useVideoPlayer);
 function mockPlayer(overrides: Partial<ReturnType<typeof useVideoPlayer>> = {}): ReturnType<typeof useVideoPlayer> {
     return {
         videoRef: { current: null },
+        containerRef: { current: null },
         isPlaying: false,
         currentTime: 0,
         isMuted: false,
         showControls: true,
-        setShowControls: vi.fn(),
+        resetInactivityTimer: vi.fn(),
+        videoEventHandlers: {},
         togglePlay: vi.fn(),
         toggleMute: vi.fn(),
         toggleFullscreen: vi.fn(),
@@ -25,8 +27,9 @@ function mockPlayer(overrides: Partial<ReturnType<typeof useVideoPlayer>> = {}):
         setSpeed: vi.fn(),
         volume: 1.0,
         setVolume: vi.fn(),
+        aspectRatio: null,
         ...overrides,
-    };
+    } as ReturnType<typeof useVideoPlayer>;
 }
 
 describe("VideoPlayer", () => {
@@ -70,7 +73,15 @@ describe("VideoPlayer", () => {
 
     it("renders duration display", () => {
         render(<VideoPlayer src="https://example.com/video.mp4" duration={120} />);
-        expect(screen.getByText("0:00 / 2:00")).toBeInTheDocument();
+        // The time display interleaves "0:00", a " / " separator span, and
+        // "2:00" — match on the parent via a function matcher.
+        expect(
+            screen.getByText((_, node) => {
+                if (!node) return false;
+                const text = node.textContent?.trim();
+                return text === "0:00 / 2:00";
+            }),
+        ).toBeInTheDocument();
     });
 
     it("renders seek slider", () => {
@@ -80,7 +91,9 @@ describe("VideoPlayer", () => {
 
     it("renders speed selector", () => {
         render(<VideoPlayer src="https://example.com/video.mp4" duration={120} />);
-        expect(screen.getByRole("combobox")).toBeInTheDocument();
+        // SpeedToggle is a ToggleGroup with one ToggleGroupItem per speed.
+        expect(screen.getByLabelText("1x speed")).toBeInTheDocument();
+        expect(screen.getByLabelText("2x speed")).toBeInTheDocument();
     });
 
     it("renders mute button when not muted", () => {

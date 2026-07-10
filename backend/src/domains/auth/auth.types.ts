@@ -62,11 +62,7 @@ export const activateInviteSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
-/**
- * Valid user roles in the system.
- * Inferred from roleSchema to keep types in sync with validation.
- */
-export type Role = z.infer<typeof roleSchema>;
+export type { Role } from "@shared/auth.js";
 
 /**
  * Input type for creating an invitation.

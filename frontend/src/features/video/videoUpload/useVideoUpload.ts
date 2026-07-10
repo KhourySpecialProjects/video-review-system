@@ -1,15 +1,19 @@
 import { useReducer, useRef } from "react"
-import { useRevalidator } from "react-router"
-import { convert } from "../downscaler/convert"
-import { uploadVideo, extractVideoMetadata } from "./upload.service"
+import { useFetcher } from "react-router"
+import { useQueryClient } from "@tanstack/react-query"
+import type { UserStudyOption } from "@shared/study"
+import { uploadVideo, extractVideoMetadata, captureVideoFrame } from "./upload.service"
+import type { myStudiesLoader } from "./studies.route"
+import { setThumbnail } from "@/lib/thumbnailCache"
+import { homeKeys } from "@/lib/queryClient"
+import { toast } from "sonner"
 
-export type UploadStep = "details" | "select" | "complete"
+export type UploadStep = "details" | "select"
 
 export type UploadStatus =
   | { status: "idle" }
   | { status: "processing"; fileName: string; progress: number; eta: number }
   | { status: "uploading"; fileName: string; progress: number; eta: number }
-  | { status: "complete"; fileName: string }
   | { status: "error"; error: string }
 
 export type VideoUploadState = {
@@ -18,6 +22,12 @@ export type VideoUploadState = {
   step: UploadStep
   title: string
   description: string
+  /**
+   * @description The user's explicit study selection. `null` means the user
+   * hasn't touched the selector yet — consumers should fall back to the
+   * derived default (see `pickDefaultStudyId`).
+   */
+  studyId: string | null
   upload: UploadStatus
 }
 
@@ -28,6 +38,7 @@ type Action =
   | { type: "RESET" }
   | { type: "SET_TITLE"; title: string }
   | { type: "SET_DESCRIPTION"; description: string }
+  | { type: "SET_STUDY_ID"; studyId: string }
   | { type: "ADVANCE_TO_SELECT" }
   | { type: "PROCESSING_STARTED"; fileName: string }
   | { type: "PROCESSING_PROGRESS"; progress: number; eta: number }
@@ -42,12 +53,24 @@ const initialState: VideoUploadState = {
   step: "details",
   title: "",
   description: "",
+  studyId: null,
   upload: { status: "idle" },
 }
 
 /**
- * Reducer for the video upload dialog state machine.
- *
+ * @description Picks the default-selected study id from a fetched list.
+ * Prefers the site's "Miscellaneous" study; falls back to the first entry.
+ * Returns null when the list is empty.
+ * @param studies - The studies available at the uploader's site
+ */
+function pickDefaultStudyId(studies: UserStudyOption[]): string | null {
+  if (studies.length === 0) return null
+  const misc = studies.find((s) => s.name === "Miscellaneous")
+  return (misc ?? studies[0]).id
+}
+
+/**
+ * @description Reducer for the video upload dialog state machine.
  * @param state - Current state
  * @param action - Action to apply
  * @returns Next state
@@ -66,6 +89,8 @@ function reducer(state: VideoUploadState, action: Action): VideoUploadState {
       return { ...state, title: action.title }
     case "SET_DESCRIPTION":
       return { ...state, description: action.description }
+    case "SET_STUDY_ID":
+      return { ...state, studyId: action.studyId }
     case "ADVANCE_TO_SELECT":
       return { ...state, step: "select" }
     case "PROCESSING_STARTED":
@@ -90,14 +115,8 @@ function reducer(state: VideoUploadState, action: Action): VideoUploadState {
         ...state,
         upload: { ...state.upload, progress: action.progress, eta: action.eta },
       }
-    case "UPLOAD_COMPLETE": {
-      const fileName = "fileName" in state.upload ? state.upload.fileName : ""
-      return {
-        ...state,
-        step: "complete",
-        upload: { status: "complete", fileName },
-      }
-    }
+    case "UPLOAD_COMPLETE":
+      return { ...initialState }
     case "UPLOAD_FAILED":
       return {
         ...state,
@@ -109,10 +128,9 @@ function reducer(state: VideoUploadState, action: Action): VideoUploadState {
 }
 
 /**
- * Returns the user's estimated upload speed in bytes per second using the
- * Network Information API. Falls back to a conservative 1 MB/s estimate
- * when the API is unavailable.
- *
+ * @description Returns the user's estimated upload speed in bytes per second
+ * using the Network Information API. Falls back to a conservative 1 MB/s
+ * estimate when the API is unavailable.
  * @returns Estimated upload speed in bytes per second
  */
 function getEstimatedUploadSpeed(): number {
@@ -130,22 +148,42 @@ function getEstimatedUploadSpeed(): number {
 }
 
 /**
- * Encapsulates all state and business logic for the multi-step video upload flow.
- * Steps: details → select (with progress + ETA) → complete.
+ * @description Encapsulates all state and business logic for the multi-step
+ * video upload flow. Steps: details → select (with progress + ETA) → complete.
  *
- * @returns State values, dispatch, fetcher, and file handler for VideoUpload
+ * Studies are loaded via `useFetcher`: calling `openDialog` kicks off the
+ * load, and the fetcher caches the result for subsequent opens. The
+ * effective studyId is derived (user pick ?? Miscellaneous ?? first).
+ *
+ * @returns State, derived values, dispatch, file handler, and open/pause handlers
  */
 export function useVideoUpload() {
   const [state, dispatch] = useReducer(reducer, initialState)
+  const studiesFetcher = useFetcher<typeof myStudiesLoader>()
   const uploadStartTime = useRef(0)
   const totalBytes = useRef(0)
-  const { revalidate } = useRevalidator()
+  const abortController = useRef<AbortController | null>(null)
+  const queryClient = useQueryClient()
+
+  const studies = studiesFetcher.data ?? []
+  const studiesLoading = studiesFetcher.state === "loading"
+  const effectiveStudyId = state.studyId ?? pickDefaultStudyId(studies)
 
   /**
-   * Computes ETA in seconds for a given progress percentage.
+   * @description Opens the dialog and kicks off the study-list load the
+   * first time. Subsequent opens reuse the fetcher's cached data.
+   */
+  function openDialog() {
+    dispatch({ type: "OPEN" })
+    if (studiesFetcher.state === "idle" && studiesFetcher.data === undefined) {
+      studiesFetcher.load("/studies/mine")
+    }
+  }
+
+  /**
+   * @description Computes ETA in seconds for a given progress percentage.
    * Uses actual throughput when enough data has been transferred,
    * otherwise estimates from the user's connection speed.
-   *
    * @param percent - Current progress (0–100)
    * @returns Estimated seconds remaining
    */
@@ -168,31 +206,27 @@ export function useVideoUpload() {
   }
 
   /**
-   * Handles file selection from the SelectStep. Downscales the video,
-   * extracts metadata, and orchestrates the full S3 multipart upload.
-   *
+   * @description Handles file selection from the SelectStep. Extracts metadata,
+   * captures a thumbnail frame, and orchestrates the full S3 multipart upload.
    * @param file - The raw File selected by the user
    */
   async function handleFileSelected(file: File) {
-    dispatch({ type: "PROCESSING_STARTED", fileName: file.name })
     totalBytes.current = file.size
     uploadStartTime.current = Date.now()
+    abortController.current = new AbortController()
 
     try {
-      const processed = await convert(file, {
-        onProgress: (progress) => {
-          dispatch({ type: "PROCESSING_PROGRESS", progress, eta: computeEta(progress) })
-        },
-      })
+      const [meta, frameDataUrl] = await Promise.all([
+        extractVideoMetadata(file),
+        captureVideoFrame(file).catch(() => null),
+      ])
 
-      const meta = await extractVideoMetadata(processed)
-
-      totalBytes.current = processed.size
+      totalBytes.current = file.size
       uploadStartTime.current = Date.now()
       dispatch({ type: "UPLOAD_STARTED", fileName: file.name })
 
-      await uploadVideo(
-        processed,
+      const videoId = await uploadVideo(
+        file,
         {
           videoTitle: state.title,
           videoDescription: state.description || undefined,
@@ -200,21 +234,58 @@ export function useVideoUpload() {
           durationSeconds: meta.durationSeconds,
           createdAt: new Date().toISOString(),
           takenAt: meta.takenAt,
+          studyId: effectiveStudyId ?? undefined,
         },
         (pct) => {
           dispatch({ type: "UPLOAD_PROGRESS", progress: pct, eta: computeEta(pct) })
-        }
+        },
+        abortController.current?.signal
       )
 
-      revalidate()
+      if (frameDataUrl) {
+        setThumbnail(videoId, frameDataUrl)
+      }
+
+      queryClient.invalidateQueries({ queryKey: homeKeys.all })
       dispatch({ type: "UPLOAD_COMPLETE" })
+      toast.success("Upload complete", {
+        description: "Your video has been uploaded successfully.",
+      })
     } catch (err) {
+      // Ignore abort errors — the user intentionally paused
+      if (err instanceof DOMException && err.name === "AbortError") return
       dispatch({
         type: "UPLOAD_FAILED",
         error: err instanceof Error ? err.message : "Upload failed",
       })
+      toast.error("Upload failed", {
+        description: err instanceof Error ? err.message : "Something went wrong.",
+      })
     }
   }
 
-  return { state, dispatch, handleFileSelected }
+  /**
+   * @description Pauses the current upload by aborting in-flight requests and
+   * resetting the dialog. Already-uploaded S3 parts are preserved server-side,
+   * so the upload can be resumed from the hamburger menu later.
+   */
+  function handlePause() {
+    abortController.current?.abort()
+    abortController.current = null
+    dispatch({ type: "RESET" })
+    toast.info("Upload paused", {
+      description: "Your progress is saved. Resume anytime from the menu.",
+    })
+  }
+
+  return {
+    state,
+    dispatch,
+    studies,
+    studiesLoading,
+    effectiveStudyId,
+    openDialog,
+    handleFileSelected,
+    handlePause,
+  }
 }

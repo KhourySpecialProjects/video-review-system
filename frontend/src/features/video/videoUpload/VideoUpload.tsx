@@ -18,18 +18,15 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog"
 import { Separator } from "@/components/ui/separator"
-import { toast } from "sonner"
 import { Download, CircleCheckBig, ArrowRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { SelectStep } from "./SelectStep"
 import { DetailsStep } from "./DetailsStep"
-import { CompletedStep } from "./CompletedStep"
 import { useVideoUpload, type UploadStep } from "./useVideoUpload"
 
 const titles: Record<UploadStep, string> = {
   details: "Add Details",
   select: "Upload Video",
-  complete: "",
 }
 
 /**
@@ -37,14 +34,23 @@ const titles: Record<UploadStep, string> = {
  * Flow: details → select file & upload → complete.
  */
 export function VideoUpload() {
-  const { state, dispatch, handleFileSelected } = useVideoUpload()
+  const {
+    state,
+    dispatch,
+    studies,
+    studiesLoading,
+    effectiveStudyId,
+    openDialog,
+    handleFileSelected,
+    handlePause,
+  } = useVideoUpload()
   const { open, confirmationOpen, step, title, description, upload } = state
 
   return (
     <Dialog
       open={open}
       onOpenChange={(nextOpen) =>
-        dispatch({ type: nextOpen ? "OPEN" : "REQUEST_CLOSE" })
+        nextOpen ? openDialog() : dispatch({ type: "REQUEST_CLOSE" })
       }
     >
       <DialogTrigger
@@ -81,9 +87,15 @@ export function VideoUpload() {
             <DetailsStep
               title={title}
               description={description}
+              studyId={effectiveStudyId}
+              studies={studies}
+              studiesLoading={studiesLoading}
               onTitleChange={(v) => dispatch({ type: "SET_TITLE", title: v })}
               onDescriptionChange={(v) =>
                 dispatch({ type: "SET_DESCRIPTION", description: v })
+              }
+              onStudyIdChange={(v) =>
+                dispatch({ type: "SET_STUDY_ID", studyId: v })
               }
             />
             <DialogFooter>
@@ -103,35 +115,10 @@ export function VideoUpload() {
           <SelectStep
             onFileSelected={handleFileSelected}
             upload={upload}
+            onPause={handlePause}
           />
         )}
 
-        {step === "complete" && (
-          <>
-            <CompletedStep />
-            <DialogFooter>
-              <Button
-                className="w-full"
-                onClick={() => {
-                  dispatch({ type: "RESET" })
-                  toast.success("Video uploaded successfully", {
-                    description:
-                      "You have 10 minutes to undo the video upload in case you uploaded the wrong video",
-                    action: {
-                      label: "Undo",
-                      onClick: () => {
-                        console.log("Video has been deleted")
-                        toast.dismiss()
-                      },
-                    },
-                  })
-                }}
-              >
-                Done
-              </Button>
-            </DialogFooter>
-          </>
-        )}
       </DialogContent>
 
       <AlertDialog
@@ -144,8 +131,8 @@ export function VideoUpload() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action will close the video upload dialog and you will lose
-              all progress.
+              If an upload is in progress, your progress is saved. You can
+              resume it later from the menu bar.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -18,12 +18,16 @@ export interface DrawingCardProps {
     timestamp: number;
     /** How long (seconds) the annotation stays visible */
     duration: number;
+    /** Optional data URL thumbnail showing the drawing on the video frame */
+    thumbnailUrl?: string;
     /** Callback fired to navigate the video to the drawing's timestamp */
     onJumpStart: (timestamp: number) => void;
     /** Callback fired to update the duration of the drawing */
     onEditDuration: (id: string, newDuration: number) => void;
     /** Callback fired when the user deletes the drawing */
     onDelete: (id: string) => void;
+    /** Display name of the user who created this drawing. Shown at the bottom of the card. */
+    createdBy?: string;
 }
 
 const toolIcons: Record<DrawingToolType, React.ElementType> = {
@@ -49,9 +53,11 @@ export function DrawingCard({
     color,
     timestamp,
     duration,
+    thumbnailUrl,
     onJumpStart,
     onEditDuration,
     onDelete,
+    createdBy,
 }: DrawingCardProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [editedDuration, setEditedDuration] = useState(String(duration));
@@ -114,8 +120,16 @@ export function DrawingCard({
             isEditing={isEditing}
             onSave={handleSave}
             onCancelEdit={handleCancelEdit}
+            createdBy={createdBy}
             content={
                 <div className="flex flex-col gap-3 text-sm">
+                    {thumbnailUrl && (
+                        <img
+                            src={thumbnailUrl}
+                            alt={`${label} at ${displayTime}`}
+                            className="w-full rounded-sm border border-border object-cover"
+                        />
+                    )}
                     <div className="flex items-center text-muted-foreground gap-2">
                         <Badge variant="secondary" className="font-mono">
                             <Clock className="w-3 h-3 mr-1" />

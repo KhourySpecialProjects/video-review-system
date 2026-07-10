@@ -11,8 +11,8 @@ import type {
   AuditSnapshot,
 } from "../audit/audit.types.js";
 import { AppError } from "../../middleware/errors.js";
+import type { CreateVideoInput, CompleteUploadInput, UpdateVideoInput, UpdateVideoMetadataInput, SearchVideosInput, VideoListItem } from "./videos.types.js";
 import type { Prisma } from "../../generated/prisma/client.js";
-import type { CreateVideoInput, CompleteUploadInput, UpdateVideoInput, SearchVideosInput, VideoListItem } from "./videos.types.js";
 import {
   generatePresignedGetUrl,
   generatePresignedPartUrls,
@@ -53,21 +53,18 @@ async function toVideoListItem(
   video: Video & {
     caregiverMetadata: { privateTitle: string; privateNotes: string | null }[];
     uploadedBy: { name: string };
-  }
+  },
+  { includeImgUrl = true }: { includeImgUrl?: boolean } = {},
 ): Promise<VideoListItem> {
   const meta = video.caregiverMetadata[0];
-  const fileName = video.s3Key.includes("/")
-    ? video.s3Key.split("/").pop()!
-    : video.s3Key;
-  const baseName = video.s3Key.substring(0, fileName.lastIndexOf("."))
-  // The 0's are added by media convert
-  const thumbKey = `processed/${baseName}_thumb.0000000.jpg`;
-  const imageUrl = await generatePresignedGetUrl(thumbKey, 3600);
+  const imgUrl = includeImgUrl
+    ? await generatePresignedGetUrl(`${video.s3Key}.jpg`, 3600)
+    : "";
 
   return {
     id: video.id,
-    title: meta?.privateTitle ?? fileName,
-    imageUrl,
+    title: meta?.privateTitle,
+    imgUrl,
     description: meta?.privateNotes ?? "",
     durationSeconds: video.durationSeconds,
     status: video.status,
@@ -164,17 +161,15 @@ function buildVideoUpdateSnapshot(
 export async function listVideos({
   limit = 20,
   offset = 0,
-  accessFilter,
   userId,
 }: {
   limit?: number;
   offset?: number;
-  accessFilter: Record<string, any>;
   userId: string;
 }) {
   const where: Prisma.VideoWhereInput = {
     status: "UPLOADED",
-    ...accessFilter,
+    uploadedByUserId: userId,
   };
 
   const [videos, total] = await Promise.all([
@@ -189,7 +184,7 @@ export async function listVideos({
   ]);
 
   return {
-    videos: await Promise.all(videos.map(toVideoListItem)),
+    videos: await Promise.all(videos.map((v) => toVideoListItem(v))),
     total,
     limit,
     offset,
@@ -206,7 +201,6 @@ export async function listVideos({
  */
 export async function searchVideos(
   params: SearchVideosInput & {
-    accessFilter: Record<string, any>;
     userId: string;
   }
 ) {
@@ -218,13 +212,12 @@ export async function searchVideos(
     filmedBefore,
     limit,
     offset,
-    accessFilter,
     userId,
   } = params;
 
   const where: any = {
     status: "UPLOADED",
-    ...accessFilter,
+    uploadedByUserId: userId,
   };
 
   if (uploadedAfter || uploadedBefore) {
@@ -262,7 +255,7 @@ export async function searchVideos(
   ]);
 
   return {
-    videos: await Promise.all(videos.map(toVideoListItem)),
+    videos: await Promise.all(videos.map((v) => toVideoListItem(v, { includeImgUrl: false }))),
     total,
     limit,
     offset,
@@ -304,10 +297,12 @@ export async function getVideoDetail(videoId: string, userId: string): Promise<V
  */
 export async function getVideoStreamUrl(
   videoId: string,
-  audit?: AuthenticatedAuditContext,
-): Promise<{ video: Video; url: string; expiresIn: number }> {
+  userId: string,
+  audit?: AuthenticatedAuditContext
+): Promise<{ video: VideoListItem; imgUrl: string; videoUrl: string; expiresIn: number }> {
   const video = await prisma.video.findUnique({
     where: { id: videoId },
+    include: videoInclude(userId),
   });
 
   if (!video) {
@@ -319,8 +314,13 @@ export async function getVideoStreamUrl(
   }
 
   const expiresIn = 3600;
-  const thumbKey = `${video.s3Key}.mp4`;
-  const url = await generatePresignedGetUrl(video.s3Key, expiresIn);
+  const videoKey = `${video.s3Key}.mp4`;
+  const imageKey = `${video.s3Key}.jpg`;
+  const [videoUrl, imgUrl, videoListItem] = await Promise.all([
+    generatePresignedGetUrl(videoKey, expiresIn),
+    generatePresignedGetUrl(imageKey, expiresIn),
+    toVideoListItem(video),
+  ]);
 
   if (audit) {
     await recordAudit(prisma, {
@@ -335,13 +335,52 @@ export async function getVideoStreamUrl(
     });
   }
 
-  return { video, url, expiresIn };
+  return { video: videoListItem, videoUrl, imgUrl, expiresIn };
 }
 
 // Extends the validated input with the authenticated user's id
 type CreateVideoParams = CreateVideoInput & {
   uploadedByUserId: string;
 };
+
+/**
+ * Resolves the study a new upload should be linked to. When `studyId` is
+ * provided, it must be attached to the uploader's site via SiteStudy;
+ * otherwise the site's auto-seeded "Miscellaneous" study is used.
+ *
+ * @param siteId - The uploader's home site id
+ * @param studyId - Optional study picked by the uploader
+ * @returns The resolved study id to write into VideoStudy
+ * @throws {AppError} 400 if `studyId` is not available at the site
+ * @throws {AppError} 500 if the site is missing its Miscellaneous study
+ */
+async function resolveUploadStudyId(
+  siteId: string,
+  studyId: string | undefined,
+): Promise<string> {
+  if (studyId) {
+    const link = await prisma.siteStudy.findFirst({
+      where: { studyId, siteId },
+      select: { studyId: true },
+    });
+    if (!link) {
+      throw AppError.badRequest("Study is not available at your site");
+    }
+    return studyId;
+  }
+
+  const misc = await prisma.study.findFirst({
+    where: {
+      name: "Miscellaneous",
+      siteStudies: { some: { siteId } },
+    },
+    select: { id: true },
+  });
+  if (!misc) {
+    throw new AppError("Site is missing a Miscellaneous study", 500);
+  }
+  return misc.id;
+}
 
 /**
  * Creates a video record and initiates an S3 multipart upload inside
@@ -377,6 +416,7 @@ export async function initiateVideoUpload({
   durationSeconds,
   takenAt,
   contentType,
+  studyId,
 }: CreateVideoParams,
   audit?: AuthenticatedAuditContext,
 ): Promise<{
@@ -388,6 +428,15 @@ export async function initiateVideoUpload({
 }> {
   const totalParts = Math.ceil(fileSize / PART_SIZE);
   const expiresIn = 3600;
+
+  // Resolve the uploader's site and the effective study. Done before the
+  // transaction so S3 isn't initiated for an invalid study selection.
+  const uploader = await prisma.user.findUniqueOrThrow({
+    where: { id: uploadedByUserId },
+    select: { siteId: true },
+  });
+
+  const effectiveStudyId = await resolveUploadStudyId(uploader.siteId, studyId);
 
   // Transaction: create record → initiate S3 upload → update with s3 details
   // If any step fails the video record is rolled back
@@ -413,6 +462,16 @@ export async function initiateVideoUpload({
         privateNotes: videoDescription,
       },
     });
+
+    // Link the video to the selected (or defaulted) study at the uploader's site.
+    await tx.videoStudy.create({
+      data: {
+        studyId: effectiveStudyId,
+        siteId: uploader.siteId,
+        videoId: created.id,
+      },
+    });
+
     const s3Key = `uploads/${created.id}/${videoName}`;
     const s3UploadId = await initiateMultipartUpload(s3Key, contentType);
 
@@ -724,6 +783,67 @@ export async function updateVideo(
       getSiteId: () => siteId,
       ipAddress: audit.ipAddress,
     });
+  });
+}
+
+/**
+ * Updates the caregiver-scoped title/description for a video. The metadata
+ * row is keyed by (videoId, caregiverUserId); Prisma throws P2025 if it
+ * does not exist, which the global errorHandler maps to 404.
+ *
+ * @param videoId - uuid of the video
+ * @param caregiverUserId - the authenticated user whose metadata row to update
+ * @param data - validated title and description
+ *
+ * @returns the updated metadata row
+ */
+export async function updateVideoMetadata(
+  videoId: string,
+  caregiverUserId: string,
+  data: UpdateVideoMetadataInput,
+  audit?: AuthenticatedAuditContext,
+) {
+  if (!audit) {
+    return prisma.caregiverVideoMetadata.update({
+      where: { videoId_caregiverUserId: { videoId, caregiverUserId } },
+      data: {
+        privateTitle: data.title,
+        privateNotes: data.description,
+      },
+    });
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const before = await tx.caregiverVideoMetadata.findUnique({
+      where: { videoId_caregiverUserId: { videoId, caregiverUserId } },
+    });
+
+    if (!before) {
+      throw AppError.notFound("Video metadata not found");
+    }
+
+    const after = await tx.caregiverVideoMetadata.update({
+      where: { videoId_caregiverUserId: { videoId, caregiverUserId } },
+      data: {
+        privateTitle: data.title,
+        privateNotes: data.description,
+      },
+    });
+
+    const siteId = await resolveVideoAuditSiteId(tx, videoId);
+
+    await recordAudit(tx, {
+      actorUserId: audit.actorUserId,
+      actionType: "UPDATE",
+      entityType: "VIDEO",
+      entityId: videoId,
+      siteId,
+      oldValues: { privateTitle: before.privateTitle, privateNotes: before.privateNotes },
+      newValues: { privateTitle: after.privateTitle, privateNotes: after.privateNotes },
+      ipAddress: audit.ipAddress,
+    });
+
+    return after;
   });
 }
 

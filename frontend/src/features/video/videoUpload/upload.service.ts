@@ -1,6 +1,8 @@
 import { apiFetch } from "@/lib/api"
 
 const PART_SIZE = 10 * 1024 * 1024 // 10 MB — must match backend
+const MAX_PART_RETRIES = 4
+const RETRY_BASE_DELAY_MS = 500
 
 type InitiateUploadResponse = {
   video: { id: string; s3Key: string }
@@ -13,6 +15,31 @@ type InitiateUploadResponse = {
 type UploadedPart = {
   partNumber: number
   etag: string
+}
+
+type PresignedPart = {
+  partNumber: number
+  url: string
+}
+
+/**
+ * @description Detects mobile user agents so we can lower upload concurrency.
+ * Mobile radios and memory budgets can't sustain as many parallel PUTs as desktop.
+ * @returns True when the current device looks like a phone or tablet
+ */
+function isMobileDevice(): boolean {
+  if (typeof navigator === "undefined") return false
+  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+}
+
+/**
+ * @description Picks how many S3 part uploads should run in parallel. Mobile
+ * gets a lower cap to avoid saturating the radio and triggering memory-pressure
+ * page kills on iOS Safari; desktop matches the typical 6-per-host browser cap.
+ * @returns Maximum concurrent part uploads
+ */
+function getUploadConcurrency(): number {
+  return isMobileDevice() ? 3 : 6
 }
 
 /**
@@ -54,6 +81,47 @@ export function extractVideoMetadata(
 }
 
 /**
+ * Captures a single frame from a video file at ~1 second and returns it
+ * as a JPEG data URL. Used as a temporary thumbnail while MediaConvert
+ * generates the real one.
+ *
+ * @param file - The video Blob (or File) to capture a frame from
+ * @returns A data:image/jpeg data URL of the captured frame
+ */
+export function captureVideoFrame(file: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video")
+    video.preload = "auto"
+    video.muted = true
+    video.playsInline = true
+
+    const url = URL.createObjectURL(file)
+    video.src = url
+
+    video.onloadedmetadata = () => {
+      // Seek to 1s or halfway if video is shorter than 1s
+      video.currentTime = Math.min(1, video.duration / 2)
+    }
+
+    video.onseeked = () => {
+      const canvas = document.createElement("canvas")
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      const ctx = canvas.getContext("2d")!
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.7)
+      URL.revokeObjectURL(url)
+      resolve(dataUrl)
+    }
+
+    video.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error("Could not capture video frame"))
+    }
+  })
+}
+
+/**
  * Initiates a multipart upload by creating a video record on the backend.
  *
  * @param metadata - Video metadata required by the backend
@@ -68,6 +136,7 @@ async function initiateUpload(metadata: {
   createdAt: string
   takenAt: string
   contentType: string
+  studyId?: string
 }): Promise<InitiateUploadResponse> {
   const res = await apiFetch("/videos/upload", {
     method: "POST",
@@ -84,25 +153,156 @@ async function initiateUpload(metadata: {
 }
 
 /**
- * Uploads a single part to S3 using a presigned URL.
- *
+ * @description Uploads a single part to S3 using a presigned URL via
+ * `XMLHttpRequest` so we can emit byte-level upload progress (which `fetch`
+ * does not expose). The abort signal is wired to `xhr.abort()`.
  * @param url - Presigned PUT URL for the part
  * @param body - The chunk of the file to upload
+ * @param onBytes - Called with cumulative bytes uploaded for this attempt
+ * @param signal - Abort signal used to cancel the in-flight request
  * @returns The ETag header returned by S3
  */
-async function uploadPart(url: string, body: Blob): Promise<string> {
-  const res = await fetch(url, {
-    method: "PUT",
-    body,
-  })
+function uploadPart(
+  url: string,
+  body: Blob,
+  onBytes?: (bytes: number) => void,
+  signal?: AbortSignal
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException("Aborted", "AbortError"))
+      return
+    }
 
-  if (!res.ok) {
-    throw new Error(`S3 part upload failed (${res.status})`)
+    const xhr = new XMLHttpRequest()
+    const abort = () => xhr.abort()
+    signal?.addEventListener("abort", abort)
+
+    /**
+     * @description Detaches the signal listener once the request settles.
+     */
+    const cleanup = () => signal?.removeEventListener("abort", abort)
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onBytes?.(e.loaded)
+    }
+    xhr.onload = () => {
+      cleanup()
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(new Error(`S3 part upload failed (${xhr.status})`))
+        return
+      }
+      const etag = xhr.getResponseHeader("ETag")
+      if (!etag) reject(new Error("S3 did not return an ETag"))
+      else resolve(etag)
+    }
+    xhr.onerror = () => {
+      cleanup()
+      reject(new Error("S3 part upload network error"))
+    }
+    xhr.onabort = () => {
+      cleanup()
+      reject(new DOMException("Aborted", "AbortError"))
+    }
+
+    xhr.open("PUT", url)
+    xhr.send(body)
+  })
+}
+
+/**
+ * @description Uploads a single part with exponential-backoff retry on
+ * transient failures. Aborts propagate immediately without retry so that
+ * user-initiated pause still cancels fast. On retry the byte counter is
+ * reset to zero so callers aggregating per-part bytes don't double-count.
+ * @param url - Presigned PUT URL for the part
+ * @param body - The chunk of the file to upload
+ * @param onBytes - Called with cumulative bytes uploaded for the current attempt
+ * @param signal - Abort signal used to cancel the in-flight request
+ * @returns The ETag header returned by S3
+ */
+async function uploadPartWithRetry(
+  url: string,
+  body: Blob,
+  onBytes?: (bytes: number) => void,
+  signal?: AbortSignal
+): Promise<string> {
+  let lastErr: unknown
+  for (let attempt = 0; attempt <= MAX_PART_RETRIES; attempt++) {
+    try {
+      return await uploadPart(url, body, onBytes, signal)
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") throw err
+      lastErr = err
+      onBytes?.(0)
+      if (attempt === MAX_PART_RETRIES) break
+      const delay = RETRY_BASE_DELAY_MS * 2 ** attempt + Math.random() * 200
+      await new Promise((r) => setTimeout(r, delay))
+    }
+  }
+  throw lastErr
+}
+
+/**
+ * @description Uploads every presigned part with a bounded concurrency pool.
+ * Workers pull parts off a shared cursor so slower parts don't block faster
+ * ones, and the pool size is sized for the device (mobile: 3, desktop: 6) to
+ * avoid saturating the mobile radio / memory. Byte counts per part are
+ * tracked live so `onBytes` can emit smooth sub-part progress.
+ * @param parts - Presigned parts still to upload
+ * @param file - The source video Blob to slice chunks from
+ * @param onBytes - Called with total bytes uploaded across all parts
+ * @param signal - Abort signal used to cancel in-flight PUTs
+ * @returns Uploaded parts in original presigned-part order
+ */
+async function uploadPartsWithConcurrency(
+  parts: PresignedPart[],
+  file: Blob,
+  onBytes: (bytesUploaded: number) => void,
+  signal?: AbortSignal
+): Promise<UploadedPart[]> {
+  const results = new Array<UploadedPart>(parts.length)
+  const partBytes = new Array<number>(parts.length).fill(0)
+  let cursor = 0
+
+  /**
+   * @description Sums per-part byte counters and emits a total.
+   */
+  const emit = () => {
+    let total = 0
+    for (let i = 0; i < partBytes.length; i++) total += partBytes[i]
+    onBytes(total)
   }
 
-  const etag = res.headers.get("ETag")
-  if (!etag) throw new Error("S3 did not return an ETag")
-  return etag
+  /**
+   * @description Worker loop that drains the shared part cursor until empty.
+   */
+  async function worker(): Promise<void> {
+    while (true) {
+      const i = cursor++
+      if (i >= parts.length) return
+      const { partNumber, url } = parts[i]
+      const start = (partNumber - 1) * PART_SIZE
+      const end = Math.min(start + PART_SIZE, file.size)
+      const chunk = file.slice(start, end)
+      const etag = await uploadPartWithRetry(
+        url,
+        chunk,
+        (bytes) => {
+          partBytes[i] = bytes
+          emit()
+        },
+        signal
+      )
+      results[i] = { partNumber, etag }
+      partBytes[i] = chunk.size
+      emit()
+    }
+  }
+
+  const poolSize = Math.min(getUploadConcurrency(), parts.length)
+  await Promise.all(Array.from({ length: poolSize }, () => worker()))
+  return results
 }
 
 /**
@@ -144,8 +344,10 @@ export async function uploadVideo(
     durationSeconds: number
     createdAt: string
     takenAt: string
+    studyId?: string
   },
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number) => void,
+  signal?: AbortSignal
 ): Promise<string> {
   const { video, parts } = await initiateUpload({
     ...metadata,
@@ -153,22 +355,13 @@ export async function uploadVideo(
     contentType: "video/mp4",
   })
 
-  // Upload all parts in parallel, tracking progress per-part
-  const partProgress = new Array(parts.length).fill(0)
-  const uploadedParts: UploadedPart[] = await Promise.all(
-    parts.map(async ({ partNumber, url }) => {
-      const start = (partNumber - 1) * PART_SIZE
-      const end = Math.min(start + PART_SIZE, file.size)
-      const chunk = file.slice(start, end)
-
-      const etag = await uploadPart(url, chunk)
-
-      partProgress[partNumber - 1] = 1
-      const totalDone = partProgress.reduce((sum, v) => sum + v, 0)
-      onProgress?.(Math.round((totalDone / parts.length) * 100))
-
-      return { partNumber, etag }
-    })
+  const uploadedParts = await uploadPartsWithConcurrency(
+    parts,
+    file,
+    (bytes) => {
+      onProgress?.(Math.round((bytes / file.size) * 100))
+    },
+    signal
   )
 
   await completeUpload(video.id, uploadedParts)
@@ -222,38 +415,33 @@ export async function resumeUpload(
     )
   }
 
-  const alreadyDone = status.uploadedParts.length
-  const totalParts = status.totalParts
+  const totalParts: number = status.totalParts
+  const lastPartSize = file.size - (totalParts - 1) * PART_SIZE
 
-  const partProgress = new Array(totalParts).fill(0)
-  // Mark already-uploaded parts as done
-  for (let i = 0; i < alreadyDone; i++) {
-    partProgress[status.uploadedParts[i].partNumber - 1] = 1
-  }
-  onProgress?.(Math.round((alreadyDone / totalParts) * 100))
+  /**
+   * @description Returns the byte size of a given part, accounting for the
+   * smaller final part.
+   * @param partNumber - 1-based part index
+   */
+  const sizeOf = (partNumber: number): number =>
+    partNumber === totalParts ? lastPartSize : PART_SIZE
 
-  const uploadedParts: { partNumber: number; etag: string }[] = [
-    ...status.uploadedParts.map((p: { partNumber: number; etag: string }) => ({
-      partNumber: p.partNumber,
-      etag: p.etag,
-    })),
-  ]
+  const resumedBytes = status.uploadedParts.reduce(
+    (sum: number, p: UploadedPart) => sum + sizeOf(p.partNumber),
+    0
+  )
+  onProgress?.(Math.round((resumedBytes / file.size) * 100))
 
-  // Upload remaining parts in parallel
-  const newParts = await Promise.all(
-    status.remainingParts.map(async ({ partNumber, url }: { partNumber: number; url: string }) => {
-      const start = (partNumber - 1) * PART_SIZE
-      const end = Math.min(start + PART_SIZE, file.size)
-      const chunk = file.slice(start, end)
+  const uploadedParts: UploadedPart[] = status.uploadedParts.map(
+    (p: UploadedPart) => ({ partNumber: p.partNumber, etag: p.etag })
+  )
 
-      const etag = await uploadPart(url, chunk)
-
-      partProgress[partNumber - 1] = 1
-      const totalDone = partProgress.reduce((sum: number, v: number) => sum + v, 0)
-      onProgress?.(Math.round((totalDone / totalParts) * 100))
-
-      return { partNumber, etag }
-    })
+  const newParts = await uploadPartsWithConcurrency(
+    status.remainingParts as PresignedPart[],
+    file,
+    (bytes) => {
+      onProgress?.(Math.round(((resumedBytes + bytes) / file.size) * 100))
+    }
   )
 
   uploadedParts.push(...newParts)

@@ -51,6 +51,18 @@ export const reorderSequenceSchema = z.object({
     .min(1, "At least one item is required"),
 });
 
+/**
+ * Validation schema for updating a sequence's title.
+ *
+ * @field title - updated descriptive name for the sequence
+ */
+export const updateSequenceSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+});
+
+/** Input type for updating a sequence, inferred from updateSequenceSchema */
+export type UpdateSequenceInput = z.infer<typeof updateSequenceSchema>;
+
 /** Input type for creating a sequence, inferred from createSequenceSchema */
 export type CreateSequenceInput = z.infer<typeof createSequenceSchema>;
 
@@ -59,3 +71,14 @@ export type AddClipToSequenceInput = z.infer<typeof addClipToSequenceSchema>;
 
 /** Input type for reordering clips in a sequence, inferred from reorderSequenceSchema */
 export type ReorderSequenceInput = z.infer<typeof reorderSequenceSchema>;
+
+/**
+ * @description Validation schema for the sequences list query params.
+ *
+ * @field videoId - uuid of the source video
+ * @field studyId - uuid of the study to scope sequences to
+ */
+export const listSequencesQuerySchema = z.object({
+  videoId: z.uuid("Invalid video ID"),
+  studyId: z.uuid("Invalid study ID"),
+});

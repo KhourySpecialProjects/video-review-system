@@ -99,7 +99,10 @@ describe("auth.router", () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual(payload);
-    expect(authServiceMock.createInvite).toHaveBeenCalledWith(input);
+    expect(authServiceMock.createInvite).toHaveBeenCalledWith(
+      input,
+      expect.objectContaining({ actorUserId: "actor-1" }),
+    );
   });
 
   it("POST /domain/auth/invite rejects invalid payloads before the service is called", async () => {

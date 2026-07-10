@@ -29,6 +29,7 @@ function mockAnnotationState(): UseAnnotationStateReturn {
         annotations: [],
         addAnnotation: vi.fn(),
         removeAnnotation: vi.fn(),
+        updateAnnotation: vi.fn(),
         undo: vi.fn(),
         clear: vi.fn(),
         init: vi.fn(),

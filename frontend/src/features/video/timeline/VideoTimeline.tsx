@@ -68,7 +68,7 @@ export function VideoTimeline({
     }
 
     return (
-        <div className="w-full select-none">
+        <div className="w-full select-none rounded-lg border border-border bg-bg-light p-3">
             <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Video Timeline &amp; Markers
             </p>
@@ -91,7 +91,7 @@ export function VideoTimeline({
                 aria-valuenow={currentTime}
                 onClick={handleBarClick}
                 onKeyDown={handleBarKeyDown}
-                className="relative h-12 w-full cursor-pointer rounded-md bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="relative h-12 w-full cursor-pointer rounded-md bg-bg-dark shadow-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
                 {/* Current position needle */}
                 <div

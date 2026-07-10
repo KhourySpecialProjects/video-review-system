@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { auth, type Session } from "../lib/auth.js";
-import { permission_level } from '../generated/prisma';
+import type { permission_level } from "../generated/prisma/index.js";
 import { AppError } from "./errors.js";
 import { fromNodeHeaders } from "better-auth/node";
 import type { user_role } from "../generated/prisma/client.js";
@@ -11,9 +11,10 @@ import type { user_role } from "../generated/prisma/client.js";
 import {
   checkPermission,
   getHighestPermission,
-  PERMISSION_RANK,
+  getPermissionRows,
   type ResourceContext,
 } from "../lib/auth.js";
+import type { PermissionRow } from "../lib/permissions.js";
 
 // ────────────────────────────────────────────────────────────
 // Extend Express Request to carry the authenticated user
@@ -34,11 +35,18 @@ export interface AuthenticatedUser {
   siteId: string;
 }
 
+export type PermissionContext = {
+  rows: PermissionRow[];
+  isGlobal: boolean;
+};
+
 declare global {
   namespace Express {
     interface Request {
       user?: AuthenticatedUser;
       authSession: Session;
+      caregiverAuthorized?: boolean;
+      permissionContext?: PermissionContext;
     }
   }
 }
@@ -61,7 +69,7 @@ export async function requireSession(req: Request, _res: Response, next: NextFun
     headers: fromNodeHeaders(req.headers),
   });
 
-  if (!session) throw AppError.unauthorized();
+  if (!session) throw AppError.unauthorized("No valid session");
 
   req.authSession = session;
   next();
@@ -78,7 +86,7 @@ export async function requireInternalAuth(req: Request, _res: Response, next: Ne
   const internalSecret = req.headers["x-internal-secret"];
 
   if (!internalSecret || internalSecret !== process.env.INTERNAL_SECRET_HEADER) {
-    throw AppError.unauthorized();
+    throw AppError.unauthorized("Invalid internal secret");
   }
 
   next();
@@ -102,6 +110,108 @@ export function requireRole(...roles: user_role[]) {
 }
 
 // ────────────────────────────────────────────────────────────
+// Caregiver Access Control
+// ────────────────────────────────────────────────────────────
+
+/**
+ * @description Blocks caregivers from accessing the route. Apply at router level
+ * for entire domains caregivers should never reach.
+ */
+export function denyCaregiver(req: Request, _res: Response, next: NextFunction) {
+  if (req.authSession?.user?.role === "CAREGIVER") {
+    throw AppError.forbidden();
+  }
+  next();
+}
+
+/**
+ * @description For caregiver-accessible routes: verifies the caregiver owns the
+ * resource. Non-caregivers pass through to the next middleware (typically
+ * requirePermission). Sets `req.caregiverAuthorized` so downstream permission
+ * checks know to skip the caregiver.
+ *
+ * @param resolveOwnerId - Async function that returns the resource owner's user ID
+ */
+export function requireCaregiverOwnership(
+  resolveOwnerId: (req: Request) => Promise<string | null>
+) {
+  return async (req: Request, _res: Response, next: NextFunction) => {
+    if (req.authSession.user.role !== "CAREGIVER") return next();
+
+    const ownerId = await resolveOwnerId(req);
+    if (ownerId !== req.authSession.user.id) {
+      throw AppError.forbidden();
+    }
+
+    req.caregiverAuthorized = true;
+    next();
+  };
+}
+
+/**
+ * @description Middleware for cross-scope list endpoints (reviews, etc.).
+ * Fetches the user's permission rows, verifies they have at least one,
+ * and attaches a `PermissionContext` to `req` for the route handler.
+ *
+ * @param level - The minimum permission level required
+ */
+export function requirePermissionContext(level: permission_level) {
+  return async (req: Request, _res: Response, next: NextFunction) => {
+    const rows = await getPermissionRows(req.authSession.user.id, level);
+    if (rows.length === 0) throw AppError.forbidden();
+
+    req.permissionContext = {
+      rows,
+      isGlobal: rows.some(r => !r.siteId && !r.studyId && !r.videoId),
+    };
+    next();
+  };
+}
+
+/**
+ * @description Builds a Prisma where clause from a PermissionContext.
+ * Works on any model with direct `studyId`, `siteId`, `videoId` columns.
+ * Returns `{}` for global access (matches everything).
+ *
+ * @param ctx - The permission context from `req.permissionContext`
+ * @returns A Prisma-compatible where object
+ */
+export function buildScopeFilter(ctx: PermissionContext): Record<string, any> {
+  if (ctx.isGlobal) return {};
+
+  return {
+    OR: ctx.rows.map(r => {
+      const clause: Record<string, any> = {};
+      if (r.siteId !== null) clause.siteId = r.siteId;
+      if (r.studyId !== null) clause.studyId = r.studyId;
+      if (r.videoId !== null) clause.videoId = r.videoId;
+      return clause;
+    }),
+  };
+}
+
+/**
+ * @description Extracts the unique site IDs the user has permission on from
+ * a PermissionContext. Returns undefined for global access (no restriction).
+ * Use this for models where the filter targets `id` rather than `siteId`,
+ * such as the Site model itself or junction-scoped models like Study.
+ *
+ * @param ctx - The permission context from requirePermissionContext.
+ * @returns Array of site IDs, or undefined for unrestricted access.
+ */
+export function getSiteIdsFromContext(
+  ctx: PermissionContext,
+): string[] | undefined {
+  if (ctx.isGlobal) return undefined;
+
+  const ids = new Set<string>();
+  for (const row of ctx.rows) {
+    if (row.siteId) ids.add(row.siteId);
+  }
+  return [...ids];
+}
+
+// ────────────────────────────────────────────────────────────
 // Permission check (single resource)
 // ────────────────────────────────────────────────────────────
 
@@ -110,30 +220,27 @@ type ContextResolver =
   | ((req: Request) => ResourceContext[]);
 
 /**
- * Middleware factory: checks that the user has at least `requiredLevel`
+ * @description Middleware factory: checks that the user has at least `requiredLevel`
  * permission for the resource resolved from the request.
  *
- * For CAREGIVER: delegates to `caregiverCheck` if provided, otherwise denies.
+ * Caregivers are denied unless `req.caregiverAuthorized` was set by a
+ * prior `requireCaregiverOwnership` middleware. This makes caregiver
+ * access explicitly opt-in per route.
  */
 export function requirePermission(
   requiredLevel: permission_level,
   resolveContexts: ContextResolver,
-  caregiverCheck?: (req: Request) => Promise<boolean>
 ) {
   return async (req: Request, _res: Response, next: NextFunction) => {
     const { id: userId, role } = req.authSession.user;
 
-    // Validate role is a known user_role
     const validRoles: user_role[] = ["CAREGIVER", "CLINICAL_REVIEWER", "SITE_COORDINATOR", "SYSADMIN"];
     if (!validRoles.includes(role as user_role)) {
       throw AppError.forbidden("Invalid user role");
     }
 
     if (role === "CAREGIVER") {
-      if (caregiverCheck) {
-        const allowed = await caregiverCheck(req);
-        if (allowed) return next();
-      }
+      if (req.caregiverAuthorized) return next();
       throw AppError.forbidden();
     }
 

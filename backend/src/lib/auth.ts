@@ -13,7 +13,7 @@ import prisma from "./prisma.js";
 import { sendPasswordResetEmail } from "./ses.js";
 
 import type { user_role } from "../generated/prisma/client.js";
-import type { Request } from "express";
+import type { PermissionRow } from "./permissions.js";
 
 // configure Better Auth instance
 // this is the core auth engine that handles sessions, sign-in, and password hashing
@@ -321,7 +321,31 @@ export async function getPermissionConditions(
     videoId: r.videoId,
   }));
 }
- 
+
+/**
+ * @description Fetches all `UserPermission` rows for a user at or above the
+ * required level, including `permissionLevel`. Used by cross-scope list
+ * endpoints that need both an access filter and per-row permission decoration.
+ *
+ * @param userId - The ID of the user
+ * @param level - The minimum permission level to include
+ * @returns An array of PermissionRow objects
+ */
+export async function getPermissionRows(
+  userId: string,
+  level: permission_level
+): Promise<PermissionRow[]> {
+  const qualifyingLevels = levelsAtOrAbove(level);
+
+  return prisma.userPermission.findMany({
+    where: {
+      userId,
+      permissionLevel: { in: qualifyingLevels },
+    },
+    select: { siteId: true, studyId: true, videoId: true, permissionLevel: true },
+  });
+}
+
 /**
  * Builds a Prisma `where` clause for models that have `studyId`, `siteId`,
  * and `videoId` columns directly on the table — annotations, clips, and sequences.
@@ -349,7 +373,7 @@ export async function getPermissionConditions(
  * @param level        - The minimum permission level required for the list operation
  * @param options      - Optional overrides
  * @param options.videoIdField - Column name for the video FK if not `"videoId"`
- *                               (e.g. `"sourceVideoId"` for clips)
+ *                               (e.g. `"videoId"` for clips)
  * @returns A Prisma-compatible `where` object to merge into your query
  *
  * @example
@@ -362,7 +386,7 @@ export async function getPermissionConditions(
  *
  * // In a clips list endpoint (different video column name):
  * const accessFilter = await buildDirectAccessFilter(userId, role, "READ", {
- *   videoIdField: "sourceVideoId",
+ *   videoIdField: "videoId",
  * });
  * ```
  */
@@ -458,84 +482,6 @@ export async function buildVideoAccessFilter(
   return { OR: orClauses };
 }
  
-// ────────────────────────────────────────────────────────────
-// Context Resolver Factories
-// ────────────────────────────────────────────────────────────
- 
-/**
- * Factory that creates a context resolver for GET, PUT, and DELETE routes
- * on models with direct `studyId`, `siteId`, and `videoId` columns.
- *
- * The returned function fetches the resource by `req.params.id` and extracts
- * its scope tuple as a {@link ResourceContext}. This avoids duplicating the
- * same fetch-and-extract pattern across every domain's perms file.
- *
- * @param model    - The Prisma model name to query
- * @param fieldMap - Optional column name overrides when the video FK isn't called `videoId`
- * @param fieldMap.videoId - The column name for the video foreign key
- *                           (e.g. `"sourceVideoId"` for the `videoClip` model)
- * @returns An async function `(req: Request) => Promise<ResourceContext[]>`
- *
- * @example
- * ```ts
- * // annotations.perms.ts — videoId column is standard
- * export const resolveAnnotationContexts = createDirectContextResolver("annotation");
- *
- * // clips.perms.ts — video FK is called "sourceVideoId"
- * export const resolveClipContexts = createDirectContextResolver("videoClip", {
- *   videoId: "sourceVideoId",
- * });
- * ```
- */
-export function createDirectContextResolver(
-  model: "annotation" | "videoClip" | "stitchedSequence",
-  fieldMap?: { videoId?: string }
-) {
-  return async (req: Request): Promise<ResourceContext[]> => {
-    const videoField = fieldMap?.videoId ?? "videoId";
-    const record = await (prisma[model] as any).findUniqueOrThrow({
-      where: { id: req.params.id },
-      select: { studyId: true, siteId: true, [videoField]: true },
-    });
-    return [
-      {
-        studyId: record.studyId,
-        siteId: record.siteId,
-        videoId: record[videoField],
-      },
-    ];
-  };
-}
- 
-/**
- * Factory that creates a context resolver for POST routes where the
- * resource doesn't exist yet.
- *
- * The returned function reads `studyId`, `siteId`, and `videoId` from
- * `req.body` and returns them as a {@link ResourceContext}. Missing fields
- * default to `null`.
- *
- * @returns A synchronous function `(req: Request) => ResourceContext[]`
- *
- * @example
- * ```ts
- * // annotations.perms.ts
- * export const resolveAnnotationContextsFromBody = createBodyContextResolver();
- *
- * // Used in router:
- * router.post("/", requirePermission("WRITE", resolveAnnotationContextsFromBody), handler);
- * ```
- */
-export function createBodyContextResolver() {
-  return (req: Request): ResourceContext[] => [
-    {
-      studyId: req.body.studyId ?? null,
-      siteId: req.body.siteId ?? null,
-      videoId: req.body.videoId ?? null,
-    },
-  ];
-}
-
 /**
  * Creates the default permission row for a newly created user based on
  * their role. Called during user onboarding (signup or invitation acceptance).

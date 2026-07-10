@@ -93,6 +93,10 @@ export async function listUsers(
     where.role = query.role;
   }
 
+  if (query.name) {
+    where.name = { contains: query.name, mode: "insensitive" };
+  }
+
   if (siteRestrictions !== undefined) {
     where.siteId = { in: siteRestrictions };
   } else if (query.siteId) {

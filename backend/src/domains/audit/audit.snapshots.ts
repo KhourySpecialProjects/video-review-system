@@ -1,6 +1,9 @@
 import type {
   Annotation,
   CaregiverVideoMetadata,
+  Invitation,
+  Site,
+  Study,
   User,
   UserPermission,
   Video,
@@ -12,8 +15,11 @@ import type {
   AuditAnnotationSnapshot,
   AuditAnnotationUpdateSnapshot,
   AuditClipSnapshot,
+  AuditInvitationSnapshot,
   AuditPermissionSnapshot,
   AuditSequenceSnapshot,
+  AuditSiteSnapshot,
+  AuditStudySnapshot,
   AuditUserSnapshot,
   AuditVideoSnapshot,
 } from "./audit.types.js";
@@ -47,7 +53,8 @@ type AnnotationSnapshotSource = Pick<
 >;
 type ClipSnapshotSource = Pick<
   VideoClip,
-  | "sourceVideoId"
+  | "id"
+  | "videoId"
   | "createdByUserId"
   | "studyId"
   | "siteId"
@@ -59,6 +66,9 @@ type SequenceSnapshotSource = Pick<
   StitchedSequence,
   "videoId" | "createdByUserId" | "studyId" | "siteId" | "title"
 >;
+type StudySnapshotSource = Pick<Study, "name" | "status">;
+type SiteSnapshotSource = Pick<Site, "name">;
+type InvitationSnapshotSource = Pick<Invitation, "email" | "role" | "siteId">;
 
 /** Returns true for plain objects. */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -187,7 +197,8 @@ export function buildAnnotationUpdateSnapshot(
 /** Builds a clip snapshot. */
 export function buildClipSnapshot(clip: ClipSnapshotSource): AuditClipSnapshot {
   return {
-    sourceVideoId: clip.sourceVideoId,
+    id: clip.id,
+    videoId: clip.videoId,
     createdByUserId: clip.createdByUserId,
     studyId: clip.studyId,
     siteId: clip.siteId,
@@ -207,5 +218,35 @@ export function buildSequenceSnapshot(
     studyId: sequence.studyId,
     siteId: sequence.siteId,
     title: sequence.title,
+  };
+}
+
+/** Builds a study snapshot. */
+export function buildStudySnapshot(
+  study: StudySnapshotSource,
+): AuditStudySnapshot {
+  return {
+    name: study.name,
+    status: study.status,
+  };
+}
+
+/** Builds a site snapshot. */
+export function buildSiteSnapshot(
+  site: SiteSnapshotSource,
+): AuditSiteSnapshot {
+  return {
+    name: site.name,
+  };
+}
+
+/** Builds an invitation snapshot (excludes tokenHash). */
+export function buildInvitationSnapshot(
+  invitation: InvitationSnapshotSource,
+): AuditInvitationSnapshot {
+  return {
+    email: invitation.email,
+    role: invitation.role,
+    siteId: invitation.siteId,
   };
 }
