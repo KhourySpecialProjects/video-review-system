@@ -16,9 +16,23 @@ export const PART_SIZE = 10 * 1024 * 1024;
  * Shared S3 client instance.
  * Uses AWS_REGION from environment. Credentials are resolved automatically
  * from environment variables, IAM roles, or AWS config files.
+ *
+ * When LOCAL=true, point at LocalStack instead of real S3: a custom endpoint,
+ * path-style addressing (so presigned URLs are http://host:4566/<bucket>/<key>,
+ * reachable by the browser), and dummy static credentials.
  */
+const isLocal = process.env.LOCAL === "true";
+
 export const s3 = new S3Client({
   region: process.env.AWS_REGION || "us-east-1",
+  ...(isLocal && {
+    endpoint: process.env.S3_ENDPOINT || "http://localhost:4566",
+    forcePathStyle: true,
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID || "test",
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "test",
+    },
+  }),
 });
 
 /**

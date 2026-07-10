@@ -120,15 +120,25 @@ openssl rand -base64 32   # paste into BETTER_AUTH_SECRET
 Key points for this path:
 
 - `LOCAL=true` — makes `backend/src/lib/prisma.ts` use `LOCAL_DATABASE_URL` and
-  disable SSL (local Postgres doesn't speak SSL; RDS requires it).
+  disable SSL (local Postgres doesn't speak SSL; RDS requires it). It also
+  points the S3 and SES clients at LocalStack (see below).
 - `PORT=3000` — the Vite dev server proxies `/api` to `localhost:3000`, so the
   backend **must** run on 3000 (not the `8080` used by the AWS path).
+- Uncomment the **LocalStack** vars too (`S3_ENDPOINT`, `S3_BUCKET_NAME`,
+  `SES_*`, dummy `AWS_*` creds) so video storage and email work locally.
 
-### 2. Start Postgres
+### 2. Start Postgres + LocalStack
 
 ```bash
-docker compose up -d postgres
+docker compose up -d postgres localstack
 ```
+
+[LocalStack](https://www.localstack.cloud/) provides local S3 (video storage)
+and SES (invite / password-reset email) so no real AWS is needed.
+`scripts/localstack-init.sh` runs on startup to create the S3 bucket, set its
+CORS policy (needed for the browser's direct multipart uploads), and verify the
+SES sender. Sent emails are also logged to the backend console as
+`[DEV-ONLY] Activation link: ...`, so you can click them without a mail client.
 
 ### 3. Migrate and seed the database
 
