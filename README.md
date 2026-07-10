@@ -101,6 +101,61 @@ npm run dev
 
 The frontend runs on `https://localhost:5173` with the current Vite config.
 
+## Local development (no AWS)
+
+If you don't have AWS access (or just want a self-contained setup), you can run
+the whole stack against a local Docker Postgres with no Secrets Manager, RDS, or
+SSM. This path is driven by a `LOCAL=true` flag in the root `.env`.
+
+### 1. Create `.env` in the project root
+
+Copy `.env.example` and uncomment the **"Fully-local dev (no AWS)"** block at the
+bottom, then generate a `BETTER_AUTH_SECRET`:
+
+```bash
+cp .env.example .env
+openssl rand -base64 32   # paste into BETTER_AUTH_SECRET
+```
+
+Key points for this path:
+
+- `LOCAL=true` — makes `backend/src/lib/prisma.ts` use `LOCAL_DATABASE_URL` and
+  disable SSL (local Postgres doesn't speak SSL; RDS requires it).
+- `PORT=3000` — the Vite dev server proxies `/api` to `localhost:3000`, so the
+  backend **must** run on 3000 (not the `8080` used by the AWS path).
+
+### 2. Start Postgres
+
+```bash
+docker compose up -d postgres
+```
+
+### 3. Migrate and seed the database
+
+```bash
+cd backend
+npx prisma migrate deploy
+npx prisma db seed
+```
+
+The seed creates one site and one SYSADMIN you can log in with immediately:
+
+| Email | Password |
+|-------|----------|
+| `admin@local.dev` | `password123` |
+
+### 4. Start the backend and frontend
+
+```bash
+cd backend && npm run dev       # http://localhost:3000
+cd frontend && npm run dev      # https://localhost:5173
+```
+
+Log in at `https://localhost:5173/login` with the seeded credentials above.
+
+> **Note:** S3/SES clients construct lazily, so the server boots fine without
+> AWS — only video uploads and outgoing email will fail in this mode.
+
 ## Architecture Overview
 
 Current application flow:
