@@ -1,7 +1,7 @@
 import { Link } from "react-router";
-import { Sun, Moon, LogOut, Menu, X } from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "motion/react";
-import { useTheme } from "@/hooks/use-theme";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useLogout } from "@/hooks/use-logout";
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,6 @@ const mobileLinkClass =
  *   visibility logic.
  */
 export function Navbar({ scrollContainerRef }: NavbarProps) {
-    const { theme, toggleTheme } = useTheme();
     const logout = useLogout();
     const { user } = useAuth();
     const [menuOpen, setMenuOpen] = useState(false);
@@ -136,15 +135,7 @@ export function Navbar({ scrollContainerRef }: NavbarProps) {
                     </div>
                 )}
 
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-text"
-                    onClick={toggleTheme}
-                    aria-label="Toggle theme"
-                >
-                    {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-                </Button>
+                <ThemeToggle />
 
                 <Button
                     variant="ghost"

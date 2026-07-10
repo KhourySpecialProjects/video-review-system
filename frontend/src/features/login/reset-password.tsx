@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Form, useActionData, useNavigation } from "react-router";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 type ActionData =
     | { fieldErrors: Record<string, string> }
@@ -36,6 +37,7 @@ export function ResetPassword() {
 
     return (
         <div className="flex min-h-screen items-center justify-center p-4 md:p-8">
+            <ThemeToggle className="fixed top-4 right-4 z-50" />
             <Card className="w-full max-w-sm shadow-xl border-primary/10">
                 <CardHeader className="space-y-3 text-center pb-6">
                     <div className="space-y-1">
