@@ -4,9 +4,21 @@ import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
  * Shared SES client instance.
  * Uses AWS_REGION from environment. Credentials are resolved automatically
  * from environment variables, IAM roles, or AWS config files.
+ *
+ * When LOCAL=true, point at LocalStack instead of real SES (custom endpoint +
+ * dummy static credentials). The sender is verified by scripts/localstack-init.sh.
  */
+const isLocal = process.env.LOCAL === "true";
+
 const ses = new SESClient({
   region: process.env.AWS_REGION || "us-east-1",
+  ...(isLocal && {
+    endpoint: process.env.SES_ENDPOINT || "http://localhost:4566",
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID || "test",
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "test",
+    },
+  }),
 });
 
 type SendEmailParams = {

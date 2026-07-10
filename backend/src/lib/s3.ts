@@ -1,6 +1,7 @@
 import {
   S3Client,
   GetObjectCommand,
+  PutObjectCommand,
   CreateMultipartUploadCommand,
   UploadPartCommand,
   CompleteMultipartUploadCommand,
@@ -16,9 +17,23 @@ export const PART_SIZE = 10 * 1024 * 1024;
  * Shared S3 client instance.
  * Uses AWS_REGION from environment. Credentials are resolved automatically
  * from environment variables, IAM roles, or AWS config files.
+ *
+ * When LOCAL=true, point at LocalStack instead of real S3: a custom endpoint,
+ * path-style addressing (so presigned URLs are http://host:4566/<bucket>/<key>,
+ * reachable by the browser), and dummy static credentials.
  */
+const isLocal = process.env.LOCAL === "true";
+
 export const s3 = new S3Client({
   region: process.env.AWS_REGION || "us-east-1",
+  ...(isLocal && {
+    endpoint: process.env.S3_ENDPOINT || "http://localhost:4566",
+    forcePathStyle: true,
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID || "test",
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "test",
+    },
+  }),
 });
 
 /**
@@ -40,6 +55,29 @@ export async function generatePresignedGetUrl(
   });
 
   return await getSignedUrl(s3, command, { expiresIn });
+}
+
+/**
+ * Uploads an object to S3 in a single request (non-multipart).
+ * Handy for small objects such as seed/sample data.
+ *
+ * @param key - The S3 object key
+ * @param body - The object contents
+ * @param contentType - MIME type (e.g. "video/mp4")
+ */
+export async function putObject(
+  key: string,
+  body: Uint8Array | Buffer,
+  contentType: string
+): Promise<void> {
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    })
+  );
 }
 
 /**

@@ -101,6 +101,83 @@ npm run dev
 
 The frontend runs on `https://localhost:5173` with the current Vite config.
 
+## Local development (no AWS)
+
+If you don't have AWS access (or just want a self-contained setup), you can run
+the whole stack against a local Docker Postgres with no Secrets Manager, RDS, or
+SSM. This path is driven by a `LOCAL=true` flag in the root `.env`.
+
+### 1. Create `.env` in the project root
+
+Copy `.env.example` and uncomment the **"Fully-local dev (no AWS)"** block at the
+bottom, then generate a `BETTER_AUTH_SECRET`:
+
+```bash
+cp .env.example .env
+openssl rand -base64 32   # paste into BETTER_AUTH_SECRET
+```
+
+Key points for this path:
+
+- `LOCAL=true` — makes `backend/src/lib/prisma.ts` use `LOCAL_DATABASE_URL` and
+  disable SSL (local Postgres doesn't speak SSL; RDS requires it). It also
+  points the S3 and SES clients at LocalStack (see below).
+- `PORT=3000` — the Vite dev server proxies `/api` to `localhost:3000`, so the
+  backend **must** run on 3000 (not the `8080` used by the AWS path).
+- Uncomment the **LocalStack** vars too (`S3_ENDPOINT`, `S3_BUCKET_NAME`,
+  `SES_*`, dummy `AWS_*` creds) so video storage and email work locally.
+
+### 2. Start Postgres + LocalStack
+
+```bash
+docker compose up -d postgres localstack
+```
+
+[LocalStack](https://www.localstack.cloud/) provides local S3 (video storage)
+and SES (invite / password-reset email) so no real AWS is needed.
+`scripts/localstack-init.sh` runs on startup to create the S3 bucket, set its
+CORS policy (needed for the browser's direct multipart uploads), and verify the
+SES sender. Sent emails are also logged to the backend console as
+`[DEV-ONLY] Activation link: ...`, so you can click them without a mail client.
+
+### 3. Migrate and seed the database
+
+```bash
+cd backend
+npx prisma migrate deploy
+npx prisma db seed
+```
+
+The seed creates a small realistic dataset — 2 sites, 3 studies, and
+caregiver-uploaded videos with varied review status — plus one user per role
+(all with password `password123`):
+
+| Email | Role | Sees |
+|-------|------|------|
+| `admin@local.dev` | SYSADMIN | everything |
+| `coordinator@local.dev` | SITE_COORDINATOR | the Boston site |
+| `reviewer@local.dev` | CLINICAL_REVIEWER | the Seizure Characterization study only |
+| `caregiver1@local.dev` | CAREGIVER | their own Boston uploads |
+| `caregiver2@local.dev` | CAREGIVER | their own Seattle uploads |
+
+The seed is destructive-but-idempotent (it wipes the managed tables and
+recreates them), so you can re-run `npx prisma db seed` any time. When
+`LOCAL=true` and LocalStack is running, it also uploads a small public sample
+video to each video's `s3Key` so playback works — this is best-effort and never
+fails the seed (override the clip with `SEED_SAMPLE_VIDEO_URL`).
+
+### 4. Start the backend and frontend
+
+```bash
+cd backend && npm run dev       # http://localhost:3000
+cd frontend && npm run dev      # https://localhost:5173
+```
+
+Log in at `https://localhost:5173/login` with any of the seeded users above.
+
+> **Note:** if you skip LocalStack, the server still boots (the S3/SES clients
+> construct lazily) — only video upload/playback and outgoing email will fail.
+
 ## Architecture Overview
 
 Current application flow:
