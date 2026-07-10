@@ -13,18 +13,56 @@
  * recreates them, so `npx prisma db seed` can be re-run at any time. It refuses
  * to run when NODE_ENV=production.
  *
- * Note: this seeds database rows only — it does NOT upload video bytes to S3,
- * so the review/list pages are fully populated but clicking into a video to
- * stream it won't play until real objects exist at each s3Key.
+ * When LOCAL=true it also best-effort uploads a small public sample video to
+ * each video's s3Key (see uploadSampleVideoBytes) so streaming works locally.
+ * That step never fails the seed — the DB rows are seeded regardless.
  *
  * Run with: `npx prisma db seed` (or `tsx prisma/seed.ts`).
  */
 import { randomUUID } from "crypto";
 import prisma from "../src/lib/prisma.js";
 import { auth, seedDefaultPermission } from "../src/lib/auth.js";
+import { putObject } from "../src/lib/s3.js";
 import type { user_role, review_status } from "../src/generated/prisma/index.js";
 
 const PASSWORD = "password123";
+
+/**
+ * Public sample video used to make seeded videos actually playable in local
+ * dev. From test-videos.co.uk (Big Buck Bunny, ~1 MB, 10s, H.264 MP4).
+ * Override with SEED_SAMPLE_VIDEO_URL. Not committed — fetched at seed time.
+ */
+const DEFAULT_SAMPLE_VIDEO_URL =
+  "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4";
+
+/**
+ * Best-effort: download one small sample video and upload it to every seeded
+ * video's s3Key so streaming works locally. Only runs when LOCAL=true. Never
+ * fails the seed — if offline, the URL is down, or S3 isn't reachable, it logs
+ * a warning and the DB rows are still seeded.
+ */
+async function uploadSampleVideoBytes(s3Keys: string[]): Promise<void> {
+  if (process.env.LOCAL !== "true") return;
+
+  const url = process.env.SEED_SAMPLE_VIDEO_URL || DEFAULT_SAMPLE_VIDEO_URL;
+  try {
+    console.log(`Fetching sample video: ${url}`);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const bytes = Buffer.from(await res.arrayBuffer());
+
+    for (const key of s3Keys) {
+      await putObject(key, bytes, "video/mp4");
+    }
+    const mb = (bytes.length / 1024 / 1024).toFixed(1);
+    console.log(`Uploaded sample video (${mb} MB) to ${s3Keys.length} S3 keys.`);
+  } catch (err) {
+    console.warn(
+      `[seed] Skipped sample-video upload (${(err as Error).message}). ` +
+        `DB rows are still seeded; start LocalStack and re-run to enable streaming.`
+    );
+  }
+}
 
 /** Fixed clock so seeded timestamps are deterministic across runs. */
 const NOW = new Date("2026-07-01T12:00:00.000Z");
@@ -284,6 +322,9 @@ async function main() {
     },
   });
 
+  // ── Sample video bytes (best-effort, LOCAL only) ───────────────────────────
+  await uploadSampleVideoBytes(createdVideos.map((v) => `videos/${v.id}/original.mp4`));
+
   // ── Summary ────────────────────────────────────────────────────────────────
   const line = "─".repeat(60);
   console.log(line);
@@ -295,8 +336,6 @@ async function main() {
   console.log("  caregiver2@local.dev    CAREGIVER         (Seattle)");
   console.log(line);
   console.log(`Sites: 2   Studies: 3   Videos: ${createdVideos.length}`);
-  console.log("Note: video rows only — no bytes uploaded to S3, so streaming a");
-  console.log("video won't play until real objects exist at each s3Key.");
   console.log(line);
 }
 

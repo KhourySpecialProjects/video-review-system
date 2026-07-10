@@ -1,6 +1,7 @@
 import {
   S3Client,
   GetObjectCommand,
+  PutObjectCommand,
   CreateMultipartUploadCommand,
   UploadPartCommand,
   CompleteMultipartUploadCommand,
@@ -54,6 +55,29 @@ export async function generatePresignedGetUrl(
   });
 
   return await getSignedUrl(s3, command, { expiresIn });
+}
+
+/**
+ * Uploads an object to S3 in a single request (non-multipart).
+ * Handy for small objects such as seed/sample data.
+ *
+ * @param key - The S3 object key
+ * @param body - The object contents
+ * @param contentType - MIME type (e.g. "video/mp4")
+ */
+export async function putObject(
+  key: string,
+  body: Uint8Array | Buffer,
+  contentType: string
+): Promise<void> {
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    })
+  );
 }
 
 /**

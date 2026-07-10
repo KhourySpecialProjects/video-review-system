@@ -148,11 +148,23 @@ npx prisma migrate deploy
 npx prisma db seed
 ```
 
-The seed creates one site and one SYSADMIN you can log in with immediately:
+The seed creates a small realistic dataset — 2 sites, 3 studies, and
+caregiver-uploaded videos with varied review status — plus one user per role
+(all with password `password123`):
 
-| Email | Password |
-|-------|----------|
-| `admin@local.dev` | `password123` |
+| Email | Role | Sees |
+|-------|------|------|
+| `admin@local.dev` | SYSADMIN | everything |
+| `coordinator@local.dev` | SITE_COORDINATOR | the Boston site |
+| `reviewer@local.dev` | CLINICAL_REVIEWER | the Seizure Characterization study only |
+| `caregiver1@local.dev` | CAREGIVER | their own Boston uploads |
+| `caregiver2@local.dev` | CAREGIVER | their own Seattle uploads |
+
+The seed is destructive-but-idempotent (it wipes the managed tables and
+recreates them), so you can re-run `npx prisma db seed` any time. When
+`LOCAL=true` and LocalStack is running, it also uploads a small public sample
+video to each video's `s3Key` so playback works — this is best-effort and never
+fails the seed (override the clip with `SEED_SAMPLE_VIDEO_URL`).
 
 ### 4. Start the backend and frontend
 
@@ -161,10 +173,10 @@ cd backend && npm run dev       # http://localhost:3000
 cd frontend && npm run dev      # https://localhost:5173
 ```
 
-Log in at `https://localhost:5173/login` with the seeded credentials above.
+Log in at `https://localhost:5173/login` with any of the seeded users above.
 
-> **Note:** S3/SES clients construct lazily, so the server boots fine without
-> AWS — only video uploads and outgoing email will fail in this mode.
+> **Note:** if you skip LocalStack, the server still boots (the S3/SES clients
+> construct lazily) — only video upload/playback and outgoing email will fail.
 
 ## Architecture Overview
 
