@@ -36,12 +36,15 @@ const DEFAULT_SAMPLE_VIDEO_URL =
   "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4";
 
 /**
- * Best-effort: download one small sample video and upload it to every seeded
- * video's s3Key so streaming works locally. Only runs when LOCAL=true. Never
- * fails the seed — if offline, the URL is down, or S3 isn't reachable, it logs
- * a warning and the DB rows are still seeded.
+ * Best-effort: make seeded videos playable locally by uploading media to the
+ * S3 keys the app actually streams from. For each base key the app reads
+ * `<key>.mp4` (video) and `<key>.jpg` (thumbnail), so we write both. Downloads
+ * the video once and reuses it; thumbnails are per-video for variety.
+ *
+ * Only runs when LOCAL=true, and never fails the seed — if offline, a URL is
+ * down, or S3 isn't reachable, it logs a warning and the DB rows still stand.
  */
-async function uploadSampleVideoBytes(s3Keys: string[]): Promise<void> {
+async function uploadSampleMedia(baseKeys: string[]): Promise<void> {
   if (process.env.LOCAL !== "true") return;
 
   const url = process.env.SEED_SAMPLE_VIDEO_URL || DEFAULT_SAMPLE_VIDEO_URL;
@@ -49,18 +52,33 @@ async function uploadSampleVideoBytes(s3Keys: string[]): Promise<void> {
     console.log(`Fetching sample video: ${url}`);
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const bytes = Buffer.from(await res.arrayBuffer());
+    const videoBytes = Buffer.from(await res.arrayBuffer());
 
-    for (const key of s3Keys) {
-      await putObject(key, bytes, "video/mp4");
+    for (const key of baseKeys) {
+      await putObject(`${key}.mp4`, videoBytes, "video/mp4");
     }
-    const mb = (bytes.length / 1024 / 1024).toFixed(1);
-    console.log(`Uploaded sample video (${mb} MB) to ${s3Keys.length} S3 keys.`);
+    const mb = (videoBytes.length / 1024 / 1024).toFixed(1);
+    console.log(`Uploaded sample video (${mb} MB) to ${baseKeys.length} keys.`);
   } catch (err) {
     console.warn(
       `[seed] Skipped sample-video upload (${(err as Error).message}). ` +
         `DB rows are still seeded; start LocalStack and re-run to enable streaming.`
     );
+    return; // if the video upload failed, thumbnails would fail the same way
+  }
+
+  // Thumbnails (best-effort, per video). A miss just means a broken poster.
+  try {
+    let uploaded = 0;
+    for (let i = 0; i < baseKeys.length; i++) {
+      const thumbRes = await fetch(`https://picsum.photos/seed/asclepion${i}/640/360`);
+      if (!thumbRes.ok) continue;
+      await putObject(`${baseKeys[i]}.jpg`, Buffer.from(await thumbRes.arrayBuffer()), "image/jpeg");
+      uploaded++;
+    }
+    console.log(`Uploaded ${uploaded} sample thumbnails.`);
+  } catch (err) {
+    console.warn(`[seed] Skipped thumbnails (${(err as Error).message}).`);
   }
 }
 
@@ -258,16 +276,20 @@ async function main() {
   ];
 
   const PART_SIZE_MB = 10;
-  const createdVideos: { id: string; studyId: string; siteId: string; reviewStatus: review_status }[] = [];
+  const createdVideos: { id: string; s3Key: string; studyId: string; siteId: string; reviewStatus: review_status }[] = [];
 
   for (const v of videoPlan) {
     const videoId = randomUUID();
     const takenAt = daysAgo(v.daysAgo);
+    // s3Key is a BASE path — the app appends `.mp4` (video) and `.jpg`
+    // (thumbnail) when generating stream URLs (see videos.service.ts). This
+    // mirrors the real upload flow, which uses `uploads/<id>/<name>`.
+    const s3Key = `uploads/${videoId}/sample`;
     await prisma.video.create({
       data: {
         id: videoId,
         uploadedByUserId: v.uploaderId,
-        s3Key: `videos/${videoId}/original.mp4`,
+        s3Key,
         status: "UPLOADED",
         fileSize: BigInt(v.fileSizeMB * 1024 * 1024),
         totalParts: Math.max(1, Math.ceil(v.fileSizeMB / PART_SIZE_MB)),
@@ -293,7 +315,7 @@ async function main() {
         commentOverview: v.comment ?? null,
       },
     });
-    createdVideos.push({ id: videoId, studyId: v.studyId, siteId: v.siteId, reviewStatus: v.reviewStatus });
+    createdVideos.push({ id: videoId, s3Key, studyId: v.studyId, siteId: v.siteId, reviewStatus: v.reviewStatus });
   }
 
   // ── Annotations + a clip on the REVIEWED video (authored by the reviewer) ──
@@ -322,8 +344,8 @@ async function main() {
     },
   });
 
-  // ── Sample video bytes (best-effort, LOCAL only) ───────────────────────────
-  await uploadSampleVideoBytes(createdVideos.map((v) => `videos/${v.id}/original.mp4`));
+  // ── Sample media (best-effort, LOCAL only) ─────────────────────────────────
+  await uploadSampleMedia(createdVideos.map((v) => v.s3Key));
 
   // ── Summary ────────────────────────────────────────────────────────────────
   const line = "─".repeat(60);
