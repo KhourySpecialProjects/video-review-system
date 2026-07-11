@@ -59,6 +59,8 @@
 # into the Coolify UI (Environment Variables) for the real deployment.
 #
 # Replace every <...> placeholder. Generate secrets with: openssl rand -base64 32
+# EXCEPTION: POSTGRES_PASSWORD is embedded in the postgres:// DSNs, so generate
+# it URL-safe with `openssl rand -hex 32` (base64 can emit / + = which break it).
 # ============================================================================
 
 # ── Deployment domain (set in Coolify; used to build the values below) ──────

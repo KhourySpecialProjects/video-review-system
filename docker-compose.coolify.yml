@@ -31,10 +31,13 @@ services:
       ALLOWED_ORIGIN: ${ALLOWED_ORIGIN}
       FRONTEND_URL: ${FRONTEND_URL}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL}
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
-      ADMIN_SECRET: ${ADMIN_SECRET}
-      INTERNAL_SECRET_HEADER: ${INTERNAL_SECRET_HEADER}
-      SEED_PASSWORD: ${SEED_PASSWORD}
+      # Required secrets: an unset/empty value is a silent security hole
+      # (e.g. an empty SEED_PASSWORD falls back to "password123" in the seed),
+      # so fail the deploy fast rather than boot insecure.
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}
+      ADMIN_SECRET: ${ADMIN_SECRET:?ADMIN_SECRET is required}
+      INTERNAL_SECRET_HEADER: ${INTERNAL_SECRET_HEADER:?INTERNAL_SECRET_HEADER is required}
+      SEED_PASSWORD: ${SEED_PASSWORD:?SEED_PASSWORD is required}
       AWS_REGION: ${AWS_REGION:-us-east-1}
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}

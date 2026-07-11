@@ -70,7 +70,9 @@ Browser ──TLS──▶ Traefik ─┬─▶ frontend (nginx)  →  dev.<doma
 - **postgres** — `postgres:16-alpine` with a named volume (persistent across
   redeploys).
 - **minio** — S3-compatible object store, publicly exposed at `s3.dev.<domain>`,
-  named volume, bucket + CORS bootstrapped by a one-shot `mc` init service.
+  named volume. The bucket is created by a one-shot `mc` init service; browser
+  CORS is configured via `MINIO_API_CORS_ALLOW_ORIGIN` on the MinIO service (not
+  by the init script).
 
 ### Data flow
 
@@ -201,7 +203,8 @@ Everything else is pure infrastructure/config (new files).
 - `docker-compose.coolify.yml` — the 4-service Coolify resource.
 - `backend/Dockerfile.coolify` — dev-deps runtime + entrypoint.
 - `scripts/coolify-backend-entrypoint.sh` — migrate + seed-if-empty + start.
-- `scripts/minio-init.sh` — `mc` bootstrap: create bucket, set CORS.
+- `scripts/minio-init.sh` — `mc` bootstrap: create bucket (CORS is set via
+  `MINIO_API_CORS_ALLOW_ORIGIN` in compose, not here).
 - `.env.coolify.example` — documented env template.
 - README section: "Deploying to Coolify (develop)".
 

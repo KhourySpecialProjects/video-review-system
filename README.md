@@ -270,7 +270,9 @@ Point two hostnames at the Coolify server:
 1. **Create the resource:** New Resource → Docker Compose → this repo, branch
    `develop`, compose file `docker-compose.coolify.yml`.
 2. **Environment variables:** paste the filled-in values from
-   `.env.coolify.example` (generate every secret with `openssl rand -base64 32`).
+   `.env.coolify.example` (generate every secret with `openssl rand -base64 32`,
+   except `POSTGRES_PASSWORD`, which is embedded in the DB URLs and must be
+   URL-safe — use `openssl rand -hex 32`).
    Set `ALLOWED_ORIGIN` / `FRONTEND_URL` / `BETTER_AUTH_URL` to `https://dev.<domain>`
    and `S3_ENDPOINT` to `https://s3.dev.<domain>`. Leave `SES_FROM_EMAIL` unset.
 3. **Domains:**
