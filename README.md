@@ -279,9 +279,15 @@ Point two hostnames at the Coolify server:
    - `frontend` → `https://dev.<domain>` (container port 80).
    - `minio` → `https://s3.dev.<domain>` (container port **9000** only — do NOT
      expose the 9001 console publicly).
-4. **Basic Auth:** enable Coolify/Traefik HTTP Basic Auth on the `frontend`
-   domain only. Do NOT put Basic Auth on `s3.dev.<domain>` — presigned
-   upload/stream URLs must stay reachable (the bucket is already private).
+4. **Access control:** there is **no extra network gate** — access is the app's
+   own Better Auth login, and `SEED_PASSWORD` ensures the seeded admin is not a
+   publicly-known credential. Note this leaves the unauthenticated surface (login
+   page, password-reset/invite flows, `/api/health`, static assets) reachable by
+   anyone who has the URL. That's an accepted trade-off for a dev target. If you
+   later want to keep this non-production build off the open internet, add an
+   edge gate at Traefik — a source-IP allowlist, or an HTTP Basic Auth middleware
+   on the `frontend` service **only** (never `s3.dev.<domain>`, or presigned
+   upload/stream URLs break).
 5. **Auto-deploy on merge to `develop`:** connect the **Coolify GitHub App** and
    enable automatic deployment for the `develop` branch.
    - ⚠️ The repo is in the `KhourySpecialProjects` org, so installing the GitHub
@@ -297,8 +303,8 @@ to MinIO. Later deploys skip seeding, so data and uploaded videos persist.
 
 ### Smoke test
 
-1. Visit `https://dev.<domain>` (pass Basic Auth), log in as `admin@local.dev`
-   with your `SEED_PASSWORD`.
+1. Visit `https://dev.<domain>` and log in as `admin@local.dev` with your
+   `SEED_PASSWORD`.
 2. Browse the reviews list (seeded data appears).
 3. Upload a video and play it back (exercises the MinIO presigned round trip).
 4. Trigger an invite from the admin UI and confirm the activation link appears in

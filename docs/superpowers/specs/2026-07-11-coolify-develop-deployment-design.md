@@ -53,9 +53,9 @@ noted below).
 One Coolify **Docker Compose** resource with four services:
 
 ```
-Browser ──TLS──▶ Traefik ─┬─▶ frontend (nginx)  →  dev.<domain>        [public, Basic-Auth gated]
+Browser ──TLS──▶ Traefik ─┬─▶ frontend (nginx)  →  dev.<domain>        [public]
  (Coolify's      (Coolify   │      └─ proxies /api/ → backend:8080
-  built-in        edge)     ├─▶ minio (S3 API)   →  s3.dev.<domain>    [public, NOT Basic-Auth gated]
+  built-in        edge)     ├─▶ minio (S3 API)   →  s3.dev.<domain>    [public]
   proxy)                    │
                             └─▶ backend  :8080   [internal only]
                                   └─▶ postgres    [internal, named volume]
@@ -63,7 +63,7 @@ Browser ──TLS──▶ Traefik ─┬─▶ frontend (nginx)  →  dev.<doma
 
 - **frontend** — reuses `frontend/Dockerfile` + `frontend/nginx.conf` as-is
   (SPA + `/api/` proxy already target `backend:8080`). Publicly exposed via
-  Coolify's magic FQDN and gated with edge HTTP Basic Auth.
+  Coolify's magic FQDN. Access is the app's Better Auth login (see Security).
 - **backend** — new `backend/Dockerfile.coolify` (dev deps kept + a migrate/seed
   entrypoint). Internal only; reached same-origin through nginx, so Better Auth
   cookies work.
@@ -176,17 +176,25 @@ is **not** blocked on the approval; only the automation is.
 
 ## Security / access gating
 
-The develop URL is internet-reachable and seeded with admin accounts, so two
-layers of protection are applied (defense in depth):
+The develop URL is internet-reachable and seeded with admin accounts. Access
+control is the app's own Better Auth login plus a seeded-credential override:
 
-1. **Edge HTTP Basic Auth** on the app host `dev.<domain>` (configured in
-   Coolify/Traefik). Applied **only** to the app host — **not** to
-   `s3.dev.<domain>`, because presigned upload/stream URLs must stay reachable
-   (MinIO remains protected by its private bucket + URL signatures).
-2. **Seed password override** — the seed reads `SEED_PASSWORD` (falling back to
-   `password123` for local dev), so the seeded SYSADMIN is not a publicly-known
-   credential. This is a one-line, backwards-compatible change to
-   `backend/prisma/seed.ts`.
+- **Seed password override** — the seed reads `SEED_PASSWORD` (falling back to
+  `password123` for local dev), so the seeded SYSADMIN is not a publicly-known
+  credential. This is a one-line, backwards-compatible change to
+  `backend/prisma/seed.ts`. `docker-compose.coolify.yml` requires `SEED_PASSWORD`
+  (and the other auth secrets) via `${VAR:?}` so an empty value can't silently
+  fall back to `password123`.
+
+> **Note (updated post-implementation):** an earlier draft added an **edge HTTP
+> Basic Auth** layer on `dev.<domain>` as defense-in-depth. It was **dropped** —
+> once `SEED_PASSWORD` closed the concrete known-credential hole, a shared-password
+> curtain added little for a dev target while adding real setup friction (Coolify
+> has no Basic Auth toggle; it needs Traefik middleware labels). The unauthenticated
+> surface (login page, reset/invite flows, `/api/health`) stays reachable — an
+> accepted dev trade-off. If the build must be kept off the open internet later,
+> add an edge gate at Traefik (source-IP allowlist or Basic Auth) on the `frontend`
+> host **only** — never `s3.dev.<domain>`, or presigned URLs break.
 
 ## Application code changes (the only ones)
 

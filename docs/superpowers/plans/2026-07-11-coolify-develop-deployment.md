@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **⚠️ Post-implementation deviation:** this plan (and its embedded file snapshots) describes an **edge HTTP Basic Auth** gate on `dev.<domain>`. That layer was **dropped** during first deployment — once `SEED_PASSWORD` closed the known-credential hole, the shared-password curtain added little for a dev target versus its setup friction. Ignore the Basic-Auth steps below; the live behaviour and rationale are in `README.md` ("Deploying to Coolify") and the design spec's Security section. Everything else in the plan stands.
+
 **Goal:** Deploy the Angelman Syndrome Video Management Portal to a self-hosted Coolify server as an additive, develop-branch dev-testing target with working video upload/playback, without touching the AWS production path.
 
 **Architecture:** One Coolify Docker Compose resource runs four services — a containerized nginx frontend (public, Basic-Auth gated), an internal Express backend that migrates + seeds-on-first-boot, a persistent Postgres, and a MinIO object store (public at `s3.dev.<domain>`). The app reuses its existing `LOCAL=true` no-AWS code path, so MinIO drops in as an S3 replacement with near-zero code changes; the browser uploads/streams directly to MinIO via presigned URLs.

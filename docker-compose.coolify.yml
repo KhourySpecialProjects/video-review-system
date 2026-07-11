@@ -1,8 +1,7 @@
 # Coolify develop deployment. Additive — does NOT replace docker-compose.yml
 # (the local dev/AWS-adjacent stack). Deploy as a Coolify "Docker Compose"
-# resource. In Coolify: expose `frontend` at dev.<domain> (with Basic Auth) and
-# `minio` port 9000 at s3.dev.<domain> (NO Basic Auth). See README "Deploying to
-# Coolify (develop)".
+# resource. In Coolify: expose `frontend` at dev.<domain> and `minio` port 9000
+# at s3.dev.<domain>. See README "Deploying to Coolify (develop)".
 services:
   frontend:
     build:
