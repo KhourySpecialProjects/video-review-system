@@ -25,7 +25,9 @@ import { auth, seedDefaultPermission } from "../src/lib/auth.js";
 import { putObject } from "../src/lib/s3.js";
 import type { user_role, review_status } from "../src/generated/prisma/index.js";
 
-const PASSWORD = "password123";
+// Overridable so a publicly-reachable deploy isn't seeded with a known
+// credential. Defaults to the local-dev password.
+const PASSWORD = process.env.SEED_PASSWORD || "password123";
 
 /**
  * Public sample video used to make seeded videos actually playable in local
