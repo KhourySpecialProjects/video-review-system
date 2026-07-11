@@ -279,9 +279,22 @@ Point two hostnames at the Coolify server:
    - `frontend` → `https://dev.<domain>` (container port 80).
    - `minio` → `https://s3.dev.<domain>` (container port **9000** only — do NOT
      expose the 9001 console publicly).
-4. **Basic Auth:** enable Coolify/Traefik HTTP Basic Auth on the `frontend`
-   domain only. Do NOT put Basic Auth on `s3.dev.<domain>` — presigned
-   upload/stream URLs must stay reachable (the bucket is already private).
+4. **Basic Auth (gate the app host):** Coolify has **no** Basic Auth toggle — it
+   is a Traefik middleware you add via labels, on the `frontend` service **only**
+   (never `s3.dev.<domain>`: presigned upload/stream URLs must stay reachable, and
+   the bucket is already private).
+   1. **Generate** a `user:hash`. With bcrypt: `htpasswd -nbB user 'pass'`
+      (Arch: `pacman -S apache`). Or with no extra install:
+      `openssl passwd -apr1 'pass'`, then prefix it with `user:`.
+   2. **Define** the middleware: on the `frontend` service, add the label
+      `traefik.http.middlewares.devauth.basicauth.users=user:HASH`. A ready
+      template (commented) is in `docker-compose.coolify.yml` under `frontend`.
+      In a compose file, **double every `$` in the hash to `$$`** (e.g.
+      `$apr1$…` → `$$apr1$$…`) or it will be mangled.
+   3. **Attach** it: in the Coolify UI, open the `frontend` service's **Labels**,
+      find the auto-generated `traefik.http.routers.<name>.middlewares=…` line,
+      and append `devauth` to it (e.g. `gzip,devauth`). The router `<name>` is
+      whatever Coolify generated — read it from that same Labels view.
 5. **Auto-deploy on merge to `develop`:** connect the **Coolify GitHub App** and
    enable automatic deployment for the `develop` branch.
    - ⚠️ The repo is in the `KhourySpecialProjects` org, so installing the GitHub
