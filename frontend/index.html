@@ -4,9 +4,25 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <title>Asclepion</title>
   </head>
   <body>
+    <!--
+      Apply the theme before first paint to avoid a flash of dark mode.
+      The CSS base (:root) is dark and the `light` class on <body> overrides
+      it, so light is the default unless the user has explicitly stored "dark".
+      This must stay in sync with src/hooks/use-theme.ts (STORAGE_KEY + logic).
+    -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("video-portal-theme");
+          if (stored !== "dark") document.body.classList.add("light");
+        } catch (e) {
+          document.body.classList.add("light");
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
