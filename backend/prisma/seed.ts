@@ -7,7 +7,8 @@
  * to studies with varied review status, and a couple of annotations/clips.
  *
  * Passwords are hashed by Better Auth itself (via auth.$context) so the normal
- * login flow accepts them. Every seeded user has the password `password123`.
+ * login flow accepts them. Every seeded user's password comes from the
+ * SEED_PASSWORD env var, defaulting to `password123` when unset.
  *
  * The seed is destructive-but-idempotent: it wipes the domain tables and
  * recreates them, so `npx prisma db seed` can be re-run at any time. It refuses
@@ -25,7 +26,9 @@ import { auth, seedDefaultPermission } from "../src/lib/auth.js";
 import { putObject } from "../src/lib/s3.js";
 import type { user_role, review_status } from "../src/generated/prisma/index.js";
 
-const PASSWORD = "password123";
+// Overridable so a publicly-reachable deploy isn't seeded with a known
+// credential. Defaults to the local-dev password.
+const PASSWORD = process.env.SEED_PASSWORD || "password123";
 
 /**
  * Public sample video used to make seeded videos actually playable in local
@@ -350,7 +353,7 @@ async function main() {
   // ── Summary ────────────────────────────────────────────────────────────────
   const line = "─".repeat(60);
   console.log(line);
-  console.log("Seed complete. Logins (all password: password123):");
+  console.log('Seed complete. Logins (password = $SEED_PASSWORD, or "password123" if unset):');
   console.log("  admin@local.dev         SYSADMIN          (sees everything)");
   console.log("  coordinator@local.dev   SITE_COORDINATOR  (Boston site admin)");
   console.log("  reviewer@local.dev      CLINICAL_REVIEWER (Seizure study only)");

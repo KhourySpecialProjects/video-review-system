@@ -1,0 +1,101 @@
+# Coolify develop deployment. Additive — does NOT replace docker-compose.yml
+# (the local dev/AWS-adjacent stack). Deploy as a Coolify "Docker Compose"
+# resource. In Coolify: expose `frontend` at dev.<domain> (with Basic Auth) and
+# `minio` port 9000 at s3.dev.<domain> (NO Basic Auth). See README "Deploying to
+# Coolify (develop)".
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    expose:
+      - "80"
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.coolify
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      LOCAL: "true"
+      NODE_ENV: development
+      PORT: "8080"
+      DATABASE_URL: ${DATABASE_URL}
+      LOCAL_DATABASE_URL: ${LOCAL_DATABASE_URL}
+      DIRECT_DATABASE_URL: ${DIRECT_DATABASE_URL}
+      ALLOWED_ORIGIN: ${ALLOWED_ORIGIN}
+      FRONTEND_URL: ${FRONTEND_URL}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+      # Required secrets: an unset/empty value is a silent security hole
+      # (e.g. an empty SEED_PASSWORD falls back to "password123" in the seed),
+      # so fail the deploy fast rather than boot insecure.
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}
+      ADMIN_SECRET: ${ADMIN_SECRET:?ADMIN_SECRET is required}
+      INTERNAL_SECRET_HEADER: ${INTERNAL_SECRET_HEADER:?INTERNAL_SECRET_HEADER is required}
+      SEED_PASSWORD: ${SEED_PASSWORD:?SEED_PASSWORD is required}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+      # SES_FROM_EMAIL intentionally unset -> log-only email.
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      # External URL so SigV4 host validation matches presigned URLs behind Traefik.
+      MINIO_SERVER_URL: ${S3_ENDPOINT}
+      # Allow browser cross-origin upload/stream from the app origin.
+      MINIO_API_CORS_ALLOW_ORIGIN: ${ALLOWED_ORIGIN}
+    volumes:
+      - minio_data:/data
+    expose:
+      - "9000"
+      - "9001"
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: ["/bin/sh", "/scripts/minio-init.sh"]
+    environment:
+      MINIO_INTERNAL_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+    volumes:
+      - ./scripts/minio-init.sh:/scripts/minio-init.sh:ro
+    restart: "no"
+
+volumes:
+  postgres_data:
+  minio_data:
