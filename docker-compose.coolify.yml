@@ -1,8 +1,7 @@
 # Coolify develop deployment. Additive — does NOT replace docker-compose.yml
 # (the local dev/AWS-adjacent stack). Deploy as a Coolify "Docker Compose"
-# resource. In Coolify: expose `frontend` at dev.<domain> (with Basic Auth) and
-# `minio` port 9000 at s3.dev.<domain> (NO Basic Auth). See README "Deploying to
-# Coolify (develop)".
+# resource. In Coolify: expose `frontend` at dev.<domain> and `minio` port 9000
+# at s3.dev.<domain>. See README "Deploying to Coolify (develop)".
 services:
   frontend:
     build:
@@ -13,21 +12,6 @@ services:
       - "80"
     depends_on:
       - backend
-    # ── HTTP Basic Auth (dev gate) ────────────────────────────────────────────
-    # Coolify has no Basic Auth toggle; it's a Traefik middleware added via a
-    # label. Two steps — see README "Deploying to Coolify (develop)":
-    #   1. DEFINE it: uncomment the label below and fill in USER:HASH. Generate
-    #      the hash with `htpasswd -nbB user 'pass'` (bcrypt) or, with no extra
-    #      install, `openssl passwd -apr1 'pass'` then prefix `user:`.
-    #      IMPORTANT: in a compose file, DOUBLE every `$` in the hash to `$$`
-    #      (e.g. `$apr1$...` -> `$$apr1$$...`), or Coolify/compose mangles it.
-    #   2. ATTACH it: in the Coolify UI, open this frontend service's Labels,
-    #      find the auto-generated `traefik.http.routers.<name>.middlewares=...`
-    #      line, and append `devauth` to it (e.g. `gzip,devauth`).
-    # Do NOT add Basic Auth to the `minio` service — presigned upload/stream
-    # URLs must stay reachable (the bucket is already private).
-    # labels:
-    #   - "traefik.http.middlewares.devauth.basicauth.users=<REPLACE_WITH_USER>:<REPLACE_WITH_HASH — double every $ to $$>"
 
   backend:
     build:
