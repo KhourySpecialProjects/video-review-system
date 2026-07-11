@@ -30,8 +30,7 @@
 - `docker-compose.coolify.yml` — the four-service Coolify resource.
 - `docs/superpowers/plans/` + README section — runbook.
 
-**Modified files (three tiny app changes + gitignore + README):**
-- `backend/src/index.ts` — `app.set("trust proxy", true)` (correct client IP/proto behind Traefik).
+**Modified files (two tiny app changes + gitignore + README):**
 - `backend/prisma/seed.ts` — read `SEED_PASSWORD` (default `password123`).
 - `frontend/nginx.conf` — add COOP/COEP headers for client-side transcoding.
 - `.gitignore` — un-ignore `.env.coolify.example`.
@@ -134,34 +133,19 @@ git commit -m "Add Coolify env template and un-ignore it"
 
 ---
 
-## Task 2: Application code changes (proxy trust, seed password, transcoding headers)
+## Task 2: Application code changes (seed password, transcoding headers)
 
 **Files:**
-- Modify: `backend/src/index.ts` (add `trust proxy` in `createApp`)
 - Modify: `backend/prisma/seed.ts:28` (env-driven password)
 - Modify: `frontend/nginx.conf` (COOP/COEP headers)
 
 **Interfaces:**
 - Consumes: `SEED_PASSWORD` env (Task 1).
-- Produces: a proxy-aware backend and cross-origin-isolated frontend that the compose stack (Task 5) relies on.
+- Produces: a configurable seed and a cross-origin-isolated frontend that the compose stack (Task 5) relies on.
 
-- [ ] **Step 1: Add `trust proxy` to the Express app**
+> **Note — no `trust proxy` change.** An earlier draft added `app.set("trust proxy", true)` in `index.ts`. It was dropped: `index.ts` is shared code that also ships to AWS, and nothing in the app consumes `req.ip`/`req.protocol`/`req.secure` in a way the setting would change (the audit middleware reads `x-forwarded-for` directly at `audit.ts:31`; Better Auth derives secure cookies from `BETTER_AUTH_URL`, not `req.secure`). Coolify login works without it. If a future need arises (IP rate-limiting, `req.secure`-derived cookies), add the scoped `trust proxy: 1` then.
 
-In `backend/src/index.ts`, inside `createApp()`, add the `trust proxy` line as the first statement after `const app = express();` (before `app.use(requestLogger)`):
-
-```typescript
-export function createApp() {
-  const app = express();
-
-  // Behind Coolify's Traefik reverse proxy: trust X-Forwarded-* so req.ip and
-  // req.protocol reflect the original HTTPS client (correct logging + auth).
-  app.set("trust proxy", true);
-
-  // middleware
-  app.use(requestLogger);
-```
-
-- [ ] **Step 2: Make the seed password configurable**
+- [ ] **Step 1: Make the seed password configurable**
 
 In `backend/prisma/seed.ts`, replace line 28:
 
@@ -177,7 +161,7 @@ with:
 const PASSWORD = process.env.SEED_PASSWORD || "password123";
 ```
 
-- [ ] **Step 3: Add COOP/COEP headers to nginx**
+- [ ] **Step 2: Add COOP/COEP headers to nginx**
 
 In `frontend/nginx.conf`, add the two `add_header` lines inside the `server { ... }` block, immediately after `index index.html;`:
 
@@ -192,21 +176,21 @@ In `frontend/nginx.conf`, add the two `add_header` lines inside the `server { ..
     add_header Cross-Origin-Embedder-Policy credentialless always;
 ```
 
-- [ ] **Step 4: Verify the backend still type-checks**
+- [ ] **Step 3: Verify the backend still type-checks**
 
 Run: `cd backend && npm run build`
-Expected: `tsc` exits 0, no errors. (Confirms the `index.ts` and `seed.ts` edits compile.)
+Expected: `tsc` exits 0, no errors. (Confirms the `seed.ts` edit compiles.)
 
-- [ ] **Step 5: Verify the seed change and nginx syntax by inspection**
+- [ ] **Step 4: Verify the seed change and nginx syntax by inspection**
 
-Run: `cd /home/mark/Work/CS4535/video-review-system && grep -n "SEED_PASSWORD" backend/prisma/seed.ts && grep -n "Cross-Origin" frontend/nginx.conf && grep -n "trust proxy" backend/src/index.ts`
-Expected: one match in each file (the lines added above).
+Run: `cd /home/mark/Work/CS4535/video-review-system && grep -n "SEED_PASSWORD" backend/prisma/seed.ts && grep -n "Cross-Origin" frontend/nginx.conf`
+Expected: one match in `seed.ts` and two `Cross-Origin` matches in `nginx.conf` (the lines added above).
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add backend/src/index.ts backend/prisma/seed.ts frontend/nginx.conf
-git commit -m "Make app Coolify/proxy-ready: trust proxy, SEED_PASSWORD, COOP/COEP"
+git add backend/prisma/seed.ts frontend/nginx.conf
+git commit -m "Make app Coolify-ready: SEED_PASSWORD override, COOP/COEP headers"
 ```
 
 ---
@@ -707,7 +691,7 @@ deliverable: a working develop deployment.
   - Login as `admin@local.dev` / `SEED_PASSWORD` succeeds; reviews list loads.
   - Upload a video to `s3.dev.<domain>` and play it back — succeeds.
   - Invite activation link appears in `backend` logs.
-  Expected: all four pass. If login fails with a cookie/redirect error, verify `BETTER_AUTH_URL=https://dev.<domain>` and that Traefik forwards `X-Forwarded-Proto: https` (the `trust proxy` setting from Task 2 relies on it).
+  Expected: all four pass. If login fails with a cookie/redirect error, verify `BETTER_AUTH_URL=https://dev.<domain>` (Better Auth derives the secure-cookie flag from this) and that the `frontend` domain is served over HTTPS.
 
 - [ ] **Step 6: Enable auto-deploy** — confirm the Coolify GitHub App is installed (org-owner approved) and `develop` auto-deploys. Verify by pushing a trivial change to `develop` and watching Coolify redeploy. If approval is pending, note it and rely on manual deploy.
 
@@ -723,8 +707,8 @@ deliverable: a working develop deployment.
 - Log-only email (SES_FROM_EMAIL unset) → Task 1/Task 5 (omitted), verified Task 7 Step 5. ✓
 - COOP/COEP header → Task 2 Step 3. ✓
 - Auto-deploy via GitHub App + org-approval caveat → Task 6/Task 7 Step 6. ✓
-- Security: edge Basic Auth (app host only) + SEED_PASSWORD → Task 2 Step 2, Task 6/Task 7 Step 3. ✓
-- Two/three app code changes only → Task 2 (trust proxy is the third; the design's "two changes" undercounted — trust proxy is required for correct auth/logging behind Traefik and is benign locally). ✓
+- Security: edge Basic Auth (app host only) + SEED_PASSWORD → Task 2 Step 1, Task 6/Task 7 Step 3. ✓
+- Exactly two app code changes → Task 2 (SEED_PASSWORD + COOP/COEP), matching the design. (An earlier draft's `trust proxy` addition was dropped — it ships to shared AWS code and no code path consumes the values it changes.) ✓
 - New files list → Tasks 1,3,4,5,6. ✓
 - Risks (secure cookies, COOP/COEP vs media, MinIO CORS/ETag, org approval) → verified in Task 5 Steps 5–6 and Task 7 Steps 5–6. ✓
 - Testing (local dry run + post-deploy smoke) → Task 5 + Task 7. ✓
