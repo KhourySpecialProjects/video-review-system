@@ -7,7 +7,8 @@
  * to studies with varied review status, and a couple of annotations/clips.
  *
  * Passwords are hashed by Better Auth itself (via auth.$context) so the normal
- * login flow accepts them. Every seeded user has the password `password123`.
+ * login flow accepts them. Every seeded user's password comes from the
+ * SEED_PASSWORD env var, defaulting to `password123` when unset.
  *
  * The seed is destructive-but-idempotent: it wipes the domain tables and
  * recreates them, so `npx prisma db seed` can be re-run at any time. It refuses
@@ -352,7 +353,7 @@ async function main() {
   // ── Summary ────────────────────────────────────────────────────────────────
   const line = "─".repeat(60);
   console.log(line);
-  console.log("Seed complete. Logins (all password: password123):");
+  console.log('Seed complete. Logins (password = $SEED_PASSWORD, or "password123" if unset):');
   console.log("  admin@local.dev         SYSADMIN          (sees everything)");
   console.log("  coordinator@local.dev   SITE_COORDINATOR  (Boston site admin)");
   console.log("  reviewer@local.dev      CLINICAL_REVIEWER (Seizure study only)");
