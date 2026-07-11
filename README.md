@@ -243,3 +243,69 @@ To be added.
 
 - [`frontend/README.md`](./frontend/README.md)
 - [`backend/README.md`](./backend/README.md)
+
+## Deploying to Coolify (develop)
+
+An **additive, development-testing** deployment target, separate from the AWS
+production path (which is unchanged). It runs the full stack — including working
+video upload/playback — on a self-hosted Coolify server, using a containerized
+MinIO object store in place of S3. See
+`docs/superpowers/specs/2026-07-11-coolify-develop-deployment-design.md` for the
+design.
+
+### What gets deployed
+
+One Coolify **Docker Compose** resource (`docker-compose.coolify.yml`) with four
+services: `frontend` (nginx, public), `backend` (internal), `postgres`
+(persistent volume), and `minio` (object store, public S3 API).
+
+### DNS
+
+Point two hostnames at the Coolify server:
+- `dev.<domain>` — the app (frontend).
+- `s3.dev.<domain>` — the MinIO S3 API (the browser uploads/streams here directly).
+
+### One-time Coolify setup
+
+1. **Create the resource:** New Resource → Docker Compose → this repo, branch
+   `develop`, compose file `docker-compose.coolify.yml`.
+2. **Environment variables:** paste the filled-in values from
+   `.env.coolify.example` (generate every secret with `openssl rand -base64 32`).
+   Set `ALLOWED_ORIGIN` / `FRONTEND_URL` / `BETTER_AUTH_URL` to `https://dev.<domain>`
+   and `S3_ENDPOINT` to `https://s3.dev.<domain>`. Leave `SES_FROM_EMAIL` unset.
+3. **Domains:**
+   - `frontend` → `https://dev.<domain>` (container port 80).
+   - `minio` → `https://s3.dev.<domain>` (container port **9000** only — do NOT
+     expose the 9001 console publicly).
+4. **Basic Auth:** enable Coolify/Traefik HTTP Basic Auth on the `frontend`
+   domain only. Do NOT put Basic Auth on `s3.dev.<domain>` — presigned
+   upload/stream URLs must stay reachable (the bucket is already private).
+5. **Auto-deploy on merge to `develop`:** connect the **Coolify GitHub App** and
+   enable automatic deployment for the `develop` branch.
+   - ⚠️ The repo is in the `KhourySpecialProjects` org, so installing the GitHub
+     App needs an **org-owner approval**. Until then, use Coolify's manual
+     **Deploy** button — the deployment works; only the automation waits on
+     approval.
+
+### First deploy
+
+Click **Deploy**. On first boot the backend runs `prisma migrate deploy`, detects
+an empty database, seeds it, and (best-effort, `LOCAL=true`) uploads sample media
+to MinIO. Later deploys skip seeding, so data and uploaded videos persist.
+
+### Smoke test
+
+1. Visit `https://dev.<domain>` (pass Basic Auth), log in as `admin@local.dev`
+   with your `SEED_PASSWORD`.
+2. Browse the reviews list (seeded data appears).
+3. Upload a video and play it back (exercises the MinIO presigned round trip).
+4. Trigger an invite from the admin UI and confirm the activation link appears in
+   the `backend` service logs (log-only email).
+
+### Notes
+
+- **Log-only email:** no mail is sent; invite/reset links are logged by the
+  backend. This is intentional for dev.
+- **Seed password:** `SEED_PASSWORD` sets the seeded users' password so the public
+  admin login is not a known credential.
+- This target never touches AWS. Production still deploys via `scripts/deploy-*.sh`.
