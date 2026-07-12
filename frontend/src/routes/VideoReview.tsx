@@ -56,8 +56,12 @@ function VideoReviewContent({ loaderData }: { loaderData: VideoReviewLoaderData 
   const [activeSequenceId, setActiveSequenceId] = useState<string | null>(null);
   useReviewShortcutActions();
 
+  // The `translateZ(0)` transform on SidebarProvider makes it the containing
+  // block for the metadata sidebar's `position: fixed` (see
+  // components/ui/sidebar.tsx). Without it the sidebar anchors to the viewport
+  // top and slips under the banner + navbar, hiding its top content (Patient ID).
   return (
-    <SidebarProvider className="!min-h-0 h-full">
+    <SidebarProvider className="!min-h-0 h-full [transform:translateZ(0)]">
       <VideoMetadataSidebar
         metadata={{
           patientId: loaderData.videoId,
