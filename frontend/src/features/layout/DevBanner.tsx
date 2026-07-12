@@ -29,7 +29,10 @@ export function DevBanner() {
   return (
     <div
       role="status"
-      className="w-full bg-warning px-4 py-1.5 text-center text-xs font-medium text-black"
+      // `relative z-50` keeps the strip above viewport-anchored `fixed` page
+      // chrome (e.g. the review page's shadcn sidebar, z-10) so it always spans
+      // the full width — matching the navbar's own z-50.
+      className="relative z-50 w-full bg-warning px-4 py-1.5 text-center text-xs font-medium text-black"
     >
       {banner.text}
     </div>
