@@ -28,6 +28,7 @@ function mockPlayer(overrides: Partial<ReturnType<typeof useVideoPlayer>> = {}):
         volume: 1.0,
         setVolume: vi.fn(),
         aspectRatio: null,
+        duration: 0,
         ...overrides,
     } as ReturnType<typeof useVideoPlayer>;
 }
@@ -80,6 +81,20 @@ describe("VideoPlayer", () => {
                 if (!node) return false;
                 const text = node.textContent?.trim();
                 return text === "0:00 / 2:00";
+            }),
+        ).toBeInTheDocument();
+    });
+
+    it("prefers the real element duration over the prop once known", () => {
+        // The DB-provided prop (120s) is stale/placeholder; the actual media is
+        // 10s. Once the player knows the real duration, the total shown and the
+        // scrubber range must reflect it.
+        mockUseVideoPlayer.mockReturnValueOnce(mockPlayer({ duration: 10 }));
+        render(<VideoPlayer src="https://example.com/video.mp4" duration={120} />);
+        expect(
+            screen.getByText((_, node) => {
+                if (!node) return false;
+                return node.textContent?.trim() === "0:00 / 0:10";
             }),
         ).toBeInTheDocument();
     });

@@ -90,6 +90,20 @@ export function useVideoPlayer() {
     }, []);
 
     const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+    // The real media duration, read from the <video> element. Preferred over any
+    // caller-supplied (DB) duration so the scrubber matches the actual file.
+    const [duration, setDuration] = useState(0);
+
+    /**
+     * @description Reads the element's duration into state when it is a finite,
+     * positive number (streaming/live sources report Infinity or NaN).
+     */
+    const syncDuration = useCallback(() => {
+        const video = videoRef.current;
+        if (video && Number.isFinite(video.duration) && video.duration > 0) {
+            setDuration(video.duration);
+        }
+    }, []);
 
     /** @description Video element event handlers — pass directly to `<video>`. */
     const videoEventHandlers = {
@@ -98,7 +112,9 @@ export function useVideoPlayer() {
             if (video && video.videoWidth && video.videoHeight) {
                 setAspectRatio(video.videoWidth / video.videoHeight);
             }
+            syncDuration();
         },
+        onDurationChange: syncDuration,
         onPlay: () => {
             dispatch({ type: "PLAY" });
             resetInactivityTimer();
@@ -210,5 +226,6 @@ export function useVideoPlayer() {
         volume: state.volume,
         setVolume,
         aspectRatio,
+        duration,
     };
 }
