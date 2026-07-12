@@ -215,6 +215,11 @@ export function useVideoUpload() {
     uploadStartTime.current = Date.now()
     abortController.current = new AbortController()
 
+    // Enter the processing state immediately so the UI shows a "Preparing
+    // video" spinner during metadata/thumbnail extraction (which can take a
+    // few seconds on mobile) instead of appearing to hang.
+    dispatch({ type: "PROCESSING_STARTED", fileName: file.name })
+
     try {
       const [meta, frameDataUrl] = await Promise.all([
         extractVideoMetadata(file),
