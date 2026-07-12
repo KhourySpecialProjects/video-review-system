@@ -18,7 +18,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog"
 import { Separator } from "@/components/ui/separator"
-import { Download, CircleCheckBig, ArrowRight } from "lucide-react"
+import { Upload, CircleCheckBig, ArrowRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { SelectStep } from "./SelectStep"
 import { DetailsStep } from "./DetailsStep"
@@ -59,7 +59,7 @@ export function VideoUpload() {
             className="fixed bottom-4 left-4 right-4 z-50 md:static md:bottom-auto md:left-auto md:right-auto md:z-auto w-auto md:w-1/2 bg-primary text-bg-dark"
             variant="outline"
           >
-            <Download className="size-5 text-bg-dark text-2xl font-bold" />{" "}
+            <Upload className="size-5 text-bg-dark text-2xl font-bold" />{" "}
             Upload Video
           </Button>
         }
