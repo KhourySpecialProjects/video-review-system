@@ -58,6 +58,9 @@ import { generatePresignedGetUrl } from "../../lib/s3.js";
 describe("videos.service", () => {
   beforeEach(() => {
     resetVideosPrismaMock(prismaMock);
+    // Clear the module-level S3 mock's call history so toHaveBeenCalledWith /
+    // not.toHaveBeenCalledWith assertions only see the current test's calls.
+    vi.mocked(generatePresignedGetUrl).mockClear();
     prismaMock.$transaction.mockImplementation(
       async (callback: (client: typeof prismaMock) => Promise<unknown>) =>
         callback(prismaMock),

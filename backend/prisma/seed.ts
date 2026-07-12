@@ -247,7 +247,7 @@ async function main() {
   }> = [
     {
       uploaderId: caregiver1Id, siteId: boston.id, studyId: seizure.id,
-      title: "Morning episode — arm stiffening", notes: "~15s, right arm, after waking.",
+      title: "Morning episode — arm stiffening", notes: "Right arm stiffening, after waking.",
       durationSeconds: 10, fileSizeMB: 22, daysAgo: 2, reviewStatus: "NOT_REVIEWED",
     },
     {
@@ -269,7 +269,7 @@ async function main() {
     },
     {
       uploaderId: caregiver2Id, siteId: seattle.id, studyId: seizure.id,
-      title: "Evening episode — full body", notes: "Longer event, ~40s.",
+      title: "Evening episode — full body", notes: "Full-body event, whole-body involvement.",
       durationSeconds: 10, fileSizeMB: 35, daysAgo: 12, reviewStatus: "IN_REVIEW",
     },
     {
