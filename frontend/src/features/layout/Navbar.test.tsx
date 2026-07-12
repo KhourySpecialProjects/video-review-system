@@ -54,7 +54,8 @@ describe("Navbar", () => {
 
     it("renders the logo", () => {
         renderNavbar();
-        expect(screen.getByText("CV")).toBeInTheDocument();
+        expect(screen.getByText("A")).toBeInTheDocument();
+        expect(screen.getByText("Asclepion")).toBeInTheDocument();
     });
 
     it("renders desktop nav links", () => {
