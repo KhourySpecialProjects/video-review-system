@@ -72,7 +72,14 @@ export function VideoPlayer({
         volume,
         setVolume,
         aspectRatio,
+        duration: elementDuration,
     } = externalState ?? internalState;
+
+    // The `duration` prop is the DB-stored value (may be stale/placeholder). Once
+    // the <video> element reports its real duration, prefer it so the scrubber
+    // range and total time match the actual media.
+    const effectiveDuration =
+        elementDuration && elementDuration > 0 ? elementDuration : duration;
 
     const isPortraitVideo = aspectRatio !== null && aspectRatio < 1;
     // Thumbnail only shows before first play — pausing mid-video keeps the
@@ -148,7 +155,7 @@ export function VideoPlayer({
 
                 <PlayerControls
                     currentTime={currentTime}
-                    duration={duration}
+                    duration={effectiveDuration}
                     isPlaying={isPlaying}
                     isMuted={isMuted}
                     volume={volume}

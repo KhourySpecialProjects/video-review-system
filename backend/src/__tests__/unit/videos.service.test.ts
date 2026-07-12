@@ -48,14 +48,19 @@ vi.mock("../../lib/s3.js", () => ({
 
 import {
   deleteVideo,
+  getVideoStreamUrl,
   listVideos,
   resolveVideoAuditSiteId,
   updateVideo,
 } from "../../domains/videos/videos.service.js";
+import { generatePresignedGetUrl } from "../../lib/s3.js";
 
 describe("videos.service", () => {
   beforeEach(() => {
     resetVideosPrismaMock(prismaMock);
+    // Clear the module-level S3 mock's call history so toHaveBeenCalledWith /
+    // not.toHaveBeenCalledWith assertions only see the current test's calls.
+    vi.mocked(generatePresignedGetUrl).mockClear();
     prismaMock.$transaction.mockImplementation(
       async (callback: (client: typeof prismaMock) => Promise<unknown>) =>
         callback(prismaMock),
@@ -102,7 +107,7 @@ describe("videos.service", () => {
     });
 
     expect(prismaMock.video.findMany).toHaveBeenCalledWith({
-      where: { status: "UPLOADED" },
+      where: { status: "UPLOADED", uploadedByUserId: "user-123" },
       orderBy: { createdAt: "desc" },
       skip: 10,
       take: 5,
@@ -115,7 +120,7 @@ describe("videos.service", () => {
       },
     });
     expect(prismaMock.video.count).toHaveBeenCalledWith({
-      where: { status: "UPLOADED" },
+      where: { status: "UPLOADED", uploadedByUserId: "user-123" },
     });
     expect(result).toEqual({
       videos: [
@@ -123,7 +128,7 @@ describe("videos.service", () => {
           id: videos[0].id,
           title: "Private title 1",
           description: "Private notes 1",
-          imageUrl: "https://s3.example.com/thumb.jpg",
+          imgUrl: "https://s3.example.com/thumb.jpg",
           durationSeconds: videos[0].durationSeconds,
           status: videos[0].status,
           fileSize: Number(videos[0].fileSize),
@@ -135,7 +140,7 @@ describe("videos.service", () => {
           id: videos[1].id,
           title: "Private title 2",
           description: "",
-          imageUrl: "https://s3.example.com/thumb.jpg",
+          imgUrl: "https://s3.example.com/thumb.jpg",
           durationSeconds: videos[1].durationSeconds,
           status: videos[1].status,
           fileSize: Number(videos[1].fileSize),
@@ -148,6 +153,38 @@ describe("videos.service", () => {
       limit: 5,
       offset: 10,
     });
+  });
+
+  // ========= getVideoStreamUrl =========
+
+  it("presigns the literal s3Key for the video and a .jpg-derived key for the thumbnail", async () => {
+    // Input: a video whose s3Key is the actual object key (uploads/<id>/<name>.mp4).
+    // Expected: the video stream URL is presigned for that exact key (no extra
+    // ".mp4" appended), and the thumbnail is presigned for the same key with its
+    // extension swapped to ".jpg".
+    const video = makeVideo({
+      s3Key: "uploads/2a10c639/testvideo.mp4",
+      status: "UPLOADED",
+      caregiverMetadata: [{ privateTitle: "Clip", privateNotes: null }],
+      uploadedBy: { name: "Caregiver One" },
+    });
+
+    prismaMock.video.findUnique.mockResolvedValue(video);
+
+    await getVideoStreamUrl(video.id, "user-123");
+
+    expect(generatePresignedGetUrl).toHaveBeenCalledWith(
+      "uploads/2a10c639/testvideo.mp4",
+      3600,
+    );
+    expect(generatePresignedGetUrl).toHaveBeenCalledWith(
+      "uploads/2a10c639/testvideo.jpg",
+      3600,
+    );
+    expect(generatePresignedGetUrl).not.toHaveBeenCalledWith(
+      "uploads/2a10c639/testvideo.mp4.mp4",
+      expect.anything(),
+    );
   });
 
   // ========= updateVideo =========

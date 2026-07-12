@@ -11,6 +11,7 @@ import type {
   AuditSnapshot,
 } from "../audit/audit.types.js";
 import { AppError } from "../../middleware/errors.js";
+import { thumbnailKeyFor } from "../../lib/mediaKeys.js";
 import type { CreateVideoInput, CompleteUploadInput, UpdateVideoInput, UpdateVideoMetadataInput, SearchVideosInput, VideoListItem } from "./videos.types.js";
 import type { Prisma } from "../../generated/prisma/client.js";
 import {
@@ -58,7 +59,7 @@ async function toVideoListItem(
 ): Promise<VideoListItem> {
   const meta = video.caregiverMetadata[0];
   const imgUrl = includeImgUrl
-    ? await generatePresignedGetUrl(`${video.s3Key}.jpg`, 3600)
+    ? await generatePresignedGetUrl(thumbnailKeyFor(video.s3Key), 3600)
     : "";
 
   return {
@@ -314,8 +315,11 @@ export async function getVideoStreamUrl(
   }
 
   const expiresIn = 3600;
-  const videoKey = `${video.s3Key}.mp4`;
-  const imageKey = `${video.s3Key}.jpg`;
+  // s3Key is the literal object key of the uploaded video; the thumbnail lives
+  // alongside it as a .jpg. (No AWS MediaConvert derivative step exists — see
+  // VMP-162.)
+  const videoKey = video.s3Key;
+  const imageKey = thumbnailKeyFor(video.s3Key);
   const [videoUrl, imgUrl, videoListItem] = await Promise.all([
     generatePresignedGetUrl(videoKey, expiresIn),
     generatePresignedGetUrl(imageKey, expiresIn),

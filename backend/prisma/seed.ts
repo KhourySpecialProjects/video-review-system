@@ -24,6 +24,7 @@ import { randomUUID } from "crypto";
 import prisma from "../src/lib/prisma.js";
 import { auth, seedDefaultPermission } from "../src/lib/auth.js";
 import { putObject } from "../src/lib/s3.js";
+import { thumbnailKeyFor } from "../src/lib/mediaKeys.js";
 import type { user_role, review_status } from "../src/generated/prisma/index.js";
 
 // Overridable so a publicly-reachable deploy isn't seeded with a known
@@ -47,7 +48,7 @@ const DEFAULT_SAMPLE_VIDEO_URL =
  * Only runs when LOCAL=true, and never fails the seed — if offline, a URL is
  * down, or S3 isn't reachable, it logs a warning and the DB rows still stand.
  */
-async function uploadSampleMedia(baseKeys: string[]): Promise<void> {
+async function uploadSampleMedia(videoKeys: string[]): Promise<void> {
   if (process.env.LOCAL !== "true") return;
 
   const url = process.env.SEED_SAMPLE_VIDEO_URL || DEFAULT_SAMPLE_VIDEO_URL;
@@ -57,11 +58,11 @@ async function uploadSampleMedia(baseKeys: string[]): Promise<void> {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const videoBytes = Buffer.from(await res.arrayBuffer());
 
-    for (const key of baseKeys) {
-      await putObject(`${key}.mp4`, videoBytes, "video/mp4");
+    for (const key of videoKeys) {
+      await putObject(key, videoBytes, "video/mp4");
     }
     const mb = (videoBytes.length / 1024 / 1024).toFixed(1);
-    console.log(`Uploaded sample video (${mb} MB) to ${baseKeys.length} keys.`);
+    console.log(`Uploaded sample video (${mb} MB) to ${videoKeys.length} keys.`);
   } catch (err) {
     console.warn(
       `[seed] Skipped sample-video upload (${(err as Error).message}). ` +
@@ -73,10 +74,10 @@ async function uploadSampleMedia(baseKeys: string[]): Promise<void> {
   // Thumbnails (best-effort, per video). A miss just means a broken poster.
   try {
     let uploaded = 0;
-    for (let i = 0; i < baseKeys.length; i++) {
+    for (let i = 0; i < videoKeys.length; i++) {
       const thumbRes = await fetch(`https://picsum.photos/seed/asclepion${i}/640/360`);
       if (!thumbRes.ok) continue;
-      await putObject(`${baseKeys[i]}.jpg`, Buffer.from(await thumbRes.arrayBuffer()), "image/jpeg");
+      await putObject(thumbnailKeyFor(videoKeys[i]), Buffer.from(await thumbRes.arrayBuffer()), "image/jpeg");
       uploaded++;
     }
     console.log(`Uploaded ${uploaded} sample thumbnails.`);
@@ -246,35 +247,35 @@ async function main() {
   }> = [
     {
       uploaderId: caregiver1Id, siteId: boston.id, studyId: seizure.id,
-      title: "Morning episode — arm stiffening", notes: "~15s, right arm, after waking.",
-      durationSeconds: 47, fileSizeMB: 22, daysAgo: 2, reviewStatus: "NOT_REVIEWED",
+      title: "Morning episode — arm stiffening", notes: "Right arm stiffening, after waking.",
+      durationSeconds: 10, fileSizeMB: 22, daysAgo: 2, reviewStatus: "NOT_REVIEWED",
     },
     {
       uploaderId: caregiver1Id, siteId: boston.id, studyId: seizure.id,
       title: "Afternoon staring spell", notes: "Unresponsive for a few seconds.",
-      durationSeconds: 33, fileSizeMB: 15, daysAgo: 5, reviewStatus: "IN_REVIEW",
+      durationSeconds: 10, fileSizeMB: 15, daysAgo: 5, reviewStatus: "IN_REVIEW",
       comment: "Possible absence seizure — reviewing.",
     },
     {
       uploaderId: caregiver1Id, siteId: boston.id, studyId: nocturnal.id,
       title: "Nighttime movement 03:14", notes: "Rhythmic leg movement during sleep.",
-      durationSeconds: 120, fileSizeMB: 61, daysAgo: 9, reviewStatus: "NOT_REVIEWED",
+      durationSeconds: 10, fileSizeMB: 61, daysAgo: 9, reviewStatus: "NOT_REVIEWED",
     },
     {
       uploaderId: caregiver2Id, siteId: seattle.id, studyId: seizure.id,
       title: "Post-meal jerking", notes: "Brief myoclonic jerks after lunch.",
-      durationSeconds: 58, fileSizeMB: 27, daysAgo: 3, reviewStatus: "REVIEWED",
+      durationSeconds: 10, fileSizeMB: 27, daysAgo: 3, reviewStatus: "REVIEWED",
       comment: "Confirmed myoclonic activity; annotated.",
     },
     {
       uploaderId: caregiver2Id, siteId: seattle.id, studyId: seizure.id,
-      title: "Evening episode — full body", notes: "Longer event, ~40s.",
-      durationSeconds: 72, fileSizeMB: 35, daysAgo: 12, reviewStatus: "IN_REVIEW",
+      title: "Evening episode — full body", notes: "Full-body event, whole-body involvement.",
+      durationSeconds: 10, fileSizeMB: 35, daysAgo: 12, reviewStatus: "IN_REVIEW",
     },
     {
       uploaderId: caregiver2Id, siteId: seattle.id, studyId: baseline.id,
       title: "Baseline calm sitting", notes: "Reference clip, no event.",
-      durationSeconds: 90, fileSizeMB: 44, daysAgo: 20, reviewStatus: "NOT_REVIEWED",
+      durationSeconds: 10, fileSizeMB: 44, daysAgo: 20, reviewStatus: "NOT_REVIEWED",
     },
   ];
 
@@ -284,10 +285,10 @@ async function main() {
   for (const v of videoPlan) {
     const videoId = randomUUID();
     const takenAt = daysAgo(v.daysAgo);
-    // s3Key is a BASE path — the app appends `.mp4` (video) and `.jpg`
-    // (thumbnail) when generating stream URLs (see videos.service.ts). This
-    // mirrors the real upload flow, which uses `uploads/<id>/<name>`.
-    const s3Key = `uploads/${videoId}/sample`;
+    // s3Key is the LITERAL object key of the uploaded video, mirroring the real
+    // upload flow (`uploads/<id>/<name>`). The thumbnail lives alongside it as a
+    // .jpg (see thumbnailKeyFor / videos.service.ts).
+    const s3Key = `uploads/${videoId}/sample.mp4`;
     await prisma.video.create({
       data: {
         id: videoId,
@@ -328,13 +329,13 @@ async function main() {
       {
         videoId: reviewed.id, authorUserId: reviewerId,
         studyId: reviewed.studyId, siteId: reviewed.siteId,
-        type: "text_comment", timestampS: 12, durationS: 0,
+        type: "text_comment", timestampS: 3, durationS: 0,
         payload: { text: "Onset of myoclonic jerk" }, createdAt: daysAgo(1),
       },
       {
         videoId: reviewed.id, authorUserId: reviewerId,
         studyId: reviewed.studyId, siteId: reviewed.siteId,
-        type: "tag", timestampS: 20, durationS: 5,
+        type: "tag", timestampS: 6, durationS: 2,
         payload: { label: "myoclonic" }, createdAt: daysAgo(1),
       },
     ],
@@ -343,7 +344,7 @@ async function main() {
     data: {
       videoId: reviewed.id, createdByUserId: reviewerId,
       studyId: reviewed.studyId, siteId: reviewed.siteId,
-      title: "Jerk sequence", startTimeS: 10, endTimeS: 25, createdAt: daysAgo(1),
+      title: "Jerk sequence", startTimeS: 2, endTimeS: 8, createdAt: daysAgo(1),
     },
   });
 
