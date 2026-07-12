@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Spinner } from "@/components/ui/spinner"
 import { formatDuration } from "@/lib/format"
 import { DropZone } from "./DropZone"
 import type { UploadStatus } from "./useVideoUpload"
@@ -37,8 +38,29 @@ export function SelectStep({ onFileSelected, upload, onPause }: SelectStepProps)
     return <DropZone onFileSelected={onFileSelected} error={upload.error} />
   }
 
-  const isUploading = upload.status === "uploading"
-  const label = upload.status === "processing" ? "Processing video" : "Uploading video"
+  if (upload.status === "processing") {
+    return (
+      <section aria-label="Preparing video" aria-live="polite">
+        <p className="text-xs font-semibold uppercase tracking-widest text-text-muted mb-3">
+          Preparing video
+        </p>
+
+        <Card className="mb-4">
+          <CardContent className="flex items-center gap-2 py-2 px-3">
+            <Video className="size-4 text-text-muted shrink-0" strokeWidth={1.75} />
+            <span className="text-sm truncate">{upload.fileName}</span>
+          </CardContent>
+        </Card>
+
+        <div className="flex items-center gap-2 text-sm text-text-muted">
+          <Spinner />
+          <span>Preparing video…</span>
+        </div>
+      </section>
+    )
+  }
+
+  const label = "Uploading video"
 
   return (
     <section aria-label="Upload progress" aria-live="polite">
@@ -64,7 +86,7 @@ export function SelectStep({ onFileSelected, upload, onPause }: SelectStepProps)
         </p>
       )}
 
-      {isUploading && onPause && (
+      {onPause && (
         <Button
           variant="outline"
           size="sm"
