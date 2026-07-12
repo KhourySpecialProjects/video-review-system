@@ -130,6 +130,7 @@ export function ReviewDetailsSection({
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
           side="bottom"
+          blurOverlay={false}
           className="max-h-[85vh] overflow-y-auto rounded-t-2xl"
         >
           <SheetHeader className="flex-row items-center justify-between">

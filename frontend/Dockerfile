@@ -8,6 +8,8 @@ RUN npm ci
 
 COPY frontend/ .
 COPY shared ../shared
+ARG VITE_APP_ENV=""
+ENV VITE_APP_ENV=$VITE_APP_ENV
 RUN npm run build
 
 # ── Stage 2: Serve ────────────────────────────────────────────────

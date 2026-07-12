@@ -103,8 +103,9 @@ export function Navbar({ scrollContainerRef }: NavbarProps) {
                 aria-label="Home"
             >
                 <div className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold text-sm">
-                    CV
+                    A
                 </div>
+                <span className="hidden sm:inline">Asclepion</span>
             </Link>
 
             <div className="flex items-center gap-1">

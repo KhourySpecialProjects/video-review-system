@@ -4,6 +4,7 @@ import { AnimatePresence } from "motion/react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Navbar } from "@/features/layout/Navbar";
+import { DevBanner } from "@/features/layout/DevBanner";
 
 export type MainOutletContext = {
     mainRef: React.RefObject<HTMLElement | null>;
@@ -33,6 +34,7 @@ export default function Root() {
     return (
         <TooltipProvider>
             <div className="flex h-screen flex-col overflow-hidden bg-bg-dark">
+                <DevBanner />
                 <Navbar scrollContainerRef={mainRef} />
                 <main
                     ref={mainRef}
