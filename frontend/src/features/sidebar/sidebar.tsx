@@ -11,6 +11,7 @@ import { useSidebarMutations } from "./useSidebarMutations"
 import { ClipsTab } from "./ClipsTab"
 import { NotesTab } from "./NotesTab"
 import { DrawingsTab } from "./DrawingsTab"
+import { TabCountBadge } from "./TabCountBadge"
 import type { DrawingToolType } from "./DrawingCard"
 
 const SIDEBAR_PROVIDER_STYLE = {
@@ -137,8 +138,17 @@ export function AnnotationSidebar({
                       transition={{ type: "spring", stiffness: 420, damping: 36 }}
                     />
                   )}
-                  <span className="relative z-10">
+                  <span className="relative z-10 inline-flex items-center">
                     {value === "clips" ? "Clips" : value === "notes" ? "Notes" : "Draw"}
+                    <TabCountBadge
+                      count={
+                        value === "clips"
+                          ? clips.length
+                          : value === "notes"
+                            ? notes.length
+                            : drawings.length
+                      }
+                    />
                   </span>
                 </TabsTrigger>
               ))}
