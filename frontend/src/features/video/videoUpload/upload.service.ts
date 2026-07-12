@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api"
+import { typedVideoBlob } from "./videoBlob"
 
 const PART_SIZE = 10 * 1024 * 1024 // 10 MB — must match backend
 const MAX_PART_RETRIES = 4
@@ -42,9 +43,15 @@ function getUploadConcurrency(): number {
   return isMobileDevice() ? 3 : 6
 }
 
+/** Metadata/thumbnail probes must never block the upload; give up after this. */
+const MEDIA_PROBE_TIMEOUT_MS = 8000
+
 /**
- * Extracts duration and last-modified date from a video Blob using
- * a temporary `<video>` element.
+ * Extracts duration and last-modified date from a video Blob using a temporary
+ * `<video>` element. Best-effort: on error or timeout (e.g. iOS Photos files
+ * whose metadata never loads) it resolves with a fallback duration of 0 rather
+ * than rejecting, so the upload always proceeds. The player reads the true
+ * duration from the media at playback time.
  *
  * @param file - The video Blob (or File) to inspect
  * @returns The duration in seconds and the takenAt ISO string
@@ -52,72 +59,94 @@ function getUploadConcurrency(): number {
 export function extractVideoMetadata(
   file: Blob | File
 ): Promise<{ durationSeconds: number; takenAt: string }> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const video = document.createElement("video")
     video.preload = "metadata"
+    video.muted = true
+    video.playsInline = true
 
-    const url = URL.createObjectURL(file)
+    // Re-type the blob when its MIME is empty (iOS Photos picker) so the
+    // <video> element will actually load it via the object URL.
+    const url = URL.createObjectURL(typedVideoBlob(file))
     video.src = url
 
-    video.onloadedmetadata = () => {
-      const durationSeconds = Math.round(video.duration)
-      // Use File.lastModified when available (date the file was last written
-      // on the device, which on mobile is typically when the video was recorded).
-      // Falls back to "now" for plain Blobs.
-      const takenAt =
-        file instanceof File
-          ? new Date(file.lastModified).toISOString()
-          : new Date().toISOString()
+    // Use File.lastModified when available (typically the recording date on
+    // mobile); fall back to now for bare Blobs.
+    const takenAt =
+      file instanceof File
+        ? new Date(file.lastModified).toISOString()
+        : new Date().toISOString()
 
+    let settled = false
+    const finish = (durationSeconds: number) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
       URL.revokeObjectURL(url)
       resolve({ durationSeconds, takenAt })
     }
 
-    video.onerror = () => {
-      URL.revokeObjectURL(url)
-      reject(new Error("Could not read video metadata"))
+    const timer = setTimeout(() => finish(0), MEDIA_PROBE_TIMEOUT_MS)
+
+    video.onloadedmetadata = () => {
+      finish(Number.isFinite(video.duration) ? Math.round(video.duration) : 0)
     }
+    video.onerror = () => finish(0)
   })
 }
 
 /**
- * Captures a single frame from a video file at ~1 second and returns it
- * as a JPEG data URL. Used as a temporary thumbnail while MediaConvert
- * generates the real one.
+ * Captures a single frame from a video file at ~1 second and returns it as a
+ * JPEG data URL, or `null` if the frame can't be captured. Best-effort: on
+ * error or timeout it resolves `null` (never rejects/hangs) so the upload
+ * proceeds without a client-side thumbnail.
  *
  * @param file - The video Blob (or File) to capture a frame from
- * @returns A data:image/jpeg data URL of the captured frame
+ * @returns A data:image/jpeg data URL, or null
  */
-export function captureVideoFrame(file: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
+export function captureVideoFrame(file: Blob): Promise<string | null> {
+  return new Promise((resolve) => {
     const video = document.createElement("video")
     video.preload = "auto"
     video.muted = true
     video.playsInline = true
 
-    const url = URL.createObjectURL(file)
+    const url = URL.createObjectURL(typedVideoBlob(file))
     video.src = url
 
+    let settled = false
+    const finish = (result: string | null) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      URL.revokeObjectURL(url)
+      resolve(result)
+    }
+
+    const timer = setTimeout(() => finish(null), MEDIA_PROBE_TIMEOUT_MS)
+
     video.onloadedmetadata = () => {
-      // Seek to 1s or halfway if video is shorter than 1s
-      video.currentTime = Math.min(1, video.duration / 2)
+      // Seek to 1s or halfway; guard against non-finite durations.
+      video.currentTime = Number.isFinite(video.duration)
+        ? Math.min(1, video.duration / 2)
+        : 0
     }
 
     video.onseeked = () => {
-      const canvas = document.createElement("canvas")
-      canvas.width = video.videoWidth
-      canvas.height = video.videoHeight
-      const ctx = canvas.getContext("2d")!
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.7)
-      URL.revokeObjectURL(url)
-      resolve(dataUrl)
+      try {
+        const canvas = document.createElement("canvas")
+        canvas.width = video.videoWidth
+        canvas.height = video.videoHeight
+        const ctx = canvas.getContext("2d")
+        if (!ctx) return finish(null)
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        finish(canvas.toDataURL("image/jpeg", 0.7))
+      } catch {
+        finish(null)
+      }
     }
 
-    video.onerror = () => {
-      URL.revokeObjectURL(url)
-      reject(new Error("Could not capture video frame"))
-    }
+    video.onerror = () => finish(null)
   })
 }
 
