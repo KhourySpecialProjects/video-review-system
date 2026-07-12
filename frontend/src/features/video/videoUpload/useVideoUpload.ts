@@ -218,7 +218,7 @@ export function useVideoUpload() {
     try {
       const [meta, frameDataUrl] = await Promise.all([
         extractVideoMetadata(file),
-        captureVideoFrame(file).catch(() => null),
+        captureVideoFrame(file),
       ])
 
       totalBytes.current = file.size
