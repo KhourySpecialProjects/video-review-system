@@ -269,12 +269,25 @@ Point two hostnames at the Coolify server:
 
 1. **Create the resource:** New Resource → Docker Compose → this repo, branch
    `develop`, compose file `docker-compose.coolify.yml`.
-2. **Environment variables:** paste the filled-in values from
-   `.env.coolify.example` (generate every secret with `openssl rand -base64 32`,
-   except `POSTGRES_PASSWORD`, which is embedded in the DB URLs and must be
-   URL-safe — use `openssl rand -hex 32`).
-   Set `ALLOWED_ORIGIN` / `FRONTEND_URL` / `BETTER_AUTH_URL` to `https://dev.<domain>`
-   and `S3_ENDPOINT` to `https://s3.dev.<domain>`. Leave `SES_FROM_EMAIL` unset.
+2. **Environment variables:** fill in the values from `.env.coolify.example`.
+   - **Generate these secrets** with `openssl rand -base64 32`:
+     `BETTER_AUTH_SECRET`, `ADMIN_SECRET`, `INTERNAL_SECRET_HEADER`,
+     `SEED_PASSWORD`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`. Generate
+     `POSTGRES_PASSWORD` with `openssl rand -hex 32` instead — it's embedded in
+     the DB connection URLs, so it must be URL-safe (base64 can emit `/ + =`).
+   - **Do NOT generate `POSTGRES_USER` or `POSTGRES_DB`.** They are fixed
+     identifiers (default `angelman`), not secrets, and the connection URLs are
+     built from them. Keep the **same** user, database, and password across
+     `POSTGRES_USER`/`POSTGRES_DB` and all three DSNs
+     (`DATABASE_URL` / `LOCAL_DATABASE_URL` / `DIRECT_DATABASE_URL`, each
+     `postgres://<user>:<password>@postgres:5432/<db>`). If `POSTGRES_DB` or
+     `POSTGRES_USER` don't match the DSNs, Postgres initializes a
+     differently-named database on first boot and the backend fails with
+     `database "<name>" does not exist` (and fixing it later means wiping the
+     `postgres_data` volume, since the name is only set on the first init).
+   - Set `ALLOWED_ORIGIN` / `FRONTEND_URL` / `BETTER_AUTH_URL` to
+     `https://dev.<domain>` and `S3_ENDPOINT` to `https://s3.dev.<domain>`.
+     Leave `SES_FROM_EMAIL` unset.
 3. **Domains:**
    - `frontend` → `https://dev.<domain>` (container port 80).
    - `minio` → `https://s3.dev.<domain>` (container port **9000** only — do NOT
@@ -288,12 +301,16 @@ Point two hostnames at the Coolify server:
    edge gate at Traefik — a source-IP allowlist, or an HTTP Basic Auth middleware
    on the `frontend` service **only** (never `s3.dev.<domain>`, or presigned
    upload/stream URLs break).
-5. **Auto-deploy on merge to `develop`:** connect the **Coolify GitHub App** and
-   enable automatic deployment for the `develop` branch.
-   - ⚠️ The repo is in the `KhourySpecialProjects` org, so installing the GitHub
-     App needs an **org-owner approval**. Until then, use Coolify's manual
-     **Deploy** button — the deployment works; only the automation waits on
-     approval.
+5. **Auto-deploy on push to `develop`:** connect the **Coolify GitHub App** to
+   the repository and enable automatic deployment for the `develop` branch.
+   Coolify registers the repo webhook, so pushes to `develop` redeploy
+   automatically. (If you plan to add per-PR preview deployments later, leave the
+   "Preview Deployments" permission checked when creating the app — it only grants
+   the capability and avoids a second permission approval down the line.)
+   - If the repository lives in a GitHub **organization**, installing the app must
+     be approved by an org owner — immediate if you are an owner, otherwise it
+     goes to the owners as a request. Coolify's manual **Deploy** button works in
+     the meantime, so the deployment itself is never blocked — only the automation.
 
 ### First deploy
 
