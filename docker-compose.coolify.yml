@@ -85,14 +85,28 @@ services:
     image: minio/mc:latest
     depends_on:
       - minio
-    entrypoint: ["/bin/sh", "/scripts/minio-init.sh"]
     environment:
-      MINIO_INTERNAL_ENDPOINT: http://minio:9000
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       S3_BUCKET_NAME: ${S3_BUCKET_NAME}
-    volumes:
-      - ./scripts/minio-init.sh:/scripts/minio-init.sh:ro
+    # Inlined instead of a bind-mounted script. Coolify runs the compose from a
+    # directory without the repo working tree, so a `./scripts/...` bind mount
+    # resolves to a nonexistent host path and Docker creates an empty DIRECTORY
+    # at the target ("Is a directory" when executed). Inlining removes the host
+    # file dependency. `$$` escapes compose interpolation so the shell expands
+    # the vars at runtime. Bucket stays private; CORS is on the MinIO server.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        i=0
+        until mc alias set target "http://minio:9000" "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" >/dev/null 2>&1; do
+          i=$$((i + 1))
+          [ "$$i" -ge 30 ] && echo "[minio-init] MinIO not ready in time" && exit 1
+          echo "[minio-init] waiting for MinIO..."
+          sleep 2
+        done
+        mc mb --ignore-existing "target/$$S3_BUCKET_NAME"
+        echo "[minio-init] done"
     restart: "no"
 
 volumes:
