@@ -499,4 +499,3 @@ Expected: no errors.
 Confirm: Upload button shows an upload icon; browser tab shows the "A" favicon; top-left shows "A Asclepion"; an amber "Local Development Preview" strip sits above the header; a reviewer video's Clips/Notes tabs show count badges (Draw shows none when empty).
 
 - [ ] **Step 4: Push and open the PR** (handled by the executing skill / operator).
-```
