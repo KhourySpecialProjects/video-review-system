@@ -54,7 +54,7 @@ export function createApp() {
 
   // health check (no auth required)
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok" });
+    res.json({ status: "ok", deploy: "auto-1" });
   });
 
   // domain routes
