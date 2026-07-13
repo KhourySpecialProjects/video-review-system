@@ -94,4 +94,16 @@ describe("Navbar", () => {
         expect(screen.queryByText("Reviews")).not.toBeInTheDocument();
         expect(screen.queryByText("Admin")).not.toBeInTheDocument();
     });
+
+    it("logo links to /reviews for a non-caregiver", () => {
+        authState.user = { name: "Sam Admin", role: "SYSADMIN" };
+        renderNavbar();
+        expect(screen.getByLabelText("Home")).toHaveAttribute("href", "/reviews");
+    });
+
+    it("logo links to / for a caregiver", () => {
+        authState.user = { name: "Casey Care", role: "CAREGIVER" };
+        renderNavbar();
+        expect(screen.getByLabelText("Home")).toHaveAttribute("href", "/");
+    });
 });
