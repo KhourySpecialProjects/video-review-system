@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { IncompleteUpload } from "@shared-types/video";
 
@@ -43,5 +43,27 @@ describe("DesktopUploadIndicator", () => {
         expect(screen.queryByTestId("upload-card")).not.toBeInTheDocument();
         await user.click(screen.getByLabelText("Incomplete uploads (1)"));
         expect(await screen.findByText("clip-one.mp4")).toBeInTheDocument();
+    });
+
+    it("reports open state via onOpenChange (the Navbar relies on this to hold the nav visible)", async () => {
+        const user = userEvent.setup();
+        const onOpenChange = vi.fn();
+        render(
+            <DesktopUploadIndicator
+                uploads={uploads}
+                busy={false}
+                onResume={noop}
+                onCancel={noop}
+                onOpenChange={onOpenChange}
+            />,
+        );
+
+        await user.click(screen.getByLabelText("Incomplete uploads (1)"));
+        await screen.findByText("clip-one.mp4"); // popover is open
+        // Base UI calls onOpenChange(open, eventDetails) — assert the first arg.
+        expect(onOpenChange.mock.calls.at(-1)?.[0]).toBe(true);
+
+        await user.keyboard("{Escape}");
+        await waitFor(() => expect(onOpenChange.mock.calls.at(-1)?.[0]).toBe(false));
     });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 
@@ -19,8 +19,10 @@ vi.mock("@/hooks/use-logout", () => ({
 
 import { UserMenu } from "./UserMenu";
 
-function renderUserMenu() {
-    const router = createMemoryRouter([{ path: "/", element: <UserMenu /> }]);
+function renderUserMenu(onOpenChange?: (open: boolean) => void) {
+    const router = createMemoryRouter([
+        { path: "/", element: <UserMenu onOpenChange={onOpenChange} /> },
+    ]);
     return render(<RouterProvider router={router} />);
 }
 
@@ -90,5 +92,20 @@ describe("UserMenu", () => {
         expect(await screen.findByText("Tutorial")).toBeInTheDocument();
         expect(screen.queryByText("Reviews")).not.toBeInTheDocument();
         expect(screen.queryByText("Admin")).not.toBeInTheDocument();
+    });
+
+    it("reports open state via onOpenChange (the Navbar relies on this to hold the nav visible)", async () => {
+        const user = userEvent.setup();
+        const onOpenChange = vi.fn();
+        authState.user = { name: "Jane Doe", role: "SYSADMIN" };
+        renderUserMenu(onOpenChange);
+
+        await user.click(screen.getByLabelText("User menu"));
+        await screen.findByText("Tutorial"); // menu is open
+        // Base UI calls onOpenChange(open, eventDetails) — assert the first arg.
+        expect(onOpenChange.mock.calls.at(-1)?.[0]).toBe(true);
+
+        await user.keyboard("{Escape}");
+        await waitFor(() => expect(onOpenChange.mock.calls.at(-1)?.[0]).toBe(false));
     });
 });
