@@ -1,11 +1,12 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs, ShouldRevalidateFunction } from "react-router";
-import { type QueryClient, queryOptions } from "@tanstack/react-query";
+import { type QueryClient, type FetchQueryOptions, queryOptions } from "@tanstack/react-query";
 import { z } from "zod";
 import { toast } from "sonner";
 import type { Video } from "./types";
 import { apiFetch } from "./api";
 import { homeKeys, searchKeys, videoViewKeys } from "./queryClient";
 import { annotationsQuery, clipsQuery, sequencesQuery } from "@/features/video/review/useReviewData";
+import { getSessionRole } from "@/hooks/auth-guard";
 
 const editVideoSchema = z.object({
     title: z.string().min(1, "Title is required."),
@@ -246,6 +247,29 @@ export type VideoViewLoaderData = {
 // ── Route loaders ────────────────────────────────────────────────────────
 
 /**
+ * @description Fires a caregiver-only list/stream prefetch only when the
+ * current session role is CAREGIVER. The caregiver routes are guarded by
+ * `caregiverGuardLoader`, which redirects non-caregivers — but React Router
+ * runs matched loaders in parallel, so without this gate the prefetch races
+ * the redirect and issues a caregiver-only request that 403s for a
+ * non-caregiver (VMP-166). The prefetch stays fire-and-forget so the page
+ * still streams in via Suspense; only the cached role check is awaited.
+ *
+ * @param queryClient - The shared TanStack QueryClient
+ * @param query - The query options to prefetch when the user is a caregiver
+ */
+async function prefetchIfCaregiver(
+    queryClient: QueryClient,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    query: FetchQueryOptions<any, any, any, any>,
+): Promise<void> {
+    const role = await getSessionRole();
+    if (role === "CAREGIVER") {
+        queryClient.prefetchQuery(query);
+    }
+}
+
+/**
  * @description Home route loader factory. Takes the shared `queryClient`
  * so it can prefetch the recent videos list into the TanStack Query cache.
  * The prefetch is not awaited — the page renders immediately with a
@@ -255,11 +279,11 @@ export type VideoViewLoaderData = {
  * @returns The loader handler React Router will call
  */
 export function homeLoader(queryClient: QueryClient) {
-    return ({ request }: LoaderFunctionArgs): HomeLoaderData => {
+    return async ({ request }: LoaderFunctionArgs): Promise<HomeLoaderData> => {
         const url = new URL(request.url);
         const limit = Number(url.searchParams.get("limit") ?? "10");
         const offset = Number(url.searchParams.get("offset") ?? "0");
-        queryClient.prefetchQuery(homeVideosQuery(limit, offset));
+        await prefetchIfCaregiver(queryClient, homeVideosQuery(limit, offset));
         return { limit, offset };
     };
 }
@@ -274,11 +298,11 @@ export function homeLoader(queryClient: QueryClient) {
  * @returns The loader handler React Router will call
  */
 export function searchLoader(queryClient: QueryClient) {
-    return ({ request }: LoaderFunctionArgs): SearchLoaderData => {
+    return async ({ request }: LoaderFunctionArgs): Promise<SearchLoaderData> => {
         const url = new URL(request.url);
         const q = url.searchParams.get("q") ?? "";
         const searchParams = url.searchParams.toString();
-        queryClient.prefetchQuery(searchVideosQuery(searchParams));
+        await prefetchIfCaregiver(queryClient, searchVideosQuery(searchParams));
         return { searchParams, q };
     };
 }
@@ -294,12 +318,12 @@ export function searchLoader(queryClient: QueryClient) {
  * @returns The loader handler React Router will call
  */
 export function videoViewLoader(queryClient: QueryClient) {
-    return ({ params }: LoaderFunctionArgs): VideoViewLoaderData => {
+    return async ({ params }: LoaderFunctionArgs): Promise<VideoViewLoaderData> => {
         const { videoId } = params;
         if (!videoId) {
             throw new Response("Missing videoId", { status: 400 });
         }
-        queryClient.prefetchQuery(videoStreamQuery(videoId));
+        await prefetchIfCaregiver(queryClient, videoStreamQuery(videoId));
         return { videoId };
     };
 }

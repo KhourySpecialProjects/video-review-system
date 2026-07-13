@@ -22,7 +22,7 @@ export async function authGuardLoader() {
  * @returns The authenticated user's role, or `null` if the session or
  *   role claim is missing.
  */
-async function getSessionRole(): Promise<Role | null> {
+export async function getSessionRole(): Promise<Role | null> {
     const { data: session } = await authClient.getSession();
     if (!session) return null;
     const role = (session.user as { role?: Role }).role;
