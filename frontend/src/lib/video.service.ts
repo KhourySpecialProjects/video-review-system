@@ -258,10 +258,9 @@ export type VideoViewLoaderData = {
  * @param queryClient - The shared TanStack QueryClient
  * @param query - The query options to prefetch when the user is a caregiver
  */
-async function prefetchIfCaregiver(
+async function prefetchIfCaregiver<TQueryFnData, TError, TData, TQueryKey extends readonly unknown[]>(
     queryClient: QueryClient,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    query: FetchQueryOptions<any, any, any, any>,
+    query: FetchQueryOptions<TQueryFnData, TError, TData, TQueryKey>,
 ): Promise<void> {
     const role = await getSessionRole();
     if (role === "CAREGIVER") {
