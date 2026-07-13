@@ -1,7 +1,6 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs, ShouldRevalidateFunction } from "react-router";
 import { type QueryClient, type FetchQueryOptions, queryOptions } from "@tanstack/react-query";
 import { z } from "zod";
-import { toast } from "sonner";
 import type { Video } from "./types";
 import { apiFetch } from "./api";
 import { homeKeys, searchKeys, videoViewKeys } from "./queryClient";
@@ -146,13 +145,13 @@ export function homeVideosQuery(limit = 10, offset = 0) {
         queryFn: async () => {
             const res = await apiFetch(`/videos?limit=${limit}&offset=${offset}`);
             if (!res.ok) {
-                toast.error("Failed to fetch videos");
                 throw new Error("Failed to fetch videos");
             }
             return res.json() as Promise<VideoListResponse>;
         },
         staleTime: LIST_STALE_MS,
         refetchInterval: LIST_STALE_MS,
+        meta: { errorMessage: "Failed to fetch videos" },
     });
 }
 
@@ -181,11 +180,11 @@ export function searchVideosQuery(searchParams: string) {
         queryFn: async () => {
             const res = await apiFetch(`/videos/search?${searchParams}`);
             if (!res.ok) {
-                toast.error("Failed to search videos");
                 throw new Error("Failed to search videos");
             }
             return res.json() as Promise<VideoListResponse>;
         },
+        meta: { errorMessage: "Failed to search videos" },
     });
 }
 
@@ -225,7 +224,6 @@ export function videoStreamQuery(videoId: string) {
         queryFn: async () => {
             const res = await apiFetch(`/videos/${videoId}/stream`);
             if (!res.ok) {
-                toast.error("Failed to load video");
                 throw new Error("Failed to fetch stream URL");
             }
             return res.json() as Promise<VideoStreamResponse>;
@@ -234,6 +232,7 @@ export function videoStreamQuery(videoId: string) {
             refreshMs(query.state.data as VideoStreamResponse | undefined) ?? 0,
         refetchInterval: (query) =>
             refreshMs(query.state.data as VideoStreamResponse | undefined) ?? false,
+        meta: { errorMessage: "Failed to load video" },
     });
 }
 
