@@ -1,15 +1,10 @@
 import { Link } from "react-router";
-import { LogOut, Menu, X } from "lucide-react";
-import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "motion/react";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { useLogout } from "@/hooks/use-logout";
+import { motion, useMotionValueEvent, useScroll } from "motion/react";
 import { useAuth } from "@/context/auth-context";
-import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useIncompleteUploads } from "./useIncompleteUploads";
-import { UploadCardStack } from "./UploadCardStack";
 import { DesktopUploadIndicator } from "./DesktopUploadIndicator";
-import { Spinner } from "@/components/ui/spinner";
+import { UserMenu } from "./UserMenu";
 
 type NavbarProps = {
     scrollContainerRef: React.RefObject<HTMLElement | null>;
@@ -18,10 +13,6 @@ type NavbarProps = {
 /** @description Shared styles for desktop nav links. */
 const desktopLinkClass =
     "inline-flex items-center justify-center rounded-md px-2.5 h-8 text-sm font-medium text-text hover:bg-muted transition-all";
-
-/** @description Shared styles for mobile dropdown menu links. */
-const mobileLinkClass =
-    "flex items-center rounded-md px-2.5 py-2 text-sm font-medium text-text hover:bg-muted transition-all";
 
 /**
  * @description Top navigation bar. Slides out of view when the user
@@ -35,11 +26,11 @@ const mobileLinkClass =
  *   visibility logic.
  */
 export function Navbar({ scrollContainerRef }: NavbarProps) {
-    const logout = useLogout();
     const { user } = useAuth();
-    const [menuOpen, setMenuOpen] = useState(false);
+    const [userMenuOpen, setUserMenuOpen] = useState(false);
+    const [uploadOpen, setUploadOpen] = useState(false);
     const [scrollDirection, setScrollDirection] = useState<"up" | "down">("up");
-    const { uploads, busy, isLoading, isCaregiver, fileInputRef, onResume, onCancel, onFileChange } =
+    const { uploads, busy, isCaregiver, fileInputRef, onResume, onCancel, onFileChange } =
         useIncompleteUploads();
 
     /** @description Reviews is open to every authenticated non-caregiver. */
@@ -64,9 +55,9 @@ export function Navbar({ scrollContainerRef }: NavbarProps) {
         setScrollDirection((prev) => (prev === next ? prev : next));
     });
 
-    // Stay visible while the mobile menu is open so it doesn't scroll
-    // away under the user's finger.
-    const hide = scrollDirection === "down" && !menuOpen;
+    // Stay visible while a menu/popover is open so it doesn't scroll away
+    // under the user's finger.
+    const hide = scrollDirection === "down" && !userMenuOpen && !uploadOpen;
 
     return (
         <motion.nav
@@ -76,16 +67,7 @@ export function Navbar({ scrollContainerRef }: NavbarProps) {
             }}
             animate={hide ? "hidden" : "visible"}
             transition={{ type: "spring", stiffness: 380, damping: 36 }}
-            // `overflow-hidden` is needed during the height collapse so
-            // the buttons don't spill out below the shrinking nav — but
-            // when the mobile dropdown is open (rendered at `top-full`
-            // below the nav) we need `overflow-visible` or the dropdown
-            // gets clipped. The menu can't be open while `hide` is true
-            // (see the `hide` expression above), so this is safe.
-            className={
-                "sticky top-0 z-50 flex items-center justify-between border-b border-border/50 bg-bg-light px-4 py-2.5 shadow-s " +
-                (menuOpen ? "overflow-visible" : "overflow-hidden")
-            }
+            className="sticky top-0 z-50 flex items-center justify-between border-b border-border/50 bg-bg-light px-4 py-2.5 shadow-s overflow-hidden"
         >
             {isCaregiver && (
                 <input
@@ -120,127 +102,20 @@ export function Navbar({ scrollContainerRef }: NavbarProps) {
                             Admin
                         </Link>
                     )}
-                    <Link to="/tutorials" className={desktopLinkClass}>
-                        Tutorial
-                    </Link>
                 </div>
 
                 {isCaregiver && (
-                    <div className="hidden md:block">
-                        <DesktopUploadIndicator
-                            uploads={uploads}
-                            busy={busy}
-                            onResume={onResume}
-                            onCancel={onCancel}
-                        />
-                    </div>
+                    <DesktopUploadIndicator
+                        uploads={uploads}
+                        busy={busy}
+                        onResume={onResume}
+                        onCancel={onCancel}
+                        onOpenChange={setUploadOpen}
+                    />
                 )}
 
-                <ThemeToggle />
-
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="hidden text-destructive md:inline-flex"
-                    onClick={logout}
-                    aria-label="Log out"
-                >
-                    <LogOut className="size-4" />
-                </Button>
-
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="relative text-text md:hidden"
-                    onClick={() => setMenuOpen(!menuOpen)}
-                    aria-label="Toggle menu"
-                    aria-expanded={menuOpen}
-                >
-                    <AnimatePresence mode="wait" initial={false}>
-                        <motion.span
-                            key={menuOpen ? "close" : "open"}
-                            initial={{ rotate: -90, opacity: 0 }}
-                            animate={{ rotate: 0, opacity: 1 }}
-                            exit={{ rotate: 90, opacity: 0 }}
-                            transition={{ duration: 0.18, ease: "easeOut" }}
-                            className="inline-flex"
-                        >
-                            {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
-                        </motion.span>
-                    </AnimatePresence>
-                    {isCaregiver && uploads.length > 0 && (
-                        <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
-                            {uploads.length}
-                        </span>
-                    )}
-                </Button>
+                <UserMenu onOpenChange={setUserMenuOpen} />
             </div>
-
-            <AnimatePresence initial={false}>
-                {menuOpen && (
-                    <motion.div
-                        key="mobile-menu"
-                        initial={{ opacity: 0, y: -8, height: 0 }}
-                        animate={{ opacity: 1, y: 0, height: "auto" }}
-                        exit={{ opacity: 0, y: -8, height: 0 }}
-                        transition={{ type: "spring", stiffness: 320, damping: 32 }}
-                        className="absolute left-0 top-full w-full overflow-hidden border-b border-border/50 bg-bg-light z-50 md:hidden"
-                    >
-                        <div className="flex flex-col gap-2 p-4">
-                            {isCaregiver &&
-                                (isLoading ? (
-                                    <div className="flex justify-center py-3">
-                                        <Spinner />
-                                    </div>
-                                ) : (
-                                    <UploadCardStack
-                                        uploads={uploads}
-                                        busy={busy}
-                                        onResume={onResume}
-                                        onCancel={onCancel}
-                                    />
-                                ))}
-
-                            {showReviews && (
-                                <Link
-                                    to="/reviews"
-                                    onClick={() => setMenuOpen(false)}
-                                    className={mobileLinkClass}
-                                >
-                                    Reviews
-                                </Link>
-                            )}
-                            {showAdmin && (
-                                <Link
-                                    to="/admin"
-                                    onClick={() => setMenuOpen(false)}
-                                    className={mobileLinkClass}
-                                >
-                                    Admin
-                                </Link>
-                            )}
-                            <Link
-                                to="/tutorials"
-                                onClick={() => setMenuOpen(false)}
-                                className={mobileLinkClass}
-                            >
-                                Tutorial
-                            </Link>
-                            <button
-                                onClick={() => {
-                                    setMenuOpen(false);
-                                    logout();
-                                }}
-                                className="flex items-center rounded-md px-2.5 py-2 text-sm font-medium text-destructive hover:bg-muted transition-all"
-                                aria-label="Log out"
-                            >
-                                <LogOut className="mr-2 size-4" />
-                                Log out
-                            </button>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
         </motion.nav>
     );
 }
