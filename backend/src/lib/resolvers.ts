@@ -41,13 +41,28 @@ class ResourceResolver {
   }];
 
   /**
-   * @description Resolves context from `req.query`. Used for GET list routes.
+   * @description Resolves context from `req.query`. Used for GET list routes
+   * that list a resource by `videoId`. Authorization is derived from the
+   * video's own `VideoStudy` links (studyId/siteId) rather than trusting
+   * client-supplied `studyId`/`siteId` params, so study- and site-scoped
+   * grants match. Mirrors `videos.fromParams`. Returns `[]` when no videoId
+   * is supplied or the video has no study links (→ 403 via checkPermission).
    */
-  fromQuery: ContextResolver = (req) => [{
-    studyId: (req.query.studyId as string) ?? null,
-    siteId: (req.query.siteId as string) ?? null,
-    videoId: (req.query.videoId as string) ?? null,
-  }];
+  fromQuery: ContextResolver = async (req) => {
+    const videoId = (req.query.videoId as string) ?? null;
+    if (!videoId) return [];
+
+    const videoStudies = await prisma.videoStudy.findMany({
+      where: { videoId },
+      select: { studyId: true, siteId: true },
+    });
+
+    return videoStudies.map((vs) => ({
+      studyId: vs.studyId,
+      siteId: vs.siteId,
+      videoId,
+    }));
+  };
 
   /**
    * @description Resolves the owner's user ID by looking up the resource by `req.params.id`.
