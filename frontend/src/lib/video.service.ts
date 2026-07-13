@@ -252,7 +252,10 @@ export type VideoViewLoaderData = {
  * runs matched loaders in parallel, so without this gate the prefetch races
  * the redirect and issues a caregiver-only request that 403s for a
  * non-caregiver (VMP-166). The prefetch stays fire-and-forget so the page
- * still streams in via Suspense; only the cached role check is awaited.
+ * still streams in via Suspense; only the role check is awaited. That check
+ * runs in parallel with the parent `caregiverGuardLoader`'s own session read,
+ * so it adds no navigation latency (it is not, however, a cached/free call —
+ * the better-auth client performs a real `get-session` request).
  *
  * @param queryClient - The shared TanStack QueryClient
  * @param query - The query options to prefetch when the user is a caregiver
