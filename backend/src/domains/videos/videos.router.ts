@@ -74,7 +74,7 @@ router.get("/search",
  * @body takenAt - ISO datetime (required)
  * @body contentType - MIME type, must be video/mp4 (required)
  *
- * @returns 201 with { video, parts, partSize, totalParts, expiresIn }
+ * @returns 201 with { video, parts, partSize, totalParts, expiresIn, thumbnailUploadUrl }
  * @returns 400 if request body fails validation
  */
 router.post("/upload",

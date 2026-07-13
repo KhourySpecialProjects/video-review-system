@@ -17,6 +17,7 @@ import type { Prisma } from "../../generated/prisma/client.js";
 import {
   generatePresignedGetUrl,
   generatePresignedPartUrls,
+  generatePresignedPutUrl,
   initiateMultipartUpload,
   completeMultipartUpload,
   abortMultipartUpload,
@@ -429,6 +430,7 @@ export async function initiateVideoUpload({
   partSize: number;
   totalParts: number;
   expiresIn: number;
+  thumbnailUploadUrl: string;
 }> {
   const totalParts = Math.ceil(fileSize / PART_SIZE);
   const expiresIn = 3600;
@@ -508,7 +510,14 @@ export async function initiateVideoUpload({
     expiresIn
   );
 
-  return { video, parts, partSize: PART_SIZE, totalParts, expiresIn };
+  // Presigned PUT so the client can persist the captured poster alongside the
+  // video at its derived .jpg key (no MediaConvert step exists — see VMP-163).
+  const thumbnailUploadUrl = await generatePresignedPutUrl(
+    thumbnailKeyFor(video.s3Key),
+    expiresIn
+  );
+
+  return { video, parts, partSize: PART_SIZE, totalParts, expiresIn, thumbnailUploadUrl };
 }
 
 /**
