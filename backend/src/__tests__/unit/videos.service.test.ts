@@ -40,6 +40,7 @@ vi.mock("../../lib/prisma.js", () => ({
 vi.mock("../../lib/s3.js", () => ({
   generatePresignedGetUrl: vi.fn().mockResolvedValue("https://s3.example.com/thumb.jpg"),
   generatePresignedPartUrls: vi.fn(),
+  generatePresignedPutUrl: vi.fn().mockResolvedValue("https://s3.example.com/put.jpg"),
   initiateMultipartUpload: vi.fn(),
   completeMultipartUpload: vi.fn(),
   listUploadedParts: vi.fn(),

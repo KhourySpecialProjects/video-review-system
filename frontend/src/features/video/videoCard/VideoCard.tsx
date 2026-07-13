@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 export function VideoCard({ video }: { video: Video }) {
     const [isPortrait, setIsPortrait] = useState(false);
+    const [posterFailed, setPosterFailed] = useState(false);
     const cardRef = useRef<HTMLDivElement>(null);
     const { mainRef } = useOutletContext<MainOutletContext>();
     const isMobile = useIsMobile();
@@ -75,7 +76,7 @@ export function VideoCard({ video }: { video: Video }) {
                         transition={{ type: "spring", stiffness: 260, damping: 32 }}
                         className="relative flex items-center justify-center w-full overflow-hidden bg-black aspect-video"
                     >
-                        {isPortrait && (
+                        {isPortrait && !posterFailed && (
                             <img
                                 src={getThumbnail(video.id) ?? video.imgUrl}
                                 alt=""
@@ -83,22 +84,26 @@ export function VideoCard({ video }: { video: Video }) {
                                 className="absolute inset-0 size-full object-cover blur-xl scale-110"
                             />
                         )}
-                        <img
-                            src={getThumbnail(video.id) ?? video.imgUrl}
-                            alt={video.title}
-                            className={isPortrait ? "h-full w-3/4 object-cover relative mx-auto" : "size-full object-cover"}
-                            loading="lazy"
-                            onLoad={(e) => {
-                                const img = e.currentTarget;
-                                setIsPortrait(img.naturalHeight > img.naturalWidth);
-                            }}
-                            onError={(e) => {
-                                const cached = getThumbnail(video.id);
-                                if (cached && e.currentTarget.src !== cached) {
-                                    e.currentTarget.src = cached;
-                                }
-                            }}
-                        />
+                        {!posterFailed && (
+                            <img
+                                src={getThumbnail(video.id) ?? video.imgUrl}
+                                alt={video.title}
+                                className={isPortrait ? "h-full w-3/4 object-cover relative mx-auto" : "size-full object-cover"}
+                                loading="lazy"
+                                onLoad={(e) => {
+                                    const img = e.currentTarget;
+                                    setIsPortrait(img.naturalHeight > img.naturalWidth);
+                                }}
+                                onError={(e) => {
+                                    const cached = getThumbnail(video.id);
+                                    if (cached && e.currentTarget.src !== cached) {
+                                        e.currentTarget.src = cached;
+                                        return;
+                                    }
+                                    setPosterFailed(true);
+                                }}
+                            />
+                        )}
 
                         <div className="absolute">
                             <CirclePlay className="size-12 text-primary opacity-80 transition-transform group-hover:scale-110 md:size-16" />

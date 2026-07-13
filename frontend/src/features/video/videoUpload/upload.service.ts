@@ -11,6 +11,7 @@ type InitiateUploadResponse = {
   partSize: number
   totalParts: number
   expiresIn: number
+  thumbnailUploadUrl: string
 }
 
 type UploadedPart = {
@@ -148,6 +149,30 @@ export function captureVideoFrame(file: Blob): Promise<string | null> {
 
     video.onerror = () => finish(null)
   })
+}
+
+/**
+ * Uploads a client-captured poster to S3 via a presigned PUT URL. Converts the
+ * `data:image/jpeg` URL produced by `captureVideoFrame` into a Blob and PUTs
+ * it with an `image/jpeg` content type (the presigned URL does not sign the
+ * content type, so this header is accepted and stored).
+ *
+ * Rejects on a non-OK response; callers treat poster upload as best-effort and
+ * must not let a failure fail the video upload.
+ *
+ * @param uploadUrl - Presigned PUT URL for the poster's derived .jpg key
+ * @param dataUrl - A data:image/jpeg;base64,... string
+ */
+export async function uploadThumbnail(uploadUrl: string, dataUrl: string): Promise<void> {
+  const blob = await fetch(dataUrl).then((r) => r.blob())
+  const res = await fetch(uploadUrl, {
+    method: "PUT",
+    body: blob,
+    headers: { "Content-Type": "image/jpeg" },
+  })
+  if (!res.ok) {
+    throw new Error(`Thumbnail upload failed (${res.status})`)
+  }
 }
 
 /**
@@ -376,13 +401,22 @@ export async function uploadVideo(
     studyId?: string
   },
   onProgress?: (percent: number) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  frameDataUrl?: string | null
 ): Promise<string> {
-  const { video, parts } = await initiateUpload({
+  const { video, parts, thumbnailUploadUrl } = await initiateUpload({
     ...metadata,
     fileSize: file.size,
     contentType: "video/mp4",
   })
+
+  // Best-effort: persist the poster alongside the video. Runs concurrently with
+  // the part uploads and starts right after initiate, so the poster survives
+  // even if the large upload is later paused. A failure must not fail the upload.
+  const thumbnailPromise =
+    frameDataUrl != null
+      ? uploadThumbnail(thumbnailUploadUrl, frameDataUrl).catch(() => {})
+      : Promise.resolve()
 
   const uploadedParts = await uploadPartsWithConcurrency(
     parts,
@@ -393,7 +427,7 @@ export async function uploadVideo(
     signal
   )
 
-  await completeUpload(video.id, uploadedParts)
+  await Promise.all([completeUpload(video.id, uploadedParts), thumbnailPromise])
 
   return video.id
 }

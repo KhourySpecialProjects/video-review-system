@@ -58,6 +58,31 @@ export async function generatePresignedGetUrl(
 }
 
 /**
+ * Generates a presigned URL for uploading a single object to S3 via PUT.
+ * Used to persist the client-captured video poster alongside the video.
+ *
+ * Content-Type is intentionally NOT part of the signature: signing it makes
+ * S3/MinIO/LocalStack reject any request whose header does not match exactly.
+ * The client sends `Content-Type: image/jpeg`, which S3 still stores.
+ *
+ * @param key - The S3 object key to write (e.g. "uploads/<id>/clip.jpg")
+ * @param expiresIn - URL lifetime in seconds (default: 3600 = 1 hour)
+ *
+ * @returns A signed URL string that grants temporary PUT access to the key
+ */
+export async function generatePresignedPutUrl(
+  key: string,
+  expiresIn: number = 3600
+): Promise<string> {
+  const command = new PutObjectCommand({
+    Bucket: process.env.S3_BUCKET_NAME,
+    Key: key,
+  });
+
+  return await getSignedUrl(s3, command, { expiresIn });
+}
+
+/**
  * Uploads an object to S3 in a single request (non-multipart).
  * Handy for small objects such as seed/sample data.
  *

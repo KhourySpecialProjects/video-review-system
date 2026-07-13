@@ -169,6 +169,7 @@ describe("videos.router", () => {
       partSize: 10485760,
       totalParts: 5,
       expiresIn: 3600,
+      thumbnailUploadUrl: "https://s3.example.com/thumb-put.jpg",
     };
 
     videosServiceMock.initiateVideoUpload.mockResolvedValue(uploadResult);
@@ -182,6 +183,7 @@ describe("videos.router", () => {
     }, expect.objectContaining({
       actorUserId: "user-123",
     }));
+    expect(response.body.thumbnailUploadUrl).toBe("https://s3.example.com/thumb-put.jpg");
   });
 
   it("POST /domain/videos/upload rejects invalid payloads before the service is called", async () => {

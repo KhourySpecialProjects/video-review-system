@@ -244,7 +244,8 @@ export function useVideoUpload() {
         (pct) => {
           dispatch({ type: "UPLOAD_PROGRESS", progress: pct, eta: computeEta(pct) })
         },
-        abortController.current?.signal
+        abortController.current?.signal,
+        frameDataUrl
       )
 
       if (frameDataUrl) {

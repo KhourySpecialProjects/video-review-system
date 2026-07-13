@@ -1,8 +1,13 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { VideoCard, VideoCardSkeleton } from "./VideoCard";
 import type { Video } from "@/lib/types";
+
+vi.mock("react-router", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react-router")>();
+  return { ...actual, useOutletContext: () => ({ mainRef: { current: document.createElement("div") } }) };
+});
 
 const mockVideo: Video = {
     id: "vid-001",
@@ -55,6 +60,17 @@ describe("VideoCard", () => {
         );
         const link = screen.getByRole("link");
         expect(link).toHaveAttribute("href", "/videos/vid-001");
+    });
+
+    it("shows a neutral placeholder instead of a broken image when the poster fails", () => {
+        render(
+            <MemoryRouter>
+                <VideoCard video={mockVideo} />
+            </MemoryRouter>
+        );
+        const img = screen.getByAltText("Test Video");
+        fireEvent.error(img);
+        expect(screen.queryByAltText("Test Video")).not.toBeInTheDocument();
     });
 });
 
