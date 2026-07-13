@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { Query } from "@tanstack/react-query";
 
 const { toastErrorMock } = vi.hoisted(() => ({ toastErrorMock: vi.fn() }));
 vi.mock("sonner", () => ({ toast: { error: toastErrorMock } }));
@@ -11,18 +12,22 @@ describe("toastQueryError", () => {
   it("toasts the query's meta.errorMessage exactly once", () => {
     toastQueryError(new Error("boom"), {
       meta: { errorMessage: "Failed to fetch videos" },
-    } as any);
+    } as unknown as Query<unknown, unknown, unknown>);
     expect(toastErrorMock).toHaveBeenCalledTimes(1);
     expect(toastErrorMock).toHaveBeenCalledWith("Failed to fetch videos");
   });
 
   it("does nothing when meta.errorMessage is absent", () => {
-    toastQueryError(new Error("boom"), { meta: undefined } as any);
+    toastQueryError(new Error("boom"), {
+      meta: undefined,
+    } as unknown as Query<unknown, unknown, unknown>);
     expect(toastErrorMock).not.toHaveBeenCalled();
   });
 
   it("does nothing when meta.errorMessage is not a string", () => {
-    toastQueryError(new Error("boom"), { meta: { errorMessage: 42 } } as any);
+    toastQueryError(new Error("boom"), {
+      meta: { errorMessage: 42 },
+    } as unknown as Query<unknown, unknown, unknown>);
     expect(toastErrorMock).not.toHaveBeenCalled();
   });
 });

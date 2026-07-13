@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QueryClient } from "@tanstack/react-query";
+import type { LoaderFunctionArgs } from "react-router";
 
 const { getSessionMock } = vi.hoisted(() => ({ getSessionMock: vi.fn() }));
 vi.mock("@/lib/auth-client", () => ({
@@ -27,7 +28,7 @@ describe("caregiver-gated prefetch loaders", () => {
     const { qc, spy } = makeQc();
     const data = await homeLoader(qc)({
       request: new Request("http://localhost/?limit=10&offset=0"),
-    } as any);
+    } as unknown as LoaderFunctionArgs);
     expect(spy).toHaveBeenCalledTimes(1);
     expect(data).toEqual({ limit: 10, offset: 0 });
   });
@@ -37,7 +38,7 @@ describe("caregiver-gated prefetch loaders", () => {
     const { qc, spy } = makeQc();
     const data = await homeLoader(qc)({
       request: new Request("http://localhost/?limit=10&offset=0"),
-    } as any);
+    } as unknown as LoaderFunctionArgs);
     expect(spy).not.toHaveBeenCalled();
     expect(data).toEqual({ limit: 10, offset: 0 });
   });
@@ -47,14 +48,14 @@ describe("caregiver-gated prefetch loaders", () => {
     const { qc, spy } = makeQc();
     await searchLoader(qc)({
       request: new Request("http://localhost/search?q=cat"),
-    } as any);
+    } as unknown as LoaderFunctionArgs);
     expect(spy).toHaveBeenCalledTimes(1);
 
     asSysadmin();
     const { qc: qc2, spy: spy2 } = makeQc();
     const data = await searchLoader(qc2)({
       request: new Request("http://localhost/search?q=cat"),
-    } as any);
+    } as unknown as LoaderFunctionArgs);
     expect(spy2).not.toHaveBeenCalled();
     expect(data).toEqual({ searchParams: "q=cat", q: "cat" });
   });
@@ -62,12 +63,16 @@ describe("caregiver-gated prefetch loaders", () => {
   it("videoViewLoader prefetches for a caregiver only", async () => {
     asCaregiver();
     const { qc, spy } = makeQc();
-    await videoViewLoader(qc)({ params: { videoId: "v1" } } as any);
+    await videoViewLoader(qc)({
+      params: { videoId: "v1" },
+    } as unknown as LoaderFunctionArgs);
     expect(spy).toHaveBeenCalledTimes(1);
 
     asSysadmin();
     const { qc: qc2, spy: spy2 } = makeQc();
-    const data = await videoViewLoader(qc2)({ params: { videoId: "v1" } } as any);
+    const data = await videoViewLoader(qc2)({
+      params: { videoId: "v1" },
+    } as unknown as LoaderFunctionArgs);
     expect(spy2).not.toHaveBeenCalled();
     expect(data).toEqual({ videoId: "v1" });
   });
