@@ -20,7 +20,7 @@ describe("resolveEnvBanner", () => {
     expect(
       resolveEnvBanner({ DEV: false, VITE_APP_ENV: "dev-preview" }),
     ).toEqual({
-      text: "Asclepion 1.0 - This is a Development Preview. Do NOT upload any PII or other sensitive information.",
+      text: "Asclepion 0.1 - This is a Development Preview. Do NOT upload any PII or other sensitive information.",
     });
   });
 

@@ -13,7 +13,7 @@ export function resolveEnvBanner(env: {
   if (env.DEV) return { text: "Local Development Preview" }
   if (env.VITE_APP_ENV === "dev-preview") {
     return {
-      text: "Asclepion 1.0 - This is a Development Preview. Do NOT upload any PII or other sensitive information.",
+      text: "Asclepion 0.1 - This is a Development Preview. Do NOT upload any PII or other sensitive information.",
     }
   }
   return null
