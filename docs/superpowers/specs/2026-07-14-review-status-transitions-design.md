@@ -40,7 +40,7 @@ but cannot change it.
 
 ## State machine
 
-```
+```text
 NOT_REVIEWED  ⇄  IN_REVIEW  ⇄  REVIEWED
    Start review     Mark reviewed
    ← Reopen         ← Reopen

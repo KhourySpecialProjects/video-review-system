@@ -4,7 +4,7 @@ const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
     videoStudy: {
       findUnique: vi.fn(),
-      update: vi.fn(),
+      updateMany: vi.fn(),
     },
   },
 }));
@@ -19,7 +19,7 @@ const compoundWhere = { studyId_videoId_siteId: KEY };
 describe("reviews.service review status", () => {
   beforeEach(() => {
     prismaMock.videoStudy.findUnique.mockReset();
-    prismaMock.videoStudy.update.mockReset();
+    prismaMock.videoStudy.updateMany.mockReset();
   });
 
   describe("getReviewStatus", () => {
@@ -46,13 +46,21 @@ describe("reviews.service review status", () => {
       ["REVIEWED", "in review", "IN_REVIEW"],
     ])("allows %s -> %s and persists", async (current, next, nextDb) => {
       prismaMock.videoStudy.findUnique.mockResolvedValue({ reviewStatus: current });
-      prismaMock.videoStudy.update.mockResolvedValue({ reviewStatus: nextDb });
+      prismaMock.videoStudy.updateMany.mockResolvedValue({ count: 1 });
       const result = await updateReviewStatus(KEY.studyId, KEY.videoId, KEY.siteId, next as never);
-      expect(prismaMock.videoStudy.update).toHaveBeenCalledWith({
-        where: compoundWhere,
+      expect(prismaMock.videoStudy.updateMany).toHaveBeenCalledWith({
+        where: { ...KEY, reviewStatus: current },
         data: { reviewStatus: nextDb },
       });
       expect(result).toBe(next);
+    });
+
+    it("throws 400 when the row was modified concurrently (CAS count 0)", async () => {
+      prismaMock.videoStudy.findUnique.mockResolvedValue({ reviewStatus: "IN_REVIEW" });
+      prismaMock.videoStudy.updateMany.mockResolvedValue({ count: 0 });
+      await expect(
+        updateReviewStatus(KEY.studyId, KEY.videoId, KEY.siteId, "reviewed" as never),
+      ).rejects.toMatchObject({ statusCode: 400 });
     });
 
     it.each([
@@ -65,7 +73,7 @@ describe("reviews.service review status", () => {
       await expect(
         updateReviewStatus(KEY.studyId, KEY.videoId, KEY.siteId, next as never),
       ).rejects.toMatchObject({ statusCode: 400 });
-      expect(prismaMock.videoStudy.update).not.toHaveBeenCalled();
+      expect(prismaMock.videoStudy.updateMany).not.toHaveBeenCalled();
     });
 
     it("throws 404 when the row is missing", async () => {

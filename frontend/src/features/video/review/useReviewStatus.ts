@@ -36,6 +36,13 @@ export function useReviewStatus(videoId: string, studyId: string, siteId: string
       );
     },
     onError: () => {
+      // The server may have rejected because our cached status is stale (e.g.
+      // another reviewer advanced it). Refetch so the badge/actions reconcile
+      // instead of retrying against the same stale state.
+      void queryClient.invalidateQueries({
+        queryKey: options.queryKey,
+        exact: true,
+      });
       toast.error("Failed to update review status");
     },
   });

@@ -969,4 +969,3 @@ git commit -m "feat(review): review-status control in the review details strip (
 - **PR write-up:** call out that retiring the hard-coded `permissionLevel: "WRITE"` in `videoReviewLoader` means READ-only reviewers now correctly lose write affordances on the review page — a deliberate behavior change.
 - **No cross-cache invalidation needed:** the reviews list (`reviewsLoader`) and admin dashboard fetch through their own React Router loaders on navigation, so badges/counts refresh when the user returns to those pages.
 - **Router-level permission denial** (READ blocked from PATCH) is enforced by `requirePermission("WRITE", …)`, which is exercised by the existing middleware/permissions unit tests; the reviews HTTP test mocks it to a pass-through and instead covers wiring + body validation. The transition state machine and 404s are covered by the Task 1 service tests.
-```

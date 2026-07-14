@@ -95,11 +95,19 @@ export async function updateReviewStatus(
         );
     }
 
-    const updated = await prisma.videoStudy.update({
-        where: videoStudyKey(studyId, videoId, siteId),
+    // Atomic compare-and-swap: only write if the row is still in the state we
+    // validated against. Guards the read-then-write window against a concurrent
+    // transition (TOCTOU) that would otherwise bypass the state machine.
+    const { count } = await prisma.videoStudy.updateMany({
+        where: { studyId, videoId, siteId, reviewStatus: row.reviewStatus },
         data: { reviewStatus: nextDb },
     });
-    return REVIEW_STATUS_LABEL[updated.reviewStatus];
+
+    if (count === 0) {
+        throw AppError.badRequest("Review status was modified concurrently");
+    }
+
+    return next;
 }
 
 /** @description Maps the DB study_status enum to the UI's two-bucket label. */

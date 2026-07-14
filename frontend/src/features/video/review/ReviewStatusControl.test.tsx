@@ -30,7 +30,11 @@ function renderControl(status: ReviewStatus, level: PermissionLevel) {
 }
 
 describe("ReviewStatusControl", () => {
-  beforeEach(() => apiFetchMock.mockReset());
+  // Block body: mockReset() returns the mock, which Vitest would otherwise
+  // register as an auto-cleanup callback.
+  beforeEach(() => {
+    apiFetchMock.mockReset();
+  });
 
   it("shows Start review for a not-reviewed video (WRITE)", () => {
     renderControl("not reviewed", "WRITE");
