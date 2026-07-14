@@ -18,10 +18,14 @@ import { useGeneralNotes } from "@/features/annotate/video-summary/comment/useGe
 import { TagManager } from "@/features/annotate/video-summary/tags/TagManager";
 import { useTagManager } from "@/features/annotate/video-summary/tags/useTagManager";
 import { useTags } from "@/features/annotate/video-summary/tags/useTags";
+import { ReviewStatusControl } from "./ReviewStatusControl";
 
 type ReviewDetailsSectionProps = {
   /** @description Whether editing is disabled (READ-only users). */
   disabled: boolean;
+  videoId: string;
+  studyId: string;
+  siteId: string;
 };
 
 /** @description Max tag chips shown inline on the summary strip. */
@@ -36,6 +40,9 @@ const INLINE_TAG_LIMIT = 4;
  */
 export function ReviewDetailsSection({
   disabled,
+  videoId,
+  studyId,
+  siteId,
 }: ReviewDetailsSectionProps) {
   const { notes, setNotes } = useGeneralNotes();
   const { tags, addTag, removeTag, editTag } = useTags();
@@ -48,84 +55,87 @@ export function ReviewDetailsSection({
 
   return (
     <>
-      <Button
-        variant="outline"
-        onClick={() => setOpen(true)}
-        aria-label="Open video details"
-        disableMotion
-        className="group/button flex h-auto w-full cursor-pointer items-center justify-start gap-3 rounded-none border-x-0 border-b-0 border-t-2 bg-bg-light px-4 py-2 text-left shadow-s hover:bg-primary/5 hover:shadow-m"
-      >
-        <div className="flex shrink-0 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
-          <Tag className="size-3.5" aria-hidden="true" />
-          <span>Tags</span>
-        </div>
+      <div className="flex w-full items-stretch">
+        <ReviewStatusControl videoId={videoId} studyId={studyId} siteId={siteId} />
+        <Button
+          variant="outline"
+          onClick={() => setOpen(true)}
+          aria-label="Open video details"
+          disableMotion
+          className="group/button flex h-auto w-full cursor-pointer items-center justify-start gap-3 rounded-none border-x-0 border-b-0 border-t-2 bg-bg-light px-4 py-2 text-left shadow-s hover:bg-primary/5 hover:shadow-m"
+        >
+          <div className="flex shrink-0 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
+            <Tag className="size-3.5" aria-hidden="true" />
+            <span>Tags</span>
+          </div>
 
-        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
-          {tags.length === 0 ? (
-            <span className="truncate text-xs italic text-muted-foreground">
-              No tags
-            </span>
-          ) : (
-            <>
-              {visibleTags.map((tag) => (
-                <span
-                  key={tag}
-                  className="inline-flex h-6 max-w-32 items-center truncate rounded-full bg-primary/10 px-2.5 text-xs font-medium text-primary"
-                >
-                  {tag}
-                </span>
-              ))}
-              {hiddenTagCount > 0 && (
-                <span className="text-xs font-medium text-muted-foreground">
-                  +{hiddenTagCount}
-                </span>
-              )}
-            </>
-          )}
-        </div>
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
+            {tags.length === 0 ? (
+              <span className="truncate text-xs italic text-muted-foreground">
+                No tags
+              </span>
+            ) : (
+              <>
+                {visibleTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex h-6 max-w-32 items-center truncate rounded-full bg-primary/10 px-2.5 text-xs font-medium text-primary"
+                  >
+                    {tag}
+                  </span>
+                ))}
+                {hiddenTagCount > 0 && (
+                  <span className="text-xs font-medium text-muted-foreground">
+                    +{hiddenTagCount}
+                  </span>
+                )}
+              </>
+            )}
+          </div>
 
-        <Separator orientation="vertical" className="h-5" />
+          <Separator orientation="vertical" className="h-5" />
 
-        <div className="flex min-w-0 flex-2 items-center gap-1.5 overflow-hidden">
-          <StickyNote
-            className="size-3.5 shrink-0 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <span
-            className={
-              notesPreview
-                ? "truncate text-xs text-text"
-                : "truncate text-xs italic text-muted-foreground"
-            }
-          >
-            {notesPreview || "No notes yet"}
-          </span>
-        </div>
-
-        {disabled && (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-background/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  <LockIcon className="size-3" aria-hidden="true" />
-                  Read-only
-                </span>
-              }
+          <div className="flex min-w-0 flex-2 items-center gap-1.5 overflow-hidden">
+            <StickyNote
+              className="size-3.5 shrink-0 text-muted-foreground"
+              aria-hidden="true"
             />
-            <TooltipContent>
-              You don't have permission to edit this section.
-            </TooltipContent>
-          </Tooltip>
-        )}
+            <span
+              className={
+                notesPreview
+                  ? "truncate text-xs text-text"
+                  : "truncate text-xs italic text-muted-foreground"
+              }
+            >
+              {notesPreview || "No notes yet"}
+            </span>
+          </div>
 
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-text shadow-s transition-all group-hover/button:border-primary/40 group-hover/button:text-primary">
-          Expand
-          <ChevronUp
-            className="size-3.5 transition-transform group-hover/button:-translate-y-0.5"
-            aria-hidden="true"
-          />
-        </span>
-      </Button>
+          {disabled && (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-background/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    <LockIcon className="size-3" aria-hidden="true" />
+                    Read-only
+                  </span>
+                }
+              />
+              <TooltipContent>
+                You don't have permission to edit this section.
+              </TooltipContent>
+            </Tooltip>
+          )}
+
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-text shadow-s transition-all group-hover/button:border-primary/40 group-hover/button:text-primary">
+            Expand
+            <ChevronUp
+              className="size-3.5 transition-transform group-hover/button:-translate-y-0.5"
+              aria-hidden="true"
+            />
+          </span>
+        </Button>
+      </div>
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent

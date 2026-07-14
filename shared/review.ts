@@ -1,3 +1,5 @@
+import type { PermissionLevel } from "./permissions";
+
 /**
  * @description Review-status values surfaced to the frontend.
  * Mirrors the DB `review_status` enum in lowercase, human-readable form.
@@ -53,4 +55,14 @@ export type ReviewsResponse = {
   totalCount: number;
   studies: ReviewStudyOption[];
   sites: ReviewSiteOption[];
+};
+
+/**
+ * @description Response shape for the review-status read/patch endpoints
+ * (`/reviews/:videoId/:studyId/:siteId/status`). `permissionLevel` is the
+ * uppercase resource permission level (feeds the review page PermissionProvider).
+ */
+export type ReviewStatusResponse = {
+  reviewStatus: ReviewStatus;
+  permissionLevel: PermissionLevel;
 };

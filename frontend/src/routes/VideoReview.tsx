@@ -152,7 +152,12 @@ function VideoReviewContent({ loaderData }: { loaderData: VideoReviewLoaderData 
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1], delay: 0.3 }}
         >
-          <ReviewDetailsSection disabled={!canWrite} />
+          <ReviewDetailsSection
+            disabled={!canWrite}
+            videoId={loaderData.videoId}
+            studyId={loaderData.studyId}
+            siteId={loaderData.siteId}
+          />
         </motion.div>
       </SidebarInset>
     </SidebarProvider>

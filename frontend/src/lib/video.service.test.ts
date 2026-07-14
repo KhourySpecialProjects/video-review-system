@@ -7,7 +7,10 @@ vi.mock("@/lib/auth-client", () => ({
   authClient: { getSession: getSessionMock },
 }));
 
-import { homeLoader, searchLoader, videoViewLoader } from "./video.service";
+const { apiFetchMock } = vi.hoisted(() => ({ apiFetchMock: vi.fn() }));
+vi.mock("@/lib/api", () => ({ apiFetch: apiFetchMock }));
+
+import { homeLoader, searchLoader, videoViewLoader, videoReviewLoader } from "./video.service";
 
 function makeQc() {
   const qc = new QueryClient();
@@ -75,5 +78,40 @@ describe("caregiver-gated prefetch loaders", () => {
     } as unknown as LoaderFunctionArgs);
     expect(spy2).not.toHaveBeenCalled();
     expect(data).toEqual({ videoId: "v1" });
+  });
+});
+
+describe("videoReviewLoader", () => {
+  // NOTE: must not be `() => apiFetchMock.mockReset()` — mockReset() returns
+  // the mock itself, and Vitest treats a function returned from beforeEach as
+  // an auto-cleanup callback, invoking it (with zero args) after the test and
+  // re-triggering whatever mockImplementation the test set.
+  beforeEach(() => {
+    apiFetchMock.mockReset();
+  });
+
+  it("awaits status, sets the real permissionLevel, and seeds the status cache", async () => {
+    const streamPayload = {
+      video: { id: "v1", durationSeconds: 10, createdAt: "2026-01-01T00:00:00Z", takenAt: null },
+      videoUrl: "https://s3/video.mp4",
+      imgUrl: "https://s3/thumb.jpg",
+      expiresIn: 3600,
+    };
+    const statusPayload = { reviewStatus: "in review", permissionLevel: "READ" };
+
+    apiFetchMock.mockImplementation((path: string) => {
+      const body = path.includes("/stream") ? streamPayload : statusPayload;
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(body) } as unknown as Response);
+    });
+
+    const qc = new QueryClient();
+    const data = await videoReviewLoader(qc)({
+      params: { videoId: "v1", studyId: "s1", siteId: "site1" },
+      request: new Request("http://localhost/review/v1/s1/site1"),
+    } as unknown as LoaderFunctionArgs);
+
+    expect(data.permissionLevel).toBe("READ");
+    expect(data.videoId).toBe("v1");
+    expect(qc.getQueryData(["review-status", "v1", "s1", "site1"])).toEqual(statusPayload);
   });
 });
