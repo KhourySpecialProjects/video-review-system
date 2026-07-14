@@ -23,6 +23,7 @@ export type VideoListResponse = {
 };
 
 import type { VideoStreamResponse, VideoReviewResponse } from "@shared/video";
+import type { ReviewStatusResponse } from "@shared/review";
 
 /**
  * Fetches a paginated list of uploaded videos from the backend.
@@ -330,6 +331,29 @@ export function videoViewLoader(queryClient: QueryClient) {
 }
 
 /**
+ * @description Query for a video-study's review status + the caller's permission
+ * level. Seeded by `videoReviewLoader` and read by the review-status control.
+ * `staleTime` dedupes the loader's fetch and the control's mount read.
+ *
+ * @param videoId - Video id
+ * @param studyId - Study id
+ * @param siteId - Site id
+ * @returns Query options describing key and fetcher
+ */
+export function reviewStatusQuery(videoId: string, studyId: string, siteId: string) {
+    return queryOptions({
+        queryKey: ["review-status", videoId, studyId, siteId] as const,
+        queryFn: async () => {
+            const res = await apiFetch(`/reviews/${videoId}/${studyId}/${siteId}/status`);
+            if (!res.ok) throw new Error("Failed to load review status");
+            return res.json() as Promise<ReviewStatusResponse>;
+        },
+        staleTime: 5_000,
+        meta: { errorMessage: "Failed to load review status" },
+    });
+}
+
+/**
  * @description Data returned by the video review route loader. The loader
  * awaits the stream URL so the video/poster can paint, and kicks off
  * prefetches for annotations/clips/sequences into the TanStack Query cache.
@@ -365,15 +389,19 @@ export function videoReviewLoader(queryClient: QueryClient) {
             throw new Response("Missing review route params", { status: 400 });
         }
 
-        // Only the stream URL blocks navigation — the video paints as soon
-        // as it resolves. List prefetches are fired without awaiting so
-        // they populate the TanStack Query cache in the background; the
-        // page's `useSuspenseQuery` calls resolve when each cache entry
-        // lands, with Suspense fallbacks covering the gap.
+        // Fire list prefetches without awaiting so they stream into the cache;
+        // the page's useSuspenseQuery calls pick them up when ready.
         queryClient.prefetchQuery(annotationsQuery(videoId));
         queryClient.prefetchQuery(clipsQuery(videoId, studyId));
         queryClient.prefetchQuery(sequencesQuery(videoId, studyId));
-        const streamData = await fetchStreamUrl(videoId, request);
+
+        // Await the stream URL (video paints) and the review status (needed for
+        // the PermissionProvider + the status control). fetchQuery also caches
+        // the status so the control reads it without a second request.
+        const [streamData, status] = await Promise.all([
+            fetchStreamUrl(videoId, request),
+            queryClient.fetchQuery(reviewStatusQuery(videoId, studyId, siteId)),
+        ]);
 
         if (!streamData.video) {
             throw new Response("Video not found", { status: 404 });
@@ -387,7 +415,7 @@ export function videoReviewLoader(queryClient: QueryClient) {
             videoId,
             studyId,
             siteId,
-            permissionLevel: "WRITE",
+            permissionLevel: status.permissionLevel,
         };
     };
 }
