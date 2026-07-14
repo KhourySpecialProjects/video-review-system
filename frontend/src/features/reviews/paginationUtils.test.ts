@@ -30,9 +30,11 @@ describe("getTotalPages", () => {
 });
 
 describe("buildPageHref", () => {
-    it("returns empty string for page 1 with no other params", () => {
+    it("returns a navigable href for page 1 with no other params", () => {
+        // Must not be "" — an empty href resolves to the current URL (incl.
+        // its query string), so the user would stay on the current page (VMP-172).
         const params = new URLSearchParams();
-        expect(buildPageHref(params, 1)).toBe("");
+        expect(buildPageHref(params, 1)).toBe("?");
     });
 
     it("removes page param for page 1", () => {

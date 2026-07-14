@@ -37,7 +37,10 @@ export function buildPageHref(searchParams: URLSearchParams, page: number): stri
         params.set("page", String(page));
     }
     const search = params.toString();
-    return search ? `?${search}` : "";
+    // Return "?" (not "") when no params remain: an empty href resolves to the
+    // current URL including its query string, leaving the user stuck on the
+    // current page. "?" clears the query and navigates to page 1 (VMP-172).
+    return search ? `?${search}` : "?";
 }
 
 /**
