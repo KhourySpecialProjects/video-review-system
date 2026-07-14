@@ -131,7 +131,8 @@ input (matching `@@id([studyId, videoId, siteId])`).
 
 ### Shared types (`shared/review.ts`)
 
-- `ReviewStatusResponse = { reviewStatus: ReviewStatus; permissionLevel: ReviewPermissionLevel }`.
+- `ReviewStatusResponse = { reviewStatus: ReviewStatus; permissionLevel: PermissionLevel }`
+  (uppercase `PermissionLevel`, since it feeds the review page's `PermissionProvider`).
 
 ### Data layer (`frontend/src/lib/video.service.ts`)
 
