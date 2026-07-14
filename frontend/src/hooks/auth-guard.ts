@@ -2,6 +2,27 @@ import { redirect } from "react-router";
 import type { Role } from "@shared/auth";
 import { authClient } from "@/lib/auth-client";
 
+let inflightSession: Promise<Awaited<ReturnType<typeof authClient.getSession>>> | null = null;
+
+/**
+ * @description Reads the current session, sharing a single in-flight request
+ * across concurrent callers. React Router runs matched loaders in parallel, so
+ * authGuardLoader, the role guards, and the caregiver prefetch loaders would
+ * otherwise each issue a separate /api/auth/get-session request per navigation
+ * (better-auth's client does not dedupe and no cookieCache is configured). The
+ * promise is cleared once it settles, so a later navigation always gets a fresh
+ * read — no stale session is cached across navigations.
+ */
+function fetchSession() {
+    if (!inflightSession) {
+        inflightSession = authClient.getSession();
+        void inflightSession.finally(() => {
+            inflightSession = null;
+        });
+    }
+    return inflightSession;
+}
+
 /**
  * @description Route loader that guards authenticated routes.
  * Redirects unauthenticated users to `/login`.
@@ -9,7 +30,7 @@ import { authClient } from "@/lib/auth-client";
  * @returns The session data, or a redirect to `/login`
  */
 export async function authGuardLoader() {
-    const { data: session } = await authClient.getSession();
+    const { data: session } = await fetchSession();
     if (!session) return redirect("/login");
     return session;
 }
@@ -22,8 +43,8 @@ export async function authGuardLoader() {
  * @returns The authenticated user's role, or `null` if the session or
  *   role claim is missing.
  */
-async function getSessionRole(): Promise<Role | null> {
-    const { data: session } = await authClient.getSession();
+export async function getSessionRole(): Promise<Role | null> {
+    const { data: session } = await fetchSession();
     if (!session) return null;
     const role = (session.user as { role?: Role }).role;
     return role ?? null;

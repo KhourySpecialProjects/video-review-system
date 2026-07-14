@@ -1,4 +1,25 @@
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryCache, type Query } from "@tanstack/react-query";
+import { toast } from "sonner";
+
+/**
+ * @description Centralized query error handler. Fires once per query error
+ * (after retries) — not per component or per attempt — so error toasts never
+ * duplicate under React StrictMode. Only queries that opt in by setting
+ * `meta.errorMessage` produce a toast; everything else is silent here and
+ * relies on its own handling.
+ *
+ * @param _error - The thrown query error (unused; the message comes from meta)
+ * @param query - The failed query, whose `meta.errorMessage` drives the toast
+ */
+export function toastQueryError(
+  _error: unknown,
+  query: Query<unknown, unknown, unknown>,
+): void {
+  const message = query.meta?.errorMessage;
+  if (typeof message === "string") {
+    toast.error(message);
+  }
+}
 
 /**
  * @description Shared TanStack Query client. `staleTime` of 30s means queries
@@ -7,6 +28,7 @@ import { QueryClient } from "@tanstack/react-query";
  * freshness guarantees on navigation.
  */
 export const queryClient = new QueryClient({
+  queryCache: new QueryCache({ onError: toastQueryError }),
   defaultOptions: {
     queries: {
       staleTime: 30_000,
