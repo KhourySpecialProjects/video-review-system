@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { ReviewPagination } from "./ReviewPagination";
+import { buildPageHref } from "./paginationUtils";
 
 /**
  * @description Helper to render ReviewPagination with default props.
@@ -79,6 +80,28 @@ describe("ReviewPagination", () => {
         });
         const ellipses = screen.getAllByText("More pages");
         expect(ellipses).toHaveLength(2);
+    });
+
+    it("gives the Previous and page-1 links a navigable href when page is the only param (VMP-172)", () => {
+        // Regression: on ?page=2 with no other params, the real buildPageHref
+        // must not produce href="" for the page-1 targets, which would resolve
+        // back to the current URL and leave the user stuck on page 2.
+        const searchParams = new URLSearchParams("page=2");
+        renderPagination({
+            currentPage: 2,
+            totalPages: 3,
+            pages: [1, 2, 3],
+            buildHref: (page) => buildPageHref(searchParams, page),
+        });
+
+        const previousHref = screen
+            .getByLabelText("Go to previous page")
+            .closest("a")
+            ?.getAttribute("href");
+        const pageOneHref = screen.getByText("1").closest("a")?.getAttribute("href");
+
+        expect(previousHref).toBe("?");
+        expect(pageOneHref).toBe("?");
     });
 
     it("applies buildHref to page links", () => {
