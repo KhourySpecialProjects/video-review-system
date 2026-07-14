@@ -17,6 +17,16 @@ export const reviewsQuerySchema = z.object({
 
 export type ReviewsQuery = z.infer<typeof reviewsQuerySchema>;
 
+/**
+ * @description Validates the body of `PATCH /domain/reviews/:videoId/:studyId/:siteId/status`.
+ * Accepts the lowercase UI review-status strings.
+ */
+export const updateReviewStatusSchema = z.object({
+    reviewStatus: z.enum(["not reviewed", "in review", "reviewed"]),
+});
+
+export type UpdateReviewStatusBody = z.infer<typeof updateReviewStatusSchema>;
+
 export type {
     ReviewStatus,
     ReviewPermissionLevel,

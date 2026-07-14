@@ -1,6 +1,7 @@
 import prisma from "../../lib/prisma.js";
 import { buildScopeFilter, type PermissionContext } from "../../middleware/auth.js";
 import { resolvePermissionLevel } from "../../lib/permissions.js";
+import { AppError } from "../../middleware/errors.js";
 import type {
     Prisma,
     permission_level,
@@ -39,6 +40,67 @@ const REVIEW_STATUS_TO_DB: Record<ReviewStatus, review_status> = {
     "in review": "IN_REVIEW",
     "reviewed": "REVIEWED",
 };
+
+/**
+ * @description Legal adjacent review-status transitions (DB enum). Any pair not
+ * listed here — including no-ops and two-step jumps — is rejected.
+ */
+const ALLOWED_TRANSITIONS: Record<review_status, review_status[]> = {
+    NOT_REVIEWED: ["IN_REVIEW"],
+    IN_REVIEW: ["NOT_REVIEWED", "REVIEWED"],
+    REVIEWED: ["IN_REVIEW"],
+};
+
+/** @description Compound-key selector for a VideoStudy row. */
+function videoStudyKey(studyId: string, videoId: string, siteId: string) {
+    return { studyId_videoId_siteId: { studyId, videoId, siteId } };
+}
+
+/**
+ * @description Reads the current review status for a video-study-site link.
+ * @throws 404 if the VideoStudy row does not exist.
+ */
+export async function getReviewStatus(
+    studyId: string,
+    videoId: string,
+    siteId: string,
+): Promise<ReviewStatus> {
+    const row = await prisma.videoStudy.findUnique({
+        where: videoStudyKey(studyId, videoId, siteId),
+    });
+    if (!row) throw AppError.notFound("Review not found");
+    return REVIEW_STATUS_LABEL[row.reviewStatus];
+}
+
+/**
+ * @description Transitions the review status of a video-study-site link,
+ * enforcing the adjacent-only state machine.
+ * @throws 404 if the row is missing; 400 if the transition is not allowed.
+ */
+export async function updateReviewStatus(
+    studyId: string,
+    videoId: string,
+    siteId: string,
+    next: ReviewStatus,
+): Promise<ReviewStatus> {
+    const nextDb = REVIEW_STATUS_TO_DB[next];
+    const row = await prisma.videoStudy.findUnique({
+        where: videoStudyKey(studyId, videoId, siteId),
+    });
+    if (!row) throw AppError.notFound("Review not found");
+
+    if (!ALLOWED_TRANSITIONS[row.reviewStatus].includes(nextDb)) {
+        throw AppError.badRequest(
+            `Cannot change review status from ${row.reviewStatus} to ${nextDb}`,
+        );
+    }
+
+    const updated = await prisma.videoStudy.update({
+        where: videoStudyKey(studyId, videoId, siteId),
+        data: { reviewStatus: nextDb },
+    });
+    return REVIEW_STATUS_LABEL[updated.reviewStatus];
+}
 
 /** @description Maps the DB study_status enum to the UI's two-bucket label. */
 const STUDY_STATUS_LABEL: Record<"NOT_STARTED" | "IN_PROGRESS" | "FINISHED", ReviewStudyStatus> = {
