@@ -2,6 +2,13 @@
 # (the local dev/AWS-adjacent stack). Deploy as a Coolify "Docker Compose"
 # resource. In Coolify: expose `frontend` at dev.<domain> and `minio` port 9000
 # at s3.dev.<domain>. See README "Deploying to Coolify (develop)".
+
+# Single source of truth for the DB connection string. POSTGRES_PASSWORD is the
+# only DB secret; the user and database names are fixed literals (`angelman`),
+# matching the postgres service below. An anchor keeps the three DSNs from
+# drifting apart — they must be identical.
+x-database-url: &database-url postgres://angelman:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/angelman
+
 services:
   frontend:
     build:
@@ -30,9 +37,11 @@ services:
       LOCAL: "true"
       NODE_ENV: development
       PORT: "8080"
-      DATABASE_URL: ${DATABASE_URL}
-      LOCAL_DATABASE_URL: ${LOCAL_DATABASE_URL}
-      DIRECT_DATABASE_URL: ${DIRECT_DATABASE_URL}
+      # Under LOCAL=true both prisma.ts and prisma.config.ts read
+      # LOCAL_DATABASE_URL; the other two are set identically as safe defaults.
+      DATABASE_URL: *database-url
+      LOCAL_DATABASE_URL: *database-url
+      DIRECT_DATABASE_URL: *database-url
       ALLOWED_ORIGIN: ${ALLOWED_ORIGIN}
       FRONTEND_URL: ${FRONTEND_URL}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL}
@@ -59,13 +68,17 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      # Fixed identifiers, NOT secrets. They are only applied on the volume's
+      # FIRST init, so changing them later strands the existing database and
+      # requires wiping postgres_data. They must stay in sync with the
+      # x-database-url anchor above.
+      POSTGRES_USER: angelman
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: angelman
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
+      test: ["CMD", "pg_isready", "-U", "angelman"]
       interval: 5s
       timeout: 5s
       retries: 10

@@ -273,18 +273,15 @@ Point two hostnames at the Coolify server:
    - **Generate these secrets** with `openssl rand -base64 32`:
      `BETTER_AUTH_SECRET`, `ADMIN_SECRET`, `INTERNAL_SECRET_HEADER`,
      `SEED_PASSWORD`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`. Generate
-     `POSTGRES_PASSWORD` with `openssl rand -hex 32` instead — it's embedded in
-     the DB connection URLs, so it must be URL-safe (base64 can emit `/ + =`).
-   - **Do NOT generate `POSTGRES_USER` or `POSTGRES_DB`.** They are fixed
-     identifiers (default `angelman`), not secrets, and the connection URLs are
-     built from them. Keep the **same** user, database, and password across
-     `POSTGRES_USER`/`POSTGRES_DB` and all three DSNs
-     (`DATABASE_URL` / `LOCAL_DATABASE_URL` / `DIRECT_DATABASE_URL`, each
-     `postgres://<user>:<password>@postgres:5432/<db>`). If `POSTGRES_DB` or
-     `POSTGRES_USER` don't match the DSNs, Postgres initializes a
-     differently-named database on first boot and the backend fails with
-     `database "<name>" does not exist` (and fixing it later means wiping the
-     `postgres_data` volume, since the name is only set on the first init).
+     `POSTGRES_PASSWORD` with `openssl rand -hex 32` instead — the compose file
+     interpolates it into the DB connection URL, so it must be URL-safe (base64
+     can emit `/ + =`).
+   - **`POSTGRES_PASSWORD` is the only DB variable you set.** The user and
+     database names are fixed literals (`angelman`) in
+     `docker-compose.coolify.yml`, and all three DSNs
+     (`DATABASE_URL` / `LOCAL_DATABASE_URL` / `DIRECT_DATABASE_URL`) are built
+     from them by a YAML anchor. Do not set `POSTGRES_USER`, `POSTGRES_DB`, or
+     any DSN in Coolify — compose ignores them.
    - Set `ALLOWED_ORIGIN` / `FRONTEND_URL` / `BETTER_AUTH_URL` to
      `https://dev.<domain>` and `S3_ENDPOINT` to `https://s3.dev.<domain>`.
      Leave `SES_FROM_EMAIL` unset.
