@@ -356,8 +356,13 @@ git push -f origin develop:next                # reset to develop
 1. **Never merge `next` into anything.** Its history is a series of force-pushes
    from unrelated branches. It is a deploy target, not a source of truth.
 2. Never open a PR against it; never branch off it.
-3. `git push -f origin develop:next` is the reset button — safe any time, since
-   there is no state on the branch to lose.
+3. `git push -f origin develop:next` is the reset button. There is no state on
+   the *branch* to lose, so the push itself is always safe. The *deployment* is a
+   separate matter: force-pushing an older commit can leave `next`'s database
+   ahead of the schema its code expects (Prisma migrates forward, never back). If
+   `next` misbehaves after moving the pointer backwards, wipe its `postgres_data`
+   volume in Coolify and let it re-seed — that is exactly the kind of damage
+   `next` exists to absorb.
 
 This gives one preview at a time, which is what solo iteration needs.
 
