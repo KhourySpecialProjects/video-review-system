@@ -8,7 +8,11 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
       args:
-        VITE_APP_ENV: dev-preview
+        # Selects the DevBanner variant. Defaults to dev-preview so the `dev`
+        # resource is unchanged; the `next` resource sets next-preview. In
+        # Coolify this MUST be marked a BUILD variable — Vite bakes it in at
+        # build time, so a runtime variable silently does nothing.
+        VITE_APP_ENV: ${VITE_APP_ENV:-dev-preview}
     restart: unless-stopped
     expose:
       - "80"
