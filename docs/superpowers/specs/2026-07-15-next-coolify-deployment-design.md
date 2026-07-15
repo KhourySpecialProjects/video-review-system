@@ -181,9 +181,11 @@ build time.
 distinct from `--color-warning` in both light and dark themes. The banner keeps
 `text-black`, matching the existing component.
 
-Existing `DevBanner.test.tsx` cases stay green; new cases cover the
-`next-preview` text, its background class, and `DEV` precedence over
-`next-preview`.
+The three render-based `DevBanner` cases in `DevBanner.test.tsx` stay green. The
+two `resolveEnvBanner` `toEqual` assertions must be **updated** — adding a
+`className` to the returned config changes the object shape they compare
+against. New cases cover the `next-preview` text, its background class, `DEV`
+precedence over `next-preview`, and an unknown flag value returning `null`.
 
 ## Configuration — the `next` env set
 
