@@ -387,10 +387,17 @@ Run:
 
 ```bash
 BETTER_AUTH_SECRET=x ADMIN_SECRET=x INTERNAL_SECRET_HEADER=x SEED_PASSWORD=x \
-docker compose -f docker-compose.coolify.yml config >/dev/null; echo "exit=$?"
+docker compose --env-file /dev/null -f docker-compose.coolify.yml config >/dev/null; echo "exit=$?"
 ```
 
 Expected: a non-zero exit and an error mentioning `POSTGRES_PASSWORD is required`. An empty password must fail the deploy rather than boot a passwordless database.
+
+> **`--env-file /dev/null` is required and is not optional cosmetics.** `docker
+> compose` auto-loads the repo root's `.env` regardless of `-f`, and that file
+> sets `POSTGRES_PASSWORD=postgres` for the unrelated local `docker-compose.yml`
+> stack. Without the isolation this command exits 0 and the check **passes for the
+> wrong reason**, telling you a guard works when you have not tested it. The
+> Coolify host has no such root `.env`, so the guard does fire there.
 
 - [ ] **Step 6: Update the env template**
 
@@ -486,7 +493,13 @@ Gives the operator an exact, copyable env set for the `next` Coolify resource an
 
 **Files:**
 - Create: `.env.coolify.next.example`
+- Modify: `.gitignore` — add `!.env.coolify.next.example`
 - Modify: `README.md` (append a new `## Deploying to Coolify (next)` section after the `### Notes` block that currently ends the develop section at line 336)
+
+> **The `.gitignore` negation is required, not optional.** A blanket `.env.*` rule
+> (`.gitignore:10`) would otherwise make the new template silently uncommittable —
+> `git add` would refuse it and the file would never ship. Mirror the existing
+> `!.env.coolify.example` negation immediately above it.
 
 **Interfaces:**
 - Consumes: `VITE_APP_ENV=next-preview` (Task 1); the single-secret DB config (Task 2) — this template must NOT define `POSTGRES_USER`, `POSTGRES_DB`, or any DSN.
