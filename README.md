@@ -376,20 +376,41 @@ Point two hostnames at the Coolify server:
 ### One-time Coolify setup
 
 1. **Create the pointer branch:** `git push origin develop:next`.
-2. **Create the resource:** New Resource → Docker Compose → this repo, branch
-   `next`, compose file `docker-compose.coolify.yml`. (Cloning the `dev` resource
-   also works — but then clear every secret; they must not be shared.)
-3. **Environment variables:** use `.env.coolify.next.example`. Generate **fresh**
+2. **Create the resource — build it fresh; do NOT clone the `dev` resource.**
+   New Resource → **Private Repository (GitHub App)** → this repo. Use the GitHub
+   App source, not "Public Repository" — that is what wires the auto-deploy
+   webhook. Then set **Build Pack: Docker Compose** (Nixpacks is the default and
+   must be changed explicitly).
+
+   > Coolify's docs do not state whether cloning a resource copies environment
+   > variable **values**. It treats cloning as a config duplicate, so it very
+   > likely carries dev's secrets across verbatim — which defeats the whole point
+   > of separate environments. A few minutes of pasting beats sharing a
+   > `BETTER_AUTH_SECRET` between a client-facing deployment and a scratch one.
+
+3. **Branch:** `next`. Coolify pre-fills the repo's *default* branch, so this must
+   be changed. **Docker Compose Location:** `docker-compose.coolify.yml` — the
+   default assumes `docker-compose.yml`, which is the local dev stack and the
+   wrong file entirely. **Base Directory:** `/`.
+4. **Environment variables:** use `.env.coolify.next.example`. Generate **fresh**
    secrets; do not copy dev's.
-4. **Mark `VITE_APP_ENV` as a BUILD variable** (value `next-preview`). Vite bakes
-   it in at build time — as a runtime variable it silently does nothing and
-   `next` renders dev's amber banner.
-5. **Domains:**
-   - `frontend` → `https://next.asclepion.cs4535.cloud` (container port 80).
-   - `minio` → `https://s3.next.asclepion.cs4535.cloud` (container port **9000**
-     only — do NOT expose the 9001 console publicly).
-6. **Auto-deploy:** enable automatic deployment for the `next` branch, via the
-   same Coolify GitHub App that already serves `develop`.
+5. **Mark `VITE_APP_ENV` as a BUILD variable** (value `next-preview`). Coolify has
+   independent per-row **Build Variable** and **Runtime Variable** toggles, both
+   on by default — leave both on. Vite bakes the value in at build time, so a
+   runtime-only variable silently does nothing and `next` renders dev's amber
+   banner.
+6. **Domains — the port goes in the domain string,** not in a separate field:
+   - `frontend` → `https://next.asclepion.cs4535.cloud` (listens on 80, so no
+     port suffix needed).
+   - `minio` → `https://s3.next.asclepion.cs4535.cloud:9000`
+
+   The `:9000` only tells Coolify where to route *inside* the container; the proxy
+   still serves the domain on 443. Do **not** give the 9001 console a domain.
+   Entering the domain with `https://` is what triggers automatic Let's Encrypt
+   issuance, so DNS must already resolve or the ACME challenge fails.
+7. **Auto-deploy:** Advanced tab → **Auto Deploy**. The GitHub App normally enables
+   this already. It tracks the resource's own **Branch** field, so `next` pushes
+   deploy `next` and nothing else.
 
 ### Smoke test
 
@@ -406,5 +427,10 @@ Point two hostnames at the Coolify server:
 
 - **`next` and `dev` share nothing at runtime** — separate volumes, buckets,
   seeded data, and secrets. `next` can be wrecked and rebuilt freely.
+- **Volumes cannot collide, even though both resources build from the same
+  compose file with the same volume names.** Coolify appends each resource's UUID
+  to the volume name specifically to prevent overlap between resources, so
+  `next`'s `postgres_data` is a different Docker volume from `dev`'s. This is why
+  running two environments off one compose file is safe.
 - **`next` is where infrastructure changes get proven first**, before they reach
   the client-facing `dev`.
