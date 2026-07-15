@@ -216,10 +216,12 @@ A new `.env.coolify.next.example` documents the `next` deltas and points at
    created with a user or database name that is not literally `angelman`, the
    backend comes up pointing at a nonexistent database and clients see a dead
    app.
-   **Gate:** before merging, confirm in the Coolify UI that the `dev` resource's
-   current `POSTGRES_USER` and `POSTGRES_DB` are both `angelman`. `next` proves
-   the change first on a fresh volume, but a fresh volume cannot detect this
-   mismatch — only inspecting `dev` can.
+   **Gate — CLEARED 2026-07-15:** the author confirmed in the Coolify UI that the
+   `dev` resource's `POSTGRES_USER` and `POSTGRES_DB` are both currently
+   `angelman`, so the literals match the existing volume and the change is a
+   no-op for `dev`. (`next` proves the change on a fresh volume, but a fresh
+   volume cannot detect this mismatch — only inspecting `dev` could, which is why
+   this was checked before implementation rather than at merge time.)
 2. **Secure cookies behind Traefik → nginx → backend.** Same risk VMP-161 flagged;
    re-verify login end-to-end on the new host.
 3. **MinIO presign host.** `S3_ENDPOINT` and `MINIO_SERVER_URL` must both be the
