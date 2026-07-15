@@ -331,3 +331,75 @@ to MinIO. Later deploys skip seeding, so data and uploaded videos persist.
 - **Seed password:** `SEED_PASSWORD` sets the seeded users' password so the public
   admin login is not a known credential.
 - This target never touches AWS. Production still deploys via `scripts/deploy-*.sh`.
+
+## Deploying to Coolify (next)
+
+`next` is a **second long-lived Coolify deployment** at
+`next.asclepion.cs4535.cloud`, separate from `dev`. It exists so changes can be
+seen running **without redeploying `dev`** while clients are user-testing there.
+It reuses `docker-compose.coolify.yml` unchanged — only the environment differs.
+See `docs/superpowers/specs/2026-07-15-next-coolify-deployment-design.md`.
+
+### `next` is a deploy pointer, not a branch you work on
+
+Coolify watches the long-lived `next` branch and redeploys on push. You never
+change the branch in the Coolify UI — you force-push at the pointer instead:
+
+```bash
+git push -f origin HEAD:next                   # deploy what I'm working on
+git push -f origin vmp-174-some-feature:next   # deploy a specific branch
+git push -f origin develop:next                # reset to develop
+```
+
+**Rules:**
+
+1. **Never merge `next` into anything.** Its history is a series of force-pushes
+   from unrelated branches. It is a deploy target, not a source of truth.
+2. Never open a PR against it; never branch off it.
+3. `git push -f origin develop:next` is the reset button — safe any time, since
+   there is no state on the branch to lose.
+
+This gives one preview at a time, which is what solo iteration needs.
+
+### DNS
+
+Point two hostnames at the Coolify server:
+- `next.asclepion.cs4535.cloud` — the app (frontend).
+- `s3.next.asclepion.cs4535.cloud` — the MinIO S3 API (the browser
+  uploads/streams here directly).
+
+### One-time Coolify setup
+
+1. **Create the pointer branch:** `git push origin develop:next`.
+2. **Create the resource:** New Resource → Docker Compose → this repo, branch
+   `next`, compose file `docker-compose.coolify.yml`. (Cloning the `dev` resource
+   also works — but then clear every secret; they must not be shared.)
+3. **Environment variables:** use `.env.coolify.next.example`. Generate **fresh**
+   secrets; do not copy dev's.
+4. **Mark `VITE_APP_ENV` as a BUILD variable** (value `next-preview`). Vite bakes
+   it in at build time — as a runtime variable it silently does nothing and
+   `next` renders dev's amber banner.
+5. **Domains:**
+   - `frontend` → `https://next.asclepion.cs4535.cloud` (container port 80).
+   - `minio` → `https://s3.next.asclepion.cs4535.cloud` (container port **9000**
+     only — do NOT expose the 9001 console publicly).
+6. **Auto-deploy:** enable automatic deployment for the `next` branch, via the
+   same Coolify GitHub App that already serves `develop`.
+
+### Smoke test
+
+1. Visit `https://next.asclepion.cs4535.cloud` — confirm the **blue** "NEXT
+   (staging)" banner. Amber means `VITE_APP_ENV` was set as a runtime variable
+   instead of a build variable.
+2. Log in as `admin@local.dev` with the **`next`** `SEED_PASSWORD`.
+3. Upload a video and play it back (exercises the presigned round trip against
+   `s3.next.asclepion.cs4535.cloud`).
+4. `git push -f origin develop:next` and confirm Coolify redeploys with no UI
+   interaction.
+
+### Notes
+
+- **`next` and `dev` share nothing at runtime** — separate volumes, buckets,
+  seeded data, and secrets. `next` can be wrecked and rebuilt freely.
+- **`next` is where infrastructure changes get proven first**, before they reach
+  the client-facing `dev`.
