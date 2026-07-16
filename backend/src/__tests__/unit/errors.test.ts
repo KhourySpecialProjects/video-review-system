@@ -1,7 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z, ZodError } from "zod";
 import type { NextFunction, Request, Response } from "express";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client.js";
+
+const captureException = vi.fn();
+vi.mock("@sentry/node", () => ({
+  captureException: (...args: unknown[]) => captureException(...args),
+}));
+
 import {
   AppError,
   errorHandler,
@@ -275,5 +281,66 @@ describe("errorHandler", () => {
     } finally {
       process.env.NODE_ENV = originalNodeEnv;
     }
+  });
+});
+
+describe("errorHandler telemetry", () => {
+  // ========= Sentry capture routing =========
+
+  beforeEach(() => {
+    captureException.mockClear();
+  });
+
+  it("does NOT capture a 404 AppError (client error)", () => {
+    // Input: a 404 AppError (operational, 4xx client error).
+    // Expected: captureException is not called — client errors are noise.
+    const { res } = createMockResponse();
+    const next = vi.fn() as NextFunction;
+
+    errorHandler(AppError.notFound("nope"), {} as Request, res, next);
+
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it("does NOT capture a 403 AppError", () => {
+    // Input: a 403 AppError (operational, 4xx client error).
+    // Expected: captureException is not called.
+    const { res } = createMockResponse();
+    const next = vi.fn() as NextFunction;
+
+    errorHandler(AppError.forbidden(), {} as Request, res, next);
+
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it("captures an unknown error (500)", () => {
+    // Input: an unrecognized Error reaches the final catch-all branch.
+    // Expected: captureException is called once with the error.
+    const { res } = createMockResponse();
+    const next = vi.fn() as NextFunction;
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const err = new Error("boom");
+
+    errorHandler(err, {} as Request, res, next);
+
+    expect(captureException).toHaveBeenCalledTimes(1);
+    expect(captureException).toHaveBeenCalledWith(err);
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("captures a non-operational AppError", () => {
+    // Input: an AppError with isOperational=false and a 500 status code.
+    // Expected: captureException is called once — non-operational errors are
+    // programmer errors, not expected client failures.
+    const { res } = createMockResponse();
+    const next = vi.fn() as NextFunction;
+    const err = new AppError("bad", 500, false);
+
+    errorHandler(err, {} as Request, res, next);
+
+    expect(captureException).toHaveBeenCalledTimes(1);
+    expect(captureException).toHaveBeenCalledWith(err);
   });
 });
