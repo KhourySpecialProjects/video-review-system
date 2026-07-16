@@ -403,7 +403,7 @@ Expected: a non-zero exit and an error mentioning `POSTGRES_PASSWORD is required
 
 In `.env.coolify.example`, replace the header note (lines 9-12):
 
-```
+```dotenv
 # Replace every <...> placeholder. Generate secrets with: openssl rand -base64 32
 # EXCEPTION: POSTGRES_PASSWORD is embedded in the postgres:// DSNs below, so it
 # must be URL-safe — generate it with `openssl rand -hex 32` (base64 can emit
@@ -412,7 +412,7 @@ In `.env.coolify.example`, replace the header note (lines 9-12):
 
 with:
 
-```
+```dotenv
 # Replace every <...> placeholder. Generate secrets with: openssl rand -base64 32
 # EXCEPTION: POSTGRES_PASSWORD must be URL-safe — the compose file interpolates
 # it into the postgres:// DSN — so generate it with `openssl rand -hex 32`
@@ -421,7 +421,7 @@ with:
 
 Then replace the whole Postgres block (lines 24-33):
 
-```
+```dotenv
 # ── Postgres (containerized, persistent volume) ─────────────────────────────
 POSTGRES_USER=angelman
 POSTGRES_PASSWORD=<generate: openssl rand -hex 32 — URL-safe, embedded in DSNs below>
@@ -436,7 +436,7 @@ DIRECT_DATABASE_URL=postgres://angelman:<generate>@postgres:5432/angelman
 
 with:
 
-```
+```dotenv
 # ── Postgres (containerized, persistent volume) ─────────────────────────────
 # The ONLY DB variable. The user and database names are fixed literals
 # (`angelman`) in docker-compose.coolify.yml, and the three DSNs are built from
@@ -579,7 +579,7 @@ Expected: no matches, `exit=1`.
 
 Append to the end of `README.md`:
 
-```markdown
+````markdown
 ## Deploying to Coolify (next)
 
 `next` is a **second long-lived Coolify deployment** at
@@ -651,7 +651,7 @@ Point two hostnames at the Coolify server:
   seeded data, and secrets. `next` can be wrecked and rebuilt freely.
 - **`next` is where infrastructure changes get proven first**, before they reach
   the client-facing `dev`.
-```
+````
 
 - [ ] **Step 4: Commit**
 

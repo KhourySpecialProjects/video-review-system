@@ -62,7 +62,7 @@ is what VMP-173 calls for. Per-PR previews remain out of scope.
 No new architecture. A second Coolify **Docker Compose** resource, same repo,
 same `docker-compose.coolify.yml`, branch `next`:
 
-```
+```text
 Browser ──TLS──▶ Traefik ─┬─▶ frontend (nginx)  →  next.asclepion.cs4535.cloud
                           ├─▶ minio (S3 API)    →  s3.next.asclepion.cs4535.cloud
                           └─▶ backend  :8080    [internal]
