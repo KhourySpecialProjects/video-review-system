@@ -11,6 +11,20 @@ vi.mock("@sentry/react", () => ({
   captureMessage: vi.fn(),
 }))
 
+const telemetryConfigMock = vi.hoisted<{ privacyMode: "full" | "scrubbed" }>(() => ({
+  privacyMode: "scrubbed",
+}))
+
+vi.mock("@/lib/telemetry/config", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/telemetry/config")>(
+    "@/lib/telemetry/config",
+  )
+  return {
+    ...actual,
+    telemetryConfig: telemetryConfigMock,
+  }
+})
+
 import { captureFeedback } from "./captureFeedback"
 import * as Sentry from "@sentry/react"
 
@@ -24,14 +38,14 @@ beforeEach(() => {
   setContext.mockClear()
   addAttachment.mockClear()
   captureMessage.mockClear()
+  telemetryConfigMock.privacyMode = "scrubbed"
 })
 
 describe("captureFeedback", () => {
   it("tags the event as feedback with its type and sends the message at info level", () => {
-    captureFeedback({ type: "bug", message: "Upload spins forever", route: "/videos/1/review" })
+    captureFeedback({ type: "bug", message: "Upload spins forever", route: "/videos/7/review" })
     expect(setTag).toHaveBeenCalledWith("feedback", true)
     expect(setTag).toHaveBeenCalledWith("feedback.type", "bug")
-    expect(setContext).toHaveBeenCalledWith("feedback", { route: "/videos/1/review" })
     expect(captureMessage).toHaveBeenCalledWith("Upload spins forever", "info")
   })
 
@@ -48,5 +62,17 @@ describe("captureFeedback", () => {
   it("does not attach when there is no screenshot", () => {
     captureFeedback({ type: "confusing", message: "What is this?", route: "/" })
     expect(addAttachment).not.toHaveBeenCalled()
+  })
+
+  it("parametrizes the route context in scrubbed mode", () => {
+    telemetryConfigMock.privacyMode = "scrubbed"
+    captureFeedback({ type: "bug", message: "Upload spins forever", route: "/videos/7/review" })
+    expect(setContext).toHaveBeenCalledWith("feedback", { route: "/videos/:id/review" })
+  })
+
+  it("keeps the raw route context in full mode", () => {
+    telemetryConfigMock.privacyMode = "full"
+    captureFeedback({ type: "bug", message: "Upload spins forever", route: "/videos/7/review" })
+    expect(setContext).toHaveBeenCalledWith("feedback", { route: "/videos/7/review" })
   })
 })

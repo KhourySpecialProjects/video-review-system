@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/react"
+import { telemetryConfig, parametrizeUrl } from "@/lib/telemetry/config"
 
 export type FeedbackType = "bug" | "confusing" | "idea"
 
@@ -18,7 +19,9 @@ export function captureFeedback(input: FeedbackInput): void {
   Sentry.withScope((scope) => {
     scope.setTag("feedback", true)
     scope.setTag("feedback.type", input.type)
-    scope.setContext("feedback", { route: input.route })
+    const route =
+      telemetryConfig.privacyMode === "scrubbed" ? parametrizeUrl(input.route) : input.route
+    scope.setContext("feedback", { route })
     if (input.screenshot) {
       scope.addAttachment({
         filename: "screenshot.png",
