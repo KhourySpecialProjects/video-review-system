@@ -273,18 +273,15 @@ Point two hostnames at the Coolify server:
    - **Generate these secrets** with `openssl rand -base64 32`:
      `BETTER_AUTH_SECRET`, `ADMIN_SECRET`, `INTERNAL_SECRET_HEADER`,
      `SEED_PASSWORD`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`. Generate
-     `POSTGRES_PASSWORD` with `openssl rand -hex 32` instead — it's embedded in
-     the DB connection URLs, so it must be URL-safe (base64 can emit `/ + =`).
-   - **Do NOT generate `POSTGRES_USER` or `POSTGRES_DB`.** They are fixed
-     identifiers (default `angelman`), not secrets, and the connection URLs are
-     built from them. Keep the **same** user, database, and password across
-     `POSTGRES_USER`/`POSTGRES_DB` and all three DSNs
-     (`DATABASE_URL` / `LOCAL_DATABASE_URL` / `DIRECT_DATABASE_URL`, each
-     `postgres://<user>:<password>@postgres:5432/<db>`). If `POSTGRES_DB` or
-     `POSTGRES_USER` don't match the DSNs, Postgres initializes a
-     differently-named database on first boot and the backend fails with
-     `database "<name>" does not exist` (and fixing it later means wiping the
-     `postgres_data` volume, since the name is only set on the first init).
+     `POSTGRES_PASSWORD` with `openssl rand -hex 32` instead — the compose file
+     interpolates it into the DB connection URL, so it must be URL-safe (base64
+     can emit `/ + =`).
+   - **`POSTGRES_PASSWORD` is the only DB variable you set.** The user and
+     database names are fixed literals (`angelman`) in
+     `docker-compose.coolify.yml`, and all three DSNs
+     (`DATABASE_URL` / `LOCAL_DATABASE_URL` / `DIRECT_DATABASE_URL`) are built
+     from them by a YAML anchor. Do not set `POSTGRES_USER`, `POSTGRES_DB`, or
+     any DSN in Coolify — compose ignores them.
    - Set `ALLOWED_ORIGIN` / `FRONTEND_URL` / `BETTER_AUTH_URL` to
      `https://dev.<domain>` and `S3_ENDPOINT` to `https://s3.dev.<domain>`.
      Leave `SES_FROM_EMAIL` unset.
@@ -334,3 +331,106 @@ to MinIO. Later deploys skip seeding, so data and uploaded videos persist.
 - **Seed password:** `SEED_PASSWORD` sets the seeded users' password so the public
   admin login is not a known credential.
 - This target never touches AWS. Production still deploys via `scripts/deploy-*.sh`.
+
+## Deploying to Coolify (next)
+
+`next` is a **second long-lived Coolify deployment** at
+`next.asclepion.cs4535.cloud`, separate from `dev`. It exists so changes can be
+seen running **without redeploying `dev`** while clients are user-testing there.
+It reuses `docker-compose.coolify.yml` unchanged — only the environment differs.
+See `docs/superpowers/specs/2026-07-15-next-coolify-deployment-design.md`.
+
+### `next` is a deploy pointer, not a branch you work on
+
+Coolify watches the long-lived `next` branch and redeploys on push. You never
+change the branch in the Coolify UI — you force-push at the pointer instead:
+
+```bash
+git push -f origin HEAD:next                   # deploy what I'm working on
+git push -f origin vmp-174-some-feature:next   # deploy a specific branch
+git push -f origin develop:next                # reset to develop
+```
+
+**Rules:**
+
+1. **Never merge `next` into anything.** Its history is a series of force-pushes
+   from unrelated branches. It is a deploy target, not a source of truth.
+2. Never open a PR against it; never branch off it.
+3. `git push -f origin develop:next` is the reset button. There is no state on
+   the *branch* to lose, so the push itself is always safe. The *deployment* is a
+   separate matter: force-pushing an older commit can leave `next`'s database
+   ahead of the schema its code expects (Prisma migrates forward, never back). If
+   `next` misbehaves after moving the pointer backwards, wipe its `postgres_data`
+   volume in Coolify and let it re-seed — that is exactly the kind of damage
+   `next` exists to absorb.
+
+This gives one preview at a time, which is what solo iteration needs.
+
+### DNS
+
+Point two hostnames at the Coolify server:
+- `next.asclepion.cs4535.cloud` — the app (frontend).
+- `s3.next.asclepion.cs4535.cloud` — the MinIO S3 API (the browser
+  uploads/streams here directly).
+
+### One-time Coolify setup
+
+1. **Create the pointer branch:** `git push origin develop:next`.
+2. **Create the resource — build it fresh; do NOT clone the `dev` resource.**
+   New Resource → **Private Repository (GitHub App)** → this repo. Use the GitHub
+   App source, not "Public Repository" — that is what wires the auto-deploy
+   webhook. Then set **Build Pack: Docker Compose** (Nixpacks is the default and
+   must be changed explicitly).
+
+   > Coolify's docs do not state whether cloning a resource copies environment
+   > variable **values**. It treats cloning as a config duplicate, so it very
+   > likely carries dev's secrets across verbatim — which defeats the whole point
+   > of separate environments. A few minutes of pasting beats sharing a
+   > `BETTER_AUTH_SECRET` between a client-facing deployment and a scratch one.
+
+3. **Branch:** `next`. Coolify pre-fills the repo's *default* branch, so this must
+   be changed. **Docker Compose Location:** `docker-compose.coolify.yml` — the
+   default assumes `docker-compose.yml`, which is the local dev stack and the
+   wrong file entirely. **Base Directory:** `/`.
+4. **Environment variables:** use `.env.coolify.next.example`. Generate **fresh**
+   secrets; do not copy dev's.
+5. **Mark `VITE_APP_ENV` as a BUILD variable** (value `next-preview`). Coolify has
+   independent per-row **Build Variable** and **Runtime Variable** toggles, both
+   on by default — leave both on. Vite bakes the value in at build time, so a
+   runtime-only variable silently does nothing and `next` renders dev's amber
+   banner.
+6. **Domains — the port goes in the domain string,** not in a separate field:
+   - `frontend` → `https://next.asclepion.cs4535.cloud` (listens on 80, so no
+     port suffix needed).
+   - `minio` → `https://s3.next.asclepion.cs4535.cloud:9000`
+
+   The `:9000` only tells Coolify where to route *inside* the container; the proxy
+   still serves the domain on 443. Do **not** give the 9001 console a domain.
+   Entering the domain with `https://` is what triggers automatic Let's Encrypt
+   issuance, so DNS must already resolve or the ACME challenge fails.
+7. **Auto-deploy:** Advanced tab → **Auto Deploy**. The GitHub App normally enables
+   this already. It tracks the resource's own **Branch** field, so `next` pushes
+   deploy `next` and nothing else.
+
+### Smoke test
+
+1. Visit `https://next.asclepion.cs4535.cloud` — confirm the **blue** "NEXT
+   (staging)" banner. Amber means `VITE_APP_ENV` was set as a runtime variable
+   instead of a build variable.
+2. Log in as `admin@local.dev` with the **`next`** `SEED_PASSWORD`.
+3. Upload a video and play it back (exercises the presigned round trip against
+   `s3.next.asclepion.cs4535.cloud`).
+4. `git push -f origin develop:next` and confirm Coolify redeploys with no UI
+   interaction.
+
+### Notes
+
+- **`next` and `dev` share nothing at runtime** — separate volumes, buckets,
+  seeded data, and secrets. `next` can be wrecked and rebuilt freely.
+- **Volumes cannot collide, even though both resources build from the same
+  compose file with the same volume names.** Coolify appends each resource's UUID
+  to the volume name specifically to prevent overlap between resources, so
+  `next`'s `postgres_data` is a different Docker volume from `dev`'s. This is why
+  running two environments off one compose file is safe.
+- **`next` is where infrastructure changes get proven first**, before they reach
+  the client-facing `dev`.
