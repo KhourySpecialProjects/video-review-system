@@ -23,11 +23,13 @@
 #   GLITCHTIP_DB_PASSWORD  password for GlitchTip's OWN Postgres
 #   GLITCHTIP_DOMAIN       full external URL, e.g. https://glitchtip.cs4535.cloud
 #
-# NOTE: pin the image tag below to the current stable GlitchTip release before
-# deploying — verify at https://glitchtip.com / https://gitlab.com/glitchtip.
+# NOTE: this base file (used by Coolify) is PINNED to a specific release. Verify
+# it's the current stable before deploying — https://glitchtip.com /
+# https://gitlab.com/glitchtip. The local override (docker-compose.glitchtip.local.yml)
+# floats all three services to :latest so local always runs the newest build.
 # The worker/migrate entrypoints (bin/run-*.sh) are GlitchTip's documented ones.
 
-x-glitchtip-image: &glitchtip-image glitchtip/glitchtip:v4.2
+x-glitchtip-image: &glitchtip-image glitchtip/glitchtip:v6.1
 
 # Shared env for web + worker + migrate — they must agree.
 x-glitchtip-env: &glitchtip-env
