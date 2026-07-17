@@ -25,11 +25,13 @@
 #
 # NOTE: this base file (used by Coolify) is PINNED to a specific release. Verify
 # it's the current stable before deploying — https://glitchtip.com /
-# https://gitlab.com/glitchtip. The local override (docker-compose.glitchtip.local.yml)
+# https://gitlab.com/glitchtip. GlitchTip's Docker Hub tags DROPPED the "v" prefix
+# after v6.0.3 — current tags are plain "6.2.1"/"6.2"/"latest" (a "v6.2" tag does
+# NOT exist and will fail to pull). The local override (docker-compose.glitchtip.local.yml)
 # floats all three services to :latest so local always runs the newest build.
 # The worker/migrate entrypoints (bin/run-*.sh) are GlitchTip's documented ones.
 
-x-glitchtip-image: &glitchtip-image glitchtip/glitchtip:v6.2
+x-glitchtip-image: &glitchtip-image glitchtip/glitchtip:6.2.1
 
 # Shared env for web + worker + migrate — they must agree.
 x-glitchtip-env: &glitchtip-env
