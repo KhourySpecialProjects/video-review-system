@@ -49,3 +49,4 @@ frontend/.vite/
 # Coolify env template is safe to commit (placeholders only)
 !.env.coolify.example
 !.env.coolify.next.example
+!.env.glitchtip.example
