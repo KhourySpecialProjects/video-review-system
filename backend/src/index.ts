@@ -60,6 +60,16 @@ export function createApp() {
     res.json({ status: "ok" });
   });
 
+  // Debug-only telemetry check: throws an unhandled error so the global
+  // errorHandler routes it through Sentry.captureException (500 path). Use it to
+  // confirm error telemetry reaches GlitchTip after a deploy. Guarded off in
+  // production so it never exposes an error endpoint there.
+  if (process.env.SENTRY_ENVIRONMENT !== "production") {
+    app.get("/api/debug/sentry", () => {
+      throw new Error("GlitchTip backend telemetry test — /api/debug/sentry");
+    });
+  }
+
   // domain routes
   app.use("/api/domain/videos", videosRouter);
   app.use("/api/domain/auth", authRouter);
