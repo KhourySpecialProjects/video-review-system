@@ -446,3 +446,28 @@ Point two hostnames at the Coolify server:
   running two environments off one compose file is safe.
 - **`next` is where infrastructure changes get proven first**, before they reach
   the client-facing `dev`.
+
+### Telemetry + feedback (GlitchTip)
+
+Errors (frontend + backend) and in-app tester feedback flow to a **self-hosted
+GlitchTip** instance — a separate Coolify resource, shared by `next` and `dev`.
+
+**One-time operator setup (in Coolify, outside this repo):**
+1. Create a GlitchTip **Docker Compose** resource (GlitchTip web + worker +
+   its own Postgres + Redis) and point a domain at it (e.g.
+   `glitchtip.cs4535.cloud`). GlitchTip is independent of the Asclepion app.
+2. In GlitchTip, create two projects: `asclepion-next` and `asclepion-dev`.
+3. Copy each project's **DSN** into the matching Asclepion deployment:
+   - Frontend (mark these **BUILD** variables in Coolify): `VITE_GLITCHTIP_DSN`,
+     `VITE_TELEMETRY_PRIVACY`.
+   - Backend (runtime): `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, `TELEMETRY_PRIVACY`.
+
+**Privacy switch:** `*_TELEMETRY_PRIVACY` / `TELEMETRY_PRIVACY` = `full` on
+`next`/`dev` (max data during testing; no real PII there), `scrubbed` in
+production (pseudonymous identity, parametrized URLs). Unset
+defaults to `scrubbed`. An empty DSN disables telemetry entirely.
+
+**Triage → Linear:** work through issues in GlitchTip; feedback is tagged
+`feedback` with a `feedback.type` of `bug`/`confusing`/`idea`. When an issue
+deserves a ticket, create the Linear issue and cross-link (paste the GlitchTip
+URL onto the Linear issue and the Linear URL back onto the GlitchTip issue).

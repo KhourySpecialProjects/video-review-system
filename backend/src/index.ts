@@ -10,6 +10,9 @@ BigInt.prototype.toJSON = function () {
   return Number(this);
 };
 
+// Initialize telemetry before importing/creating the app.
+import "./instrument.js";
+
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";

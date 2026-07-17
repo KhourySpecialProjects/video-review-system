@@ -1,0 +1,22 @@
+# LOCAL-ONLY override for docker-compose.glitchtip.yml. Do NOT use on Coolify.
+# Publishes GlitchTip at http://localhost:8000, opens registration for the first
+# account, and floats all three services to the :latest image so local runs the
+# newest GlitchTip build (the base file stays pinned for Coolify). Run:
+#   docker compose -p glitchtip --env-file .env.glitchtip \
+#     -f docker-compose.glitchtip.yml -f docker-compose.glitchtip.local.yml up -d
+services:
+  gt-migrate:
+    image: glitchtip/glitchtip:latest
+
+  gt-web:
+    image: glitchtip/glitchtip:latest
+    ports:
+      - "8000:8000"
+    # Merged into the shared env for the web/API service: open registration so you
+    # can create the FIRST account locally. Kept here (not in .env.glitchtip) so it
+    # can never leak into a Coolify deploy that reads only the base file.
+    environment:
+      ENABLE_OPEN_USER_REGISTRATION: "true"
+
+  gt-worker:
+    image: glitchtip/glitchtip:latest
