@@ -29,7 +29,7 @@
 # floats all three services to :latest so local always runs the newest build.
 # The worker/migrate entrypoints (bin/run-*.sh) are GlitchTip's documented ones.
 
-x-glitchtip-image: &glitchtip-image glitchtip/glitchtip:v6.1
+x-glitchtip-image: &glitchtip-image glitchtip/glitchtip:v6.2
 
 # Shared env for web + worker + migrate — they must agree.
 x-glitchtip-env: &glitchtip-env
