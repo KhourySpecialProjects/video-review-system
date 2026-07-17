@@ -464,7 +464,7 @@ GlitchTip** instance — a separate Coolify resource, shared by `next` and `dev`
 
 **Privacy switch:** `*_TELEMETRY_PRIVACY` / `TELEMETRY_PRIVACY` = `full` on
 `next`/`dev` (max data during testing; no real PII there), `scrubbed` in
-production (pseudonymous identity, parametrized URLs, no screenshots). Unset
+production (pseudonymous identity, parametrized URLs). Unset
 defaults to `scrubbed`. An empty DSN disables telemetry entirely.
 
 **Triage → Linear:** work through issues in GlitchTip; feedback is tagged

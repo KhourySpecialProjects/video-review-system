@@ -1,5 +1,12 @@
 # GlitchTip Telemetry + In-App Feedback Implementation Plan
 
+> **Superseded (2026-07-16, post-implementation):** the **screenshot** parts of
+> Task 3 (`screenshot.ts` / `html2canvas-pro`) and Task 4 (the "Attach screenshot"
+> control) were **removed** after local testing showed GlitchTip returns HTTP 500
+> on the envelope's attachment item — it stores the feedback event but rejects the
+> attached image. `html2canvas-pro` was uninstalled; the widget sends message +
+> type + route + auto-attached breadcrumbs only. Ignore screenshot steps below.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add self-hosted GlitchTip error telemetry (breadcrumbs, no replay) to the frontend and backend, plus an unobtrusive right-edge feedback widget that sends context-rich message events into GlitchTip for triage.

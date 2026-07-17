@@ -4,6 +4,14 @@
 **Status:** Approved (brainstorming) — ready for implementation planning
 **Related:** [[coolify-next-deployment]], [[coolify-develop-deployment]], `docker-compose.coolify.yml`
 
+> **Update (2026-07-16, during local testing):** the **optional screenshot was
+> dropped** from the feedback widget. GlitchTip returns HTTP 500 on the envelope's
+> attachment item — it ingests the feedback event but rejects the attached image
+> (attachment support is a known GlitchTip gap). Rather than run extra storage for
+> a feature GlitchTip won't honor, feedback now carries only the message + type +
+> route + auto-attached breadcrumb trail. Screenshot references below are
+> superseded; `html2canvas-pro` was removed.
+
 ## Goal
 
 Give the team the observability and tester-feedback tooling needed to **fix bugs during the testing phase**, keeping everything self-hosted and internal to the app + deployment (no PostHog or other SaaS). Two cooperating capabilities:
@@ -29,7 +37,7 @@ Both flow into a single self-hosted **GlitchTip** instance for triage. When a Gl
 | 3 | **One GlitchTip project per environment** (`asclepion-next`, `asclepion-dev`), with `platform:frontend\|backend` tags | Triage unit matches the two Coolify resources one-to-one; tags still allow slicing by side |
 | 4 | **Max data now, env-switchable to private later** | `next`/`dev` hold no real PII during testing; production must dial identity/scrubbing down |
 | 5 | **Feedback affordance = right-edge vertical tab** → slide-in panel | Most unmistakably "feedback," stays out of the content, won't fight corner toasts/menus |
-| 6 | **Structured panel:** Type toggle (Bug / Confusing / Idea) + message + optional screenshot + visible "auto-attached" context | Type toggle drives fast GlitchTip triage; visible context builds tester trust and confirms capture is working |
+| 6 | **Structured panel:** Type toggle (Bug / Confusing / Idea) + message + visible "auto-attached" context | Type toggle drives fast GlitchTip triage; visible context builds tester trust and confirms capture is working |
 
 ## Architecture
 
@@ -49,7 +57,7 @@ Three code pieces in the existing app repo, plus one new standalone deployment.
 
 **Error path:** a JS exception (frontend) or an unhandled error / 500 (backend) → the SDK captures it with the current breadcrumb trail + `environment` + `platform` tags → the matching GlitchTip project (`asclepion-next` or `asclepion-dev`) → operator triage.
 
-**Feedback path:** tester clicks the edge tab → fills the panel (type, message, optional screenshot) → the widget calls:
+**Feedback path:** tester clicks the edge tab → fills the panel (type, message) → the widget calls:
 
 ```
 Sentry.captureMessage(message, {
@@ -58,7 +66,7 @@ Sentry.captureMessage(message, {
 })
 ```
 
-with the screenshot attached as an event attachment. The SDK **automatically attaches the live breadcrumb buffer, the user context, and the current route** — which is the reason the widget lives in the frontend and sends directly, with **no backend endpoint and nothing persisted in the Asclepion database**. The feedback appears as an ordinary GlitchTip issue (tagged `feedback`) alongside errors.
+The SDK **automatically attaches the live breadcrumb buffer, the user context, and the current route** — which is the reason the widget lives in the frontend and sends directly, with **no backend endpoint and nothing persisted in the Asclepion database**. The feedback appears as an ordinary GlitchTip issue (tagged `feedback`) alongside errors.
 
 **Triage → Linear (manual):** the operator works through GlitchTip. When an issue earns a ticket, they create the Linear issue (Velocity Consultants) and cross-link: paste the GlitchTip issue URL onto the Linear issue as a link/attachment, and drop the Linear issue URL back onto the GlitchTip issue. Two clicks, bidirectional, unambiguous.
 
@@ -71,11 +79,10 @@ A single conceptual setting, `TELEMETRY_PRIVACY` ∈ { `full`, `scrubbed` }, gov
 | User identity on events | id + email + role | id + role only |
 | Breadcrumb URLs | captured as-is | parametrized (`/videos/abc` → `/videos/:id`) |
 | Input values | captured | masked |
-| Screenshots | enabled | disabled |
 
 Wiring:
 
-- **Frontend** reads it as a **build arg** `VITE_TELEMETRY_PRIVACY` — Vite bakes env at build time, so it must be a build variable (identical mechanism and caveat to the existing `VITE_APP_ENV`). It also drives whether `beforeSend` / `beforeBreadcrumb` scrubbers run and whether the screenshot control is shown.
+- **Frontend** reads it as a **build arg** `VITE_TELEMETRY_PRIVACY` — Vite bakes env at build time, so it must be a build variable (identical mechanism and caveat to the existing `VITE_APP_ENV`). It also drives whether `beforeSend` / `beforeBreadcrumb` scrubbers run.
 - **Backend** reads `TELEMETRY_PRIVACY` at **runtime** from the service environment.
 - **Code default is `scrubbed`.** An unset/empty value must fail *private*, not leaky — mirroring the existing "unset secret is a silent hole, fail safe" posture in `docker-compose.coolify.yml`.
 
@@ -92,8 +99,7 @@ For this phase, `next` and `dev` are built/run with `full`.
 
 - SDK initialization is **fire-and-forget and non-blocking**. An **empty DSN makes the SDK a no-op**, so local development and any environment without GlitchTip run clean with telemetry simply off.
 - If GlitchTip is unreachable, the SDK queues/drops events silently — it must never break the app or block a tester.
-- Widget submit is optimistic (immediate "thanks" toast). If screenshot capture fails, the feedback is sent without it. A failed send is swallowed (the SDK retries/queues); the tester is never blocked.
-- Screenshots are captured client-side with `html2canvas` and attached to the event. Screenshot capture is gated by the privacy switch (off when `scrubbed`).
+- Widget submit is optimistic (immediate "thanks" toast). A failed send is swallowed (the SDK retries/queues); the tester is never blocked.
 
 ## Data-model impact
 
@@ -105,7 +111,7 @@ For this phase, `next` and `dev` are built/run with `full`.
 
 - **Frontend unit tests** (mock the Sentry SDK): the widget renders the tab, opens the panel, requires a non-empty message, and calls `captureMessage` with the correct `feedback` / `feedback.type` tags; the privacy scrubbers (URL parametrizer, input mask) tested as pure functions in both modes.
 - **Backend unit tests**: the error middleware forwards captured errors to the SDK (mocked); the scrubber runs in `scrubbed` mode and not in `full`.
-- **Manual smoke test** (on `next`): trigger a deliberate frontend error and submit a test feedback; confirm both appear in the `asclepion-next` GlitchTip project with an intact breadcrumb trail, correct tags, and (for feedback) the screenshot attachment.
+- **Manual smoke test** (on `next`): trigger a deliberate frontend error and submit a test feedback; confirm both appear in the `asclepion-next` GlitchTip project with an intact breadcrumb trail and correct tags.
 
 ## Scope & phasing
 

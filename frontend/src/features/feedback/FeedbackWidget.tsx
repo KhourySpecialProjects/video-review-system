@@ -4,7 +4,6 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { telemetryConfig } from "@/lib/telemetry/config"
 import { captureFeedback, type FeedbackType } from "./captureFeedback"
-import { captureScreenshot } from "./screenshot"
 
 const TYPES: { value: FeedbackType; label: string }[] = [
   { value: "bug", label: "🐛 Bug" },
@@ -14,30 +13,25 @@ const TYPES: { value: FeedbackType; label: string }[] = [
 
 /**
  * Right-edge feedback tab + slide-in panel, mounted once at the app root so it
- * appears on every page. Sends a context-rich message event to GlitchTip. The
- * screenshot control is shown only in "full" privacy mode. Renders nothing when
- * telemetry is disabled (no DSN).
+ * appears on every page. Sends a context-rich message event to GlitchTip.
+ * Renders nothing when telemetry is disabled (no DSN).
  */
 export function FeedbackWidget() {
   const location = useLocation()
   const [open, setOpen] = useState(false)
   const [type, setType] = useState<FeedbackType>("bug")
   const [message, setMessage] = useState("")
-  const [attachShot, setAttachShot] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   if (!telemetryConfig.enabled) return null
-  const allowScreenshot = telemetryConfig.privacyMode === "full"
 
-  async function handleSend() {
+  function handleSend() {
     if (!message.trim() || submitting) return
     setSubmitting(true)
     try {
-      const screenshot = attachShot && allowScreenshot ? await captureScreenshot() : null
-      captureFeedback({ type, message: message.trim(), route: location.pathname, screenshot })
+      captureFeedback({ type, message: message.trim(), route: location.pathname })
       toast.success("Thanks — your feedback was sent.")
       setMessage("")
-      setAttachShot(false)
       setOpen(false)
     } catch {
       toast.error("Could not send feedback. Please try again.")
@@ -53,7 +47,7 @@ export function FeedbackWidget() {
           type="button"
           aria-label="Send feedback"
           onClick={() => setOpen(true)}
-          className="fixed right-0 top-1/2 z-50 -translate-y-1/2 rounded-l-md bg-info px-1.5 py-3 text-xs font-medium tracking-wide text-black [writing-mode:vertical-rl] rotate-180"
+          className="fixed right-0 top-1/2 z-50 -translate-y-1/2 rounded-r-md bg-info px-1.5 py-3 text-xs font-medium tracking-wide text-black [writing-mode:vertical-rl] rotate-180"
         >
           FEEDBACK
         </button>
@@ -96,17 +90,6 @@ export function FeedbackWidget() {
               placeholder="Tell us what happened…"
               className="h-24 w-full rounded-md border border-white/15 bg-white/5 p-2 text-sm"
             />
-
-            {allowScreenshot && (
-              <label className="flex items-center gap-2 text-xs opacity-80">
-                <input
-                  type="checkbox"
-                  checked={attachShot}
-                  onChange={(e) => setAttachShot(e.target.checked)}
-                />
-                Attach screenshot
-              </label>
-            )}
 
             <div className="rounded-md border border-dashed border-white/20 bg-white/5 px-2 py-1.5 text-[11px] leading-relaxed opacity-70">
               Auto-attached: page {location.pathname}, your role, recent actions.

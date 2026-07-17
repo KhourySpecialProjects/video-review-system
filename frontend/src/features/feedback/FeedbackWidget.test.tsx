@@ -3,12 +3,11 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react"
 
 const captureFeedback = vi.fn()
 vi.mock("./captureFeedback", () => ({ captureFeedback: (...a: unknown[]) => captureFeedback(...a) }))
-vi.mock("./screenshot", () => ({ captureScreenshot: vi.fn(async () => null) }))
 vi.mock("react-router", () => ({ useLocation: () => ({ pathname: "/videos/7/review" }) }))
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
-// Force telemetry "enabled + full" so the screenshot control renders.
+// Telemetry enabled so the widget renders (DSN present).
 vi.mock("@/lib/telemetry/config", () => ({
-  telemetryConfig: { enabled: true, dsn: "x", environment: "test", privacyMode: "full" },
+  telemetryConfig: { enabled: true, dsn: "x", environment: "test", privacyMode: "scrubbed" },
 }))
 
 import { FeedbackWidget } from "./FeedbackWidget"
