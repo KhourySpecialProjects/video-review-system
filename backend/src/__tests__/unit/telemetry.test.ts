@@ -21,7 +21,13 @@ describe("resolveTelemetryConfig (backend)", () => {
     expect(resolveTelemetryConfig({ TELEMETRY_PRIVACY: "full" }).privacyMode).toBe("full")
   })
 
-  it("falls back environment to 'unknown'", () => {
+  it("falls back environment to 'unknown' when unset or empty", () => {
     expect(resolveTelemetryConfig({}).environment).toBe("unknown")
+    expect(resolveTelemetryConfig({ SENTRY_ENVIRONMENT: "" }).environment).toBe("unknown")
+    expect(resolveTelemetryConfig({ SENTRY_ENVIRONMENT: "  " }).environment).toBe("unknown")
+  })
+
+  it("stays disabled for a whitespace-only DSN", () => {
+    expect(resolveTelemetryConfig({ SENTRY_DSN: "   " }).enabled).toBe(false)
   })
 })

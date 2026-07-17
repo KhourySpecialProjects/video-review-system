@@ -17,11 +17,12 @@ export function resolveTelemetryConfig(env: {
   VITE_APP_ENV?: string
   VITE_TELEMETRY_PRIVACY?: string
 }): TelemetryConfig {
-  const dsn = env.VITE_GLITCHTIP_DSN ?? ""
+  const dsn = (env.VITE_GLITCHTIP_DSN ?? "").trim()
   return {
     enabled: dsn.length > 0,
     dsn,
-    environment: env.VITE_APP_ENV ?? "local",
+    // `||` (not `??`) so an empty/whitespace value also falls back to "local".
+    environment: env.VITE_APP_ENV?.trim() || "local",
     privacyMode: env.VITE_TELEMETRY_PRIVACY === "full" ? "full" : "scrubbed",
   }
 }

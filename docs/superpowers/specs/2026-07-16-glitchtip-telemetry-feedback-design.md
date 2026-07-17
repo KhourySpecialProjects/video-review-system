@@ -57,16 +57,18 @@ Three code pieces in the existing app repo, plus one new standalone deployment.
 
 **Error path:** a JS exception (frontend) or an unhandled error / 500 (backend) → the SDK captures it with the current breadcrumb trail + `environment` + `platform` tags → the matching GlitchTip project (`asclepion-next` or `asclepion-dev`) → operator triage.
 
-**Feedback path:** tester clicks the edge tab → fills the panel (type, message) → the widget calls:
+**Feedback path:** tester clicks the edge tab → fills the panel (type, message) → the widget opens a scope, sets the feedback tags + route context explicitly, and sends an info-level message:
 
 ```
-Sentry.captureMessage(message, {
-  level: 'info',
-  tags: { feedback: true, 'feedback.type': type },        // bug | confusing | idea
+Sentry.withScope((scope) => {
+  scope.setTag('feedback', true)
+  scope.setTag('feedback.type', type)                 // bug | confusing | idea
+  scope.setContext('feedback', { route })             // parametrized in scrubbed mode
+  Sentry.captureMessage(message, 'info')
 })
 ```
 
-The SDK **automatically attaches the live breadcrumb buffer, the user context, and the current route** — which is the reason the widget lives in the frontend and sends directly, with **no backend endpoint and nothing persisted in the Asclepion database**. The feedback appears as an ordinary GlitchTip issue (tagged `feedback`) alongside errors.
+The SDK **automatically attaches the live breadcrumb buffer and the user context**; the **route is set explicitly** on the scope (above). This is why the widget lives in the frontend and sends directly, with **no backend endpoint and nothing persisted in the Asclepion database**. The feedback appears as an ordinary GlitchTip issue (tagged `feedback`) alongside errors.
 
 **Triage → Linear (manual):** the operator works through GlitchTip. When an issue earns a ticket, they create the Linear issue (Velocity Consultants) and cross-link: paste the GlitchTip issue URL onto the Linear issue as a link/attachment, and drop the Linear issue URL back onto the GlitchTip issue. Two clicks, bidirectional, unambiguous.
 

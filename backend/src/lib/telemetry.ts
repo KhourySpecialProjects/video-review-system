@@ -14,11 +14,13 @@ export interface TelemetryConfig {
  * is testable. Privacy fails safe to "scrubbed"; empty DSN disables telemetry.
  */
 export function resolveTelemetryConfig(env: NodeJS.ProcessEnv): TelemetryConfig {
-  const dsn = env.SENTRY_DSN ?? ""
+  const dsn = (env.SENTRY_DSN ?? "").trim()
   return {
     enabled: dsn.length > 0,
     dsn,
-    environment: env.SENTRY_ENVIRONMENT ?? "unknown",
+    // `||` (not `??`) so an empty/whitespace value also falls back — the compose
+    // default is `${SENTRY_ENVIRONMENT:-}`, which passes "" when unset.
+    environment: env.SENTRY_ENVIRONMENT?.trim() || "unknown",
     privacyMode: env.TELEMETRY_PRIVACY === "full" ? "full" : "scrubbed",
   }
 }

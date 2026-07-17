@@ -26,8 +26,14 @@ describe("resolveTelemetryConfig", () => {
     expect(resolveTelemetryConfig({ VITE_TELEMETRY_PRIVACY: "full" }).privacyMode).toBe("full")
   })
 
-  it("falls back environment to 'local' when VITE_APP_ENV is unset", () => {
+  it("falls back environment to 'local' when VITE_APP_ENV is unset or empty", () => {
     expect(resolveTelemetryConfig({}).environment).toBe("local")
+    expect(resolveTelemetryConfig({ VITE_APP_ENV: "" }).environment).toBe("local")
+    expect(resolveTelemetryConfig({ VITE_APP_ENV: "  " }).environment).toBe("local")
+  })
+
+  it("stays disabled for a whitespace-only DSN", () => {
+    expect(resolveTelemetryConfig({ VITE_GLITCHTIP_DSN: "   " }).enabled).toBe(false)
   })
 })
 

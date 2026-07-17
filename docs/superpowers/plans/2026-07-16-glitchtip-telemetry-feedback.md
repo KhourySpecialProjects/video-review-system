@@ -13,7 +13,7 @@
 
 **Architecture:** GlitchTip is a Sentry-protocol-compatible server, so the official Sentry SDKs are the clients — `@sentry/react` on the frontend and `@sentry/node` on the backend. Errors and proactive feedback both flow to one self-hosted GlitchTip instance (a separate Coolify resource, stood up by the operator) with one project per environment. A privacy switch (`full` vs `scrubbed`) governs how much identifiable data is sent; it is a Vite **build arg** on the frontend and a **runtime env** on the backend. Nothing is persisted in the Asclepion database.
 
-**Tech Stack:** React 19, Vite 8, TypeScript, Vitest + @testing-library/react (frontend); Express 5, TypeScript, Vitest (backend); `@sentry/react`, `@sentry/node`, `html2canvas-pro`.
+**Tech Stack:** React 19, Vite 8, TypeScript, Vitest + @testing-library/react (frontend); Express 5, TypeScript, Vitest (backend); `@sentry/react`, `@sentry/node`. (`html2canvas-pro` was part of the now-removed screenshot feature — see the superseded note above.)
 
 ## Global Constraints
 
