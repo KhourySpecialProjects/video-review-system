@@ -7,9 +7,11 @@ import { router } from "./router"
 import { AuthProvider } from "./context/auth-context"
 import { queryClient } from "./lib/queryClient"
 import { initTelemetry } from "./lib/telemetry/init"
+import { appVersion } from "./lib/version"
 import "./index.css"
 
 initTelemetry()
+console.info(`VMP ${appVersion.version}`)
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
