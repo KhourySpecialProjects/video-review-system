@@ -30,4 +30,17 @@ describe("resolveTelemetryConfig (backend)", () => {
   it("stays disabled for a whitespace-only DSN", () => {
     expect(resolveTelemetryConfig({ SENTRY_DSN: "   " }).enabled).toBe(false)
   })
+
+  it("sets release from the provided version string", () => {
+    const c = resolveTelemetryConfig(
+      { SENTRY_DSN: "https://x@h/1" } as NodeJS.ProcessEnv,
+      "0.1.0+next.a1b2c3d",
+    )
+    expect(c.release).toBe("vmp@0.1.0+next.a1b2c3d")
+  })
+
+  it("defaults release to vmp@unknown when no version string is given", () => {
+    const c = resolveTelemetryConfig({ SENTRY_DSN: "https://x@h/1" } as NodeJS.ProcessEnv)
+    expect(c.release).toBe("vmp@unknown")
+  })
 })
