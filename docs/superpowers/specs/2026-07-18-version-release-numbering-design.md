@@ -136,8 +136,8 @@ ships) and every event is traceable to an exact commit + channel.
 - Telemetry resolvers: extend existing tests to assert the `release` field.
 - `/api/version`: route test for shape and values.
 - `<AppVersion />`: render test for both placements + the commit link.
-- GitHub Action: dry-run / manual verification of bump math, the bot-author guard, and the
-  `[skip-deploy]` guard.
+- FE↔BE skew + reload nudge: hook tests for the skew, no-skew, unreachable-backend, and
+  new-version-poll paths.
 
 ## Phasing → tickets
 
