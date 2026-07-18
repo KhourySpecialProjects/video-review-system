@@ -43,33 +43,35 @@ build/interpolation reference, Coolify issue #2126.
   - `shortSHA` = first 7 chars of `SOURCE_COMMIT`.
   - Example: `1.3.0+next.a1b2c3d`.
 
-The SHA suffix guarantees a distinct, traceable release on every single merge, with zero
-automation. The SemVer base is the human-readable counter on top (see bump policy).
+**What moves forward on every merge is the full release string**, via the `+sha` suffix (and
+the build timestamp) — with zero automation, no CI, and no secrets. The SemVer base is a
+human-curated milestone marker on top, not a per-merge counter.
 
-## Bump policy & automation
+## Bump policy (manual + GitHub Releases, no automation)
 
-**Auto-bump the patch on every merge into `next` only.** Promotions `next → develop → main`
-are plain PR merges that carry `VERSION` forward untouched. This is forced by the forward-only
-branch model: if each channel bumped its own `VERSION`, that file would conflict on every
-promotion. Channel differentiation comes from the suffix, never from a different base number.
+We deliberately reject an auto-incrementing patch. It was verified (Coolify v4.x source) that
+Coolify cannot natively read a git tag or GitHub Release, exposes no tag variable, and its
+webhook ignores `release` events — so any auto-bump or Releases-fed build would require custom
+glue (a GitHub Action + a stored Coolify deploy token, or a build-time GitHub API `curl` with
+drift + rate-limit + network-dependency downsides). None of that is worth a cosmetic sequential
+integer when `+sha` already gives per-merge forward motion and full traceability.
 
-**Mechanism — one small GitHub Action** (the repo's first CI file), triggered only on push to
-`next`:
+**The model:**
 
-1. Read `VERSION`, increment patch, write it back.
-2. Commit as `chore(release): vX.Y.Z [skip-deploy]` and push to `next`.
-3. Call Coolify's **deploy webhook** for the resulting commit.
+- **`/VERSION` is the single source of truth the build reads.** It travels with the commit, so
+  it is always correct for what's being built, needs no network or token, and survives Coolify
+  stripping `.git`. Bumped **manually** on `next` when a change is worth a new number; it then
+  rides promotions `next → develop → main` untouched (channel differentiation comes from the
+  suffix, never from a different base — this also avoids a `VERSION` merge conflict at every
+  promotion).
+- **GitHub Releases are the human milestone layer, decoupled from the build.** At a milestone,
+  bump `VERSION` to `1.4.0` **and** cut a GitHub Release tagged `v1.4.0` (free auto-generated
+  notes, visible in the repo's Releases panel). They agree because both happen at the same
+  moment. The build never polls the Releases API — the Release is a changelog/announcement, not
+  a build input.
 
-**Guards (must-have):**
-- Skip the whole job if the pushing author is the release bot (prevents an infinite
-  bump→push→bump loop).
-- Skip if the head commit message already contains `[skip-deploy]`.
-
-**Deploy handling — Coolify webhook (chosen):** turn **off** Coolify auto-deploy on the `next`
-resource. Only the Action's webhook call deploys `next`, so there is exactly **one** deploy per
-merge and it runs on the correctly-numbered bump commit. Requires a Coolify deploy token stored
-as a GitHub Actions secret. `develop` and `main` keep their existing Coolify auto-deploy — they
-are not bumped and need no Action.
+**No GitHub Action, no Coolify deploy token, no webhook, no auto-deploy changes.** `next`,
+`develop`, and `main` keep their existing Coolify auto-deploy exactly as-is.
 
 ## Backend wiring (runtime — no build arg needed)
 
@@ -139,8 +141,10 @@ ships) and every event is traceable to an exact commit + channel.
 
 ## Phasing → tickets
 
-1. **VMP-182** — `/VERSION`, backend `version.ts` + `/api/version`, FE Dockerfile + compose
-   build args, the bump Action + Coolify webhook wiring, Coolify toggles.
+1. **VMP-182** — `/VERSION` (seeded with the current base), backend `version.ts` +
+   `/api/version`, FE Dockerfile + compose build args, the "Include Source Commit in Build"
+   Coolify toggle, and a short CONTRIBUTING/README note on the manual bump + GitHub Release
+   milestone step.
 2. **VMP-184** — `release` in both telemetry resolvers + `Sentry.init`, tests.
 3. **VMP-183** — `useAppVersion()`, `<AppVersion />`, profile-dropdown + public-footer
    placement, skew check, reload nudge.
@@ -148,8 +152,12 @@ ships) and every event is traceable to an exact commit + channel.
 
 ## Risks / open items
 
-- **Coolify deploy token** must exist and be stored as a GitHub secret before the webhook path
-  works; until then, fall back to leaving `next` auto-deploy on (double-build per merge).
 - **"Include Source Commit in Build" toggle** must be enabled on the frontend Coolify resource,
-  or `VITE_APP_VERSION`'s SHA will be empty at build. Backend is unaffected (runtime env).
-- The release-bot commit author used by the guard must be a stable, recognizable identity.
+  or `VITE_APP_VERSION`'s SHA will be empty at build. Backend is unaffected (`SOURCE_COMMIT` is
+  a runtime env there). This is the only Coolify operator step.
+- **Manual discipline:** the base number only advances if someone bumps `/VERSION` (and,
+  ideally, cuts the matching GitHub Release). If forgotten, builds still differ correctly by
+  `+sha` — the base just lags reality, which is cosmetic.
+- **Build-time network for the FE build** is not needed under this model (no API `curl`); the
+  FE build reads `VERSION` from the copied working tree and `SOURCE_COMMIT`/`COOLIFY_BRANCH`
+  from build args.
