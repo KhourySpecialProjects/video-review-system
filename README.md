@@ -471,3 +471,23 @@ defaults to `scrubbed`. An empty DSN disables telemetry entirely.
 `feedback` with a `feedback.type` of `bug`/`confusing`/`idea`. When an issue
 deserves a ticket, create the Linear issue and cross-link (paste the GlitchTip
 URL onto the Linear issue and the Linear URL back onto the GlitchTip issue).
+
+## Versioning
+
+Every build carries a version of the form `{VERSION}+{channel}.{shortSHA}` —
+e.g. `0.1.0+next.a1b2c3d`. The `+sha` suffix advances automatically on every
+merge (via Coolify's `SOURCE_COMMIT`/`COOLIFY_BRANCH`); the SemVer base
+(`/VERSION`) is a human-curated milestone marker, bumped by hand.
+
+- **To bump the base version:** edit `/VERSION` on `next` — it rides the
+  forward-only promotions (`next` → `develop` → `main`) untouched. At real
+  milestones, also cut a GitHub Release tagged `vX.Y.Z` with notes.
+- **Where it shows up:** the profile dropdown, the login page, the
+  `GET /api/version` endpoint, and as the `release` field on GlitchTip events.
+- **One operator step required:** the frontend Coolify resource must have
+  **"Include Source Commit in Build"** enabled, or the baked-in SHA comes back
+  empty.
+
+See
+[`docs/superpowers/specs/2026-07-18-version-release-numbering-design.md`](docs/superpowers/specs/2026-07-18-version-release-numbering-design.md)
+for the full design.
