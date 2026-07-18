@@ -26,6 +26,12 @@ services:
         # Privacy posture: "full" (next/dev, no real PII) or "scrubbed" (prod).
         # Defaults to scrubbed so an unset value fails private. BUILD variable.
         VITE_TELEMETRY_PRIVACY: ${VITE_TELEMETRY_PRIVACY:-scrubbed}
+        # Git anchors for the version string. SOURCE_COMMIT requires the Coolify
+        # "Include Source Commit in Build" toggle on the frontend resource;
+        # COOLIFY_BRANCH is always available. Both empty in non-Coolify builds
+        # (falls back to a "local" version).
+        SOURCE_COMMIT: ${SOURCE_COMMIT:-}
+        COOLIFY_BRANCH: ${COOLIFY_BRANCH:-}
     restart: unless-stopped
     expose:
       - "80"
