@@ -6,7 +6,10 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools"
 import { router } from "./router"
 import { AuthProvider } from "./context/auth-context"
 import { queryClient } from "./lib/queryClient"
+import { initTelemetry } from "./lib/telemetry/init"
 import "./index.css"
+
+initTelemetry()
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -10,6 +10,9 @@ BigInt.prototype.toJSON = function () {
   return Number(this);
 };
 
+// Initialize telemetry before importing/creating the app.
+import "./instrument.js";
+
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -56,6 +59,16 @@ export function createApp() {
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
   });
+
+  // Debug-only telemetry check: throws an unhandled error so the global
+  // errorHandler routes it through Sentry.captureException (500 path). Use it to
+  // confirm error telemetry reaches GlitchTip after a deploy. Guarded off in
+  // production so it never exposes an error endpoint there.
+  if (process.env.SENTRY_ENVIRONMENT !== "production") {
+    app.get("/api/debug/sentry", () => {
+      throw new Error("GlitchTip backend telemetry test — /api/debug/sentry");
+    });
+  }
 
   // domain routes
   app.use("/api/domain/videos", videosRouter);

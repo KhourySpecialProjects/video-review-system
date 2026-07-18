@@ -20,6 +20,12 @@ services:
         # Coolify this MUST be marked a BUILD variable — Vite bakes it in at
         # build time, so a runtime variable silently does nothing.
         VITE_APP_ENV: ${VITE_APP_ENV:-dev-preview}
+        # GlitchTip DSN for the browser SDK. Empty disables telemetry. MUST be a
+        # BUILD variable in Coolify — Vite bakes it in at build time.
+        VITE_GLITCHTIP_DSN: ${VITE_GLITCHTIP_DSN:-}
+        # Privacy posture: "full" (next/dev, no real PII) or "scrubbed" (prod).
+        # Defaults to scrubbed so an unset value fails private. BUILD variable.
+        VITE_TELEMETRY_PRIVACY: ${VITE_TELEMETRY_PRIVACY:-scrubbed}
     restart: unless-stopped
     expose:
       - "80"
@@ -58,6 +64,10 @@ services:
       S3_ENDPOINT: ${S3_ENDPOINT}
       S3_BUCKET_NAME: ${S3_BUCKET_NAME}
       # SES_FROM_EMAIL intentionally unset -> log-only email.
+      # GlitchTip telemetry (backend). Empty DSN disables it. Runtime vars.
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
+      TELEMETRY_PRIVACY: ${TELEMETRY_PRIVACY:-scrubbed}
     depends_on:
       postgres:
         condition: service_healthy

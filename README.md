@@ -340,31 +340,41 @@ seen running **without redeploying `dev`** while clients are user-testing there.
 It reuses `docker-compose.coolify.yml` unchanged — only the environment differs.
 See `docs/superpowers/specs/2026-07-15-next-coolify-deployment-design.md`.
 
-### `next` is a deploy pointer, not a branch you work on
+### `next` is a forward-only branch: `next` → `develop` → `main`
 
-Coolify watches the long-lived `next` branch and redeploys on push. You never
-change the branch in the Coolify UI — you force-push at the pointer instead:
+`next` is a normal long-lived branch, the **frontline** of a three-tier promotion
+pipeline. It sits *ahead* of `develop` and only ever moves **forward** — via
+merges, never a force-push or reset. This is the same discipline `develop` and
+`main` already follow, and it is what keeps every environment's database safe:
+because no branch rewinds, Prisma migrations only ever roll forward.
 
-```bash
-git push -f origin HEAD:next                   # deploy what I'm working on
-git push -f origin vmp-174-some-feature:next   # deploy a specific branch
-git push -f origin develop:next                # reset to develop
-```
+- **`next`** (`next.asclepion.cs4535.cloud`, blue banner) — frontline integration
+  and live preview. New work lands here first.
+- **`develop`** (`dev.asclepion.cs4535.cloud`, amber banner) — client-testing /
+  release candidate.
+- **`main`** — production gate.
 
-**Rules:**
+**Working on `next`:** branch a feature off `next`, open a PR **against `next`**,
+and merge it (merge commit, delete the branch). The push to `next` auto-deploys to
+`next.asclepion.cs4535.cloud` — no Coolify UI interaction and no force-push.
 
-1. **Never merge `next` into anything.** Its history is a series of force-pushes
-   from unrelated branches. It is a deploy target, not a source of truth.
-2. Never open a PR against it; never branch off it.
-3. `git push -f origin develop:next` is the reset button. There is no state on
-   the *branch* to lose, so the push itself is always safe. The *deployment* is a
-   separate matter: force-pushing an older commit can leave `next`'s database
-   ahead of the schema its code expects (Prisma migrates forward, never back). If
-   `next` misbehaves after moving the pointer backwards, wipe its `postgres_data`
-   volume in Coolify and let it re-seed — that is exactly the kind of damage
-   `next` exists to absorb.
+**Promotion is the release step — on your cadence, not per feature:**
 
-This gives one preview at a time, which is what solo iteration needs.
+1. When a batch on `next` is proven and the client test window allows, open a PR
+   **`next` → `develop`** and merge it. `dev.asclepion` redeploys and clients see
+   the change.
+2. `develop` → `main` stays a separate gate.
+
+**Hotfix escape hatch.** If something urgent must reach the client-facing `dev`
+without waiting for the whole `next` batch, branch off `develop`, PR into
+`develop`, then **merge `develop` back into `next`** to keep `next` ahead. This
+mirrors merging `main` back into `develop` after a hotfix.
+
+**Never force-push or rewind `next`.** Pointing it at an older commit leaves its
+database ahead of the schema its code expects (Prisma migrates forward, never
+back), which strands the deployment. If that ever happens, recover by wiping its
+`postgres_data` volume in Coolify and letting it re-seed — `next` holds no data
+worth keeping.
 
 ### DNS
 
@@ -375,7 +385,9 @@ Point two hostnames at the Coolify server:
 
 ### One-time Coolify setup
 
-1. **Create the pointer branch:** `git push origin develop:next`.
+1. **Create the `next` branch:** `git push origin develop:next`. This is the one
+   and only time `next` is set from another branch — from here it only moves
+   forward via merges.
 2. **Create the resource — build it fresh; do NOT clone the `dev` resource.**
    New Resource → **Private Repository (GitHub App)** → this repo. Use the GitHub
    App source, not "Public Repository" — that is what wires the auto-deploy
@@ -420,7 +432,7 @@ Point two hostnames at the Coolify server:
 2. Log in as `admin@local.dev` with the **`next`** `SEED_PASSWORD`.
 3. Upload a video and play it back (exercises the presigned round trip against
    `s3.next.asclepion.cs4535.cloud`).
-4. `git push -f origin develop:next` and confirm Coolify redeploys with no UI
+4. Merge a commit to `next` (or push one) and confirm Coolify redeploys with no UI
    interaction.
 
 ### Notes
@@ -434,3 +446,28 @@ Point two hostnames at the Coolify server:
   running two environments off one compose file is safe.
 - **`next` is where infrastructure changes get proven first**, before they reach
   the client-facing `dev`.
+
+### Telemetry + feedback (GlitchTip)
+
+Errors (frontend + backend) and in-app tester feedback flow to a **self-hosted
+GlitchTip** instance — a separate Coolify resource, shared by `next` and `dev`.
+
+**One-time operator setup (in Coolify, outside this repo):**
+1. Create a GlitchTip **Docker Compose** resource (GlitchTip web + worker +
+   its own Postgres + Redis) and point a domain at it (e.g.
+   `glitchtip.cs4535.cloud`). GlitchTip is independent of the Asclepion app.
+2. In GlitchTip, create two projects: `asclepion-next` and `asclepion-dev`.
+3. Copy each project's **DSN** into the matching Asclepion deployment:
+   - Frontend (mark these **BUILD** variables in Coolify): `VITE_GLITCHTIP_DSN`,
+     `VITE_TELEMETRY_PRIVACY`.
+   - Backend (runtime): `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, `TELEMETRY_PRIVACY`.
+
+**Privacy switch:** `*_TELEMETRY_PRIVACY` / `TELEMETRY_PRIVACY` = `full` on
+`next`/`dev` (max data during testing; no real PII there), `scrubbed` in
+production (pseudonymous identity, parametrized URLs). Unset
+defaults to `scrubbed`. An empty DSN disables telemetry entirely.
+
+**Triage → Linear:** work through issues in GlitchTip; feedback is tagged
+`feedback` with a `feedback.type` of `bug`/`confusing`/`idea`. When an issue
+deserves a ticket, create the Linear issue and cross-link (paste the GlitchTip
+URL onto the Linear issue and the Linear URL back onto the GlitchTip issue).

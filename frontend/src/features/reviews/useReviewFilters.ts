@@ -2,6 +2,7 @@ import { useSearchParams, useSubmit } from "react-router";
 import type { DateRange } from "react-day-picker";
 import type { ReviewFilters, StudyOption } from "./types";
 import {
+    buildDateRangeParams,
     hasActiveFilters as checkHasActiveFilters,
     getDateRangeFromFilters,
     groupStudiesByStatus,
@@ -50,9 +51,10 @@ export function useReviewFilters(filters: ReviewFilters, studies: StudyOption[])
      */
     function handleDateRangeChange(range: DateRange | undefined) {
         const params = new URLSearchParams(searchParams);
-        if (range?.from) params.set("dateFrom", range.from.toISOString());
+        const { dateFrom, dateTo } = buildDateRangeParams(range);
+        if (dateFrom) params.set("dateFrom", dateFrom);
         else params.delete("dateFrom");
-        if (range?.to) params.set("dateTo", range.to.toISOString());
+        if (dateTo) params.set("dateTo", dateTo);
         else params.delete("dateTo");
         params.delete("page");
         submit(params, { replace: true });

@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client.js";
+import * as Sentry from "@sentry/node";
 
 /**
  * Custom application error with HTTP status code.
@@ -143,6 +144,9 @@ function mapPrismaError(err: PrismaClientKnownRequestError): { statusCode: numbe
 export function errorHandler(err: Error, req: Request, res: Response, next: NextFunction) {
   // AppError — use its status code and message directly
   if (err instanceof AppError) {
+    if (!err.isOperational || err.statusCode >= 500) {
+      Sentry.captureException(err);
+    }
     res.status(err.statusCode).json({
       status: "error",
       statusCode: err.statusCode,
@@ -172,6 +176,7 @@ export function errorHandler(err: Error, req: Request, res: Response, next: Next
     const { statusCode, message } = mapPrismaError(err);
     if (statusCode >= 500) {
       console.error("Prisma error:", err);
+      Sentry.captureException(err);
     }
     res.status(statusCode).json({
       status: "error",
@@ -194,6 +199,7 @@ export function errorHandler(err: Error, req: Request, res: Response, next: Next
 
   // Unknown error — never leak internals
   console.error("Unhandled error:", err);
+  Sentry.captureException(err);
   res.status(500).json({
     status: "error",
     statusCode: 500,

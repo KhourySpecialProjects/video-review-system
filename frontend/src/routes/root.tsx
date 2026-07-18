@@ -5,6 +5,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Navbar } from "@/features/layout/Navbar";
 import { DevBanner } from "@/features/layout/DevBanner";
+import { FeedbackWidget } from "@/features/feedback/FeedbackWidget";
+import { useTelemetryIdentity } from "@/lib/telemetry/useTelemetryIdentity";
 
 export type MainOutletContext = {
     mainRef: React.RefObject<HTMLElement | null>;
@@ -23,6 +25,7 @@ export type MainOutletContext = {
  * to descendant routes via Outlet context for the same reason.
  */
 export default function Root() {
+    useTelemetryIdentity();
     const location = useLocation();
     const isFullBleed =
         location.pathname.startsWith("/review/") ||
@@ -49,6 +52,7 @@ export default function Root() {
                         <Outlet key={location.pathname} context={outletContext} />
                     </AnimatePresence>
                 </main>
+                <FeedbackWidget />
             </div>
         </TooltipProvider>
     );
