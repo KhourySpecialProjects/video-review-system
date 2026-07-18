@@ -24,6 +24,11 @@ COPY --from=builder /repo/backend/dist/backend/src ./dist
 COPY --from=builder /repo/backend/src/generated/prisma ./dist/generated/prisma
 COPY --from=builder /repo/backend/prisma ./prisma
 
+# Version metadata read at runtime by src/lib/version.ts. SOURCE_COMMIT and
+# COOLIFY_BRANCH arrive as runtime env from Coolify; VERSION + BUILD_TIME are baked here.
+COPY VERSION ./VERSION
+RUN date -u +"%Y-%m-%dT%H:%M:%SZ" > ./BUILD_TIME
+
 EXPOSE 8080
 
 CMD ["node", "dist/index.js"]
