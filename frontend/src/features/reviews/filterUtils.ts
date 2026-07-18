@@ -10,17 +10,29 @@ export const REVIEW_STATUS_OPTIONS: ReviewStatus[] = [
 ];
 
 /**
+ * @description Narrows an arbitrary string to a valid ReviewStatus.
+ * @param value - Candidate status string (e.g. from a URL param)
+ * @returns {value is ReviewStatus} True if the value is a recognized status
+ */
+function isReviewStatus(value: string): value is ReviewStatus {
+    return (REVIEW_STATUS_OPTIONS as string[]).includes(value);
+}
+
+/**
  * @description Parses URL search params into a typed ReviewFilters object.
- * Extracts recognized filter keys and ignores unrecognized ones.
+ * Extracts recognized filter keys and ignores unrecognized ones. An
+ * unrecognized `status` value is dropped rather than forwarded, since the
+ * backend rejects unknown statuses with a 400 that would crash the loader.
  * @param searchParams - The URLSearchParams from the current URL
  * @returns {ReviewFilters} The parsed filter values
  */
 export function parseFiltersFromParams(searchParams: URLSearchParams): ReviewFilters {
+    const rawStatus = searchParams.get("status");
     return {
         search: searchParams.get("search") ?? undefined,
         study: searchParams.get("study") ?? undefined,
         site: searchParams.get("site") ?? undefined,
-        status: (searchParams.get("status") as ReviewStatus) ?? undefined,
+        status: rawStatus && isReviewStatus(rawStatus) ? rawStatus : undefined,
         dateFrom: searchParams.get("dateFrom") ?? undefined,
         dateTo: searchParams.get("dateTo") ?? undefined,
         page: searchParams.has("page")
@@ -57,6 +69,32 @@ export function getDateRangeFromFilters(filters: ReviewFilters): DateRange | und
         from: filters.dateFrom ? new Date(filters.dateFrom) : undefined,
         to: filters.dateTo ? new Date(filters.dateTo) : undefined,
     };
+}
+
+/**
+ * @description Converts a picker DateRange into the `dateFrom` / `dateTo` URL
+ * params sent to the backend. The backend filters uploads with an inclusive
+ * `createdAt` between the two instants, so `dateFrom` is snapped to the start
+ * of its day and `dateTo` to the last millisecond of its day — otherwise a
+ * `to` value of local midnight would exclude nearly the entire end day.
+ * @param range - The selected date range, or undefined to clear
+ * @returns {{ dateFrom?: string; dateTo?: string }} ISO param values (present keys only)
+ */
+export function buildDateRangeParams(
+    range: DateRange | undefined,
+): { dateFrom?: string; dateTo?: string } {
+    const params: { dateFrom?: string; dateTo?: string } = {};
+    if (range?.from) {
+        const start = new Date(range.from);
+        start.setHours(0, 0, 0, 0);
+        params.dateFrom = start.toISOString();
+    }
+    if (range?.to) {
+        const end = new Date(range.to);
+        end.setHours(23, 59, 59, 999);
+        params.dateTo = end.toISOString();
+    }
+    return params;
 }
 
 /**
