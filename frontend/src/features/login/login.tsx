@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Form, Link, useActionData, useNavigation } from "react-router";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { AppVersion } from "@/features/layout/AppVersion";
 
 type ActionData =
     | { fieldErrors: Record<string, string> }
@@ -28,7 +29,7 @@ export function Login() {
     const formError = actionData && "formError" in actionData ? actionData.formError : undefined;
 
     return (
-        <div className="flex min-h-screen items-center justify-center p-4 md:p-8">
+        <div className="flex min-h-screen flex-col items-center justify-center p-4 md:p-8">
             <ThemeToggle className="fixed top-4 right-4 z-50" />
 
             <Card className="w-full max-w-sm shadow-xl border-primary/10">
@@ -124,6 +125,8 @@ export function Login() {
                     </Form>
                 </CardContent>
             </Card>
+
+            <AppVersion className="mt-4 text-center" />
         </div>
     );
 }
