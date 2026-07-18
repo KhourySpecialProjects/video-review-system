@@ -123,6 +123,24 @@ describe("app wiring", () => {
     expect(response.body).toEqual({ status: "ok" });
   });
 
+  it("GET /api/version returns the version payload", async () => {
+    // Input: GET /api/version.
+    // Expected: 200 with a fully-populated VersionInfo body.
+    const app = await getApp();
+
+    const response = await request(app).get("/api/version");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      version: expect.any(String),
+      base: expect.any(String),
+      branch: expect.any(String),
+      commit: expect.any(String),
+      shortCommit: expect.any(String),
+    });
+    expect(response.body).toHaveProperty("builtAt");
+  });
+
   it("GET /api/health includes the configured CORS origin", async () => {
     // Input: GET /api/health with Origin "http://localhost:5173".
     // Expected: the response includes access-control-allow-origin with the same

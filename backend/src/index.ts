@@ -22,6 +22,7 @@ import { fileURLToPath } from "url";
 import { auth } from "./lib/auth.js";
 import { notFoundHandler, errorHandler } from "./middleware/errors.js";
 import { requestLogger } from "./middleware/logging.js";
+import { getVersionInfo } from "./lib/version.js";
 
 import videosRouter from "./domains/videos/videos.router.js";
 import authRouter from "./domains/auth/auth.router.js";
@@ -58,6 +59,11 @@ export function createApp() {
   // health check (no auth required)
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // version info (no auth required)
+  app.get("/api/version", (req, res) => {
+    res.json(getVersionInfo());
   });
 
   // Debug-only telemetry check: throws an unhandled error so the global
