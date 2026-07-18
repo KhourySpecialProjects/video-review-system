@@ -19,7 +19,10 @@ export function VersionNotices() {
           A new version is available — refresh
         </button>
       ) : (
-        <span className="rounded-full border bg-background px-3 py-1 text-xs text-muted-foreground shadow-sm">
+        <span
+          role="status"
+          className="rounded-full border bg-background px-3 py-1 text-xs text-muted-foreground shadow-sm"
+        >
           Frontend / backend version mismatch
         </span>
       )}

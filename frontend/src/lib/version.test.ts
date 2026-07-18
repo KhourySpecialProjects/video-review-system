@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest"
-import { composeVersion, resolveVersionInfo, commitUrl } from "./version"
+import { describe, it, expect, vi, afterEach } from "vitest"
+import { composeVersion, resolveVersionInfo, commitUrl, fetchBackendVersion } from "./version"
 
 describe("composeVersion", () => {
   it("composes base + channel + short sha (canonical example)", () => {
@@ -39,5 +39,27 @@ describe("commitUrl", () => {
     expect(commitUrl("abcdef1234567890")).toBe(
       "https://github.com/KhourySpecialProjects/video-review-system/commit/abcdef1234567890",
     )
+  })
+})
+
+describe("fetchBackendVersion", () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it("returns the parsed VersionInfo on a 200", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ version: "0.1.0+next.abc1234" }) }),
+    )
+    expect(await fetchBackendVersion()).toEqual({ version: "0.1.0+next.abc1234" })
+  })
+
+  it("returns null on a non-ok response", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) }))
+    expect(await fetchBackendVersion()).toBeNull()
+  })
+
+  it("returns null (never throws) when the request rejects", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")))
+    expect(await fetchBackendVersion()).toBeNull()
   })
 })

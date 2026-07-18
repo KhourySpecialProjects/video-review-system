@@ -107,7 +107,7 @@ export function UserMenu({ onOpenChange }: UserMenuProps) {
 
                 <DropdownMenuSeparator />
                 <div className="px-2 py-1.5">
-                    <AppVersion />
+                    <AppVersion link={false} />
                 </div>
             </DropdownMenuContent>
         </DropdownMenu>
