@@ -5,6 +5,7 @@ import {
     getDateRangeFromFilters,
     formatDateRange,
     groupStudiesByStatus,
+    buildDateRangeParams,
     REVIEW_STATUS_OPTIONS,
 } from "./filterUtils";
 import type { StudyOption } from "./types";
@@ -50,6 +51,18 @@ describe("parseFiltersFromParams", () => {
 
         expect(result.search).toBe("test");
         expect((result as Record<string, unknown>)["foo"]).toBeUndefined();
+    });
+
+    it("drops an unrecognized status value instead of forwarding it", () => {
+        const params = new URLSearchParams({ status: "bogus" });
+        expect(parseFiltersFromParams(params).status).toBeUndefined();
+    });
+
+    it("keeps every valid status value", () => {
+        for (const status of REVIEW_STATUS_OPTIONS) {
+            const params = new URLSearchParams({ status });
+            expect(parseFiltersFromParams(params).status).toBe(status);
+        }
     });
 
     it("parses page as a number", () => {
@@ -121,6 +134,36 @@ describe("getDateRangeFromFilters", () => {
         });
         expect(result?.from).toEqual(new Date("2026-01-01T00:00:00Z"));
         expect(result?.to).toEqual(new Date("2026-02-01T00:00:00Z"));
+    });
+});
+
+describe("buildDateRangeParams", () => {
+    it("returns no params when the range is undefined", () => {
+        expect(buildDateRangeParams(undefined)).toEqual({});
+    });
+
+    it("emits only dateFrom when the range has no end", () => {
+        const result = buildDateRangeParams({ from: new Date(2026, 0, 10), to: undefined });
+        expect(result.dateTo).toBeUndefined();
+        // dateFrom is the start of the selected day.
+        expect(new Date(result.dateFrom!).getTime()).toBe(new Date(2026, 0, 10).getTime());
+    });
+
+    it("makes dateTo inclusive of the entire end day", () => {
+        // Reviewer picks Jan 15 as the end of the range.
+        const result = buildDateRangeParams({ from: new Date(2026, 0, 10), to: new Date(2026, 0, 15) });
+        const dateTo = new Date(result.dateTo!).getTime();
+
+        // A video uploaded late on Jan 15 must fall inside the range...
+        expect(new Date(2026, 0, 15, 23, 30).getTime()).toBeLessThanOrEqual(dateTo);
+        // ...but the range must stop before Jan 16 begins.
+        expect(new Date(2026, 0, 16, 0, 0).getTime()).toBeGreaterThan(dateTo);
+    });
+
+    it("normalizes dateFrom to the start of the selected day", () => {
+        // A from-date carrying a time component still anchors to midnight.
+        const result = buildDateRangeParams({ from: new Date(2026, 0, 10, 14, 30), to: undefined });
+        expect(new Date(result.dateFrom!).getTime()).toBe(new Date(2026, 0, 10).getTime());
     });
 });
 
