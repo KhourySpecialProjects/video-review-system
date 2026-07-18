@@ -44,7 +44,8 @@ export function resolveVersionInfo(input: {
     branch,
     commit,
     shortCommit,
-    builtAt: input.builtAt ?? null,
+    // Match the frontend: empty/whitespace collapses to null, per the doc above.
+    builtAt: (input.builtAt ?? "").trim() || null,
   };
 }
 
@@ -82,12 +83,18 @@ function readBuiltAt(): string | null {
   return null;
 }
 
-/** Resolve the running app's version from the filesystem + Coolify env. Impure. */
+/**
+ * Resolve the running app's version from the filesystem + Coolify env. Impure.
+ * Memoized: VERSION/BUILD_TIME are baked into the image and the env is fixed at
+ * runtime, so this reads disk once rather than on every `/api/version` hit (the
+ * route is unauthenticated and polled per open tab).
+ */
+let cachedVersionInfo: VersionInfo | undefined;
 export function getVersionInfo(): VersionInfo {
-  return resolveVersionInfo({
+  return (cachedVersionInfo ??= resolveVersionInfo({
     base: readVersionBase(),
     branch: process.env.COOLIFY_BRANCH,
     commit: process.env.SOURCE_COMMIT,
     builtAt: readBuiltAt(),
-  });
+  }));
 }

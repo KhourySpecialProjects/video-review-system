@@ -74,6 +74,13 @@ services:
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
       TELEMETRY_PRIVACY: ${TELEMETRY_PRIVACY:-scrubbed}
+      # Version anchors read at runtime by src/lib/version.ts. Coolify exposes
+      # COOLIFY_BRANCH for compose interpolation and injects SOURCE_COMMIT into
+      # the deploy env; map both explicitly so the backend reports the same
+      # {base}+{channel}.{sha} the frontend bakes in (otherwise it falls back to
+      # "local" and the FE/BE version-skew badge fires on every healthy load).
+      SOURCE_COMMIT: ${SOURCE_COMMIT:-}
+      COOLIFY_BRANCH: ${COOLIFY_BRANCH:-}
     depends_on:
       postgres:
         condition: service_healthy

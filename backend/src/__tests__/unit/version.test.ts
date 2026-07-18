@@ -39,4 +39,8 @@ describe("resolveVersionInfo", () => {
     expect(info.shortCommit).toBe("local");
     expect(info.builtAt).toBeNull();
   });
+  it("collapses an empty/whitespace builtAt to null (matches the frontend)", () => {
+    expect(resolveVersionInfo({ base: "0.1.0", builtAt: "" }).builtAt).toBeNull();
+    expect(resolveVersionInfo({ base: "0.1.0", builtAt: "  " }).builtAt).toBeNull();
+  });
 });
