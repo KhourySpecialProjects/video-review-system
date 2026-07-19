@@ -12,7 +12,7 @@
 
 - **Design system:** use existing tokens/components only — `text-primary`, `text-primary-foreground`, `text-muted-foreground`, `bg-primary`, `shadow-l`, `text-balance`. No new colors, no logo artwork. Light mode is the app default.
 - **Reused components:** `@/components/ui/button` (Button), `@/components/ThemeToggle`, `@/features/layout/AppVersion`.
-- **Link-as-button pattern:** render a Button as a router `Link` exactly like `login.tsx` does — `<Button nativeButton={false} render={<Link to="..." />}>`.
+- **Login CTA:** a real router `Link` to `/login` styled with `buttonVariants({ size: "lg" })` — `role="link"` (correct for a navigation) with the app's button look. (Resolves a conflict vs. the `<Button render={<Link/>}>` idiom, which Base UI renders as `role="button"`; user chose the real link. Trade-off accepted: no Button press animation.)
 - **Tagline copy (verbatim):** `Helping families, caregivers, and clinicians advance Angelman Syndrome research together.`
 - **Footer copy (verbatim):** `Angelman Syndrome Video Management Portal` · `In collaboration with Boston Children's Hospital` · `<AppVersion />`.
 - **Role home targets:** caregiver → `/home`; every other authenticated role → `/reviews`.
@@ -89,9 +89,10 @@ Create `frontend/src/features/landing/Landing.tsx`:
 ```tsx
 import { Link } from "react-router";
 import { ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AppVersion } from "@/features/layout/AppVersion";
+import { cn } from "@/lib/utils";
 
 /**
  * @description Public landing page — the app's front door at `/`, shown only
@@ -127,15 +128,13 @@ export function Landing() {
                     Helping families, caregivers, and clinicians advance Angelman
                     Syndrome research together.
                 </p>
-                <Button
-                    size="lg"
-                    nativeButton={false}
-                    render={<Link to="/login" />}
-                    className="mt-2"
+                <Link
+                    to="/login"
+                    className={cn(buttonVariants({ size: "lg" }), "mt-2")}
                 >
                     Log in
                     <ArrowRight className="size-4" />
-                </Button>
+                </Link>
             </main>
 
             <footer className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 p-6 text-center text-xs text-muted-foreground">
