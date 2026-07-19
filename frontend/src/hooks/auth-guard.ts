@@ -69,7 +69,7 @@ export async function caregiverGuardLoader() {
 /**
  * @description Role guard that blocks `CAREGIVER` users and allows every
  * other role (`CLINICAL_REVIEWER`, `SITE_COORDINATOR`, `SYSADMIN`).
- * Caregivers are sent back to `/`, their home dashboard.
+ * Caregivers are sent back to `/home`, their home dashboard.
  *
  * @returns `null` on success, or a redirect response when the role is
  *   wrong.
@@ -77,13 +77,13 @@ export async function caregiverGuardLoader() {
 export async function nonCaregiverGuardLoader() {
     const role = await getSessionRole();
     if (!role) return redirect("/login");
-    if (role === "CAREGIVER") return redirect("/");
+    if (role === "CAREGIVER") return redirect("/home");
     return null;
 }
 
 /**
  * @description Role guard that only lets `SYSADMIN` and `SITE_COORDINATOR`
- * users through. Caregivers are sent to `/` (their home dashboard).
+ * users through. Caregivers are sent to `/home` (their home dashboard).
  * Other authenticated roles are sent to `/reviews`.
  *
  * @returns `null` on success, or a redirect response when the role is wrong.
@@ -91,9 +91,26 @@ export async function nonCaregiverGuardLoader() {
 export async function adminGuardLoader() {
     const role = await getSessionRole();
     if (!role) return redirect("/login");
-    if (role === "CAREGIVER") return redirect("/");
+    if (role === "CAREGIVER") return redirect("/home");
     if (role !== "SYSADMIN" && role !== "SITE_COORDINATOR") {
         return redirect("/reviews");
     }
     return null;
+}
+
+/**
+ * @description Splitter loader for the public root route `/`. Unauthenticated
+ * visitors get the landing page (returns `null`, so the route renders
+ * `<Landing/>`). Authenticated users are redirected to their role home so `/`
+ * never shows the public front door to someone already signed in. Reuses the
+ * shared in-flight session read.
+ *
+ * @returns `null` to render the landing, or a redirect to the role's home.
+ */
+export async function landingLoader() {
+    const { data: session } = await fetchSession();
+    if (!session) return null;
+    const role = (session.user as { role?: Role }).role;
+    if (role === "CAREGIVER") return redirect("/home");
+    return redirect("/reviews");
 }

@@ -33,7 +33,7 @@ export default function VideoView() {
         <div className="flex flex-col gap-6">
             {/* Back button */}
             <Link
-                to="/"
+                to="/home"
                 className="inline-flex w-fit items-center gap-2 rounded-md px-2.5 h-8 text-sm font-medium text-text-muted hover:text-text hover:bg-muted transition-all"
             >
                 <ArrowLeft className="size-4" />

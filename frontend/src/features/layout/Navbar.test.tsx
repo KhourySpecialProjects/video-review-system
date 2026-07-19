@@ -101,9 +101,9 @@ describe("Navbar", () => {
         expect(screen.getByLabelText("Home")).toHaveAttribute("href", "/reviews");
     });
 
-    it("logo links to / for a caregiver", () => {
+    it("logo links to /home for a caregiver", () => {
         authState.user = { name: "Casey Care", role: "CAREGIVER" };
         renderNavbar();
-        expect(screen.getByLabelText("Home")).toHaveAttribute("href", "/");
+        expect(screen.getByLabelText("Home")).toHaveAttribute("href", "/home");
     });
 });
