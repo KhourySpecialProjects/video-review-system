@@ -445,4 +445,3 @@ git commit -m "feat(landing): serve landing at /, move caregiver dashboard to /h
 - **Why the pathless layout works:** for URL `/`, only the `path: "/"` Landing route matches — the pathless `<Root/>` layout has no index child anymore, so it contributes nothing at `/`. For `/home`, `/reviews`, etc., the pathless layout matches via its child `path:` segments and the auth guards run as before.
 - **Do not** change `hooks/use-login.ts`. Its `redirect("/")` is deliberate — the splitter re-routes by role.
 - **About page** is intentionally out of scope; the footer already leaves room for a future link.
-```
