@@ -97,3 +97,20 @@ export async function adminGuardLoader() {
     }
     return null;
 }
+
+/**
+ * @description Splitter loader for the public root route `/`. Unauthenticated
+ * visitors get the landing page (returns `null`, so the route renders
+ * `<Landing/>`). Authenticated users are redirected to their role home so `/`
+ * never shows the public front door to someone already signed in. Reuses the
+ * shared in-flight session read.
+ *
+ * @returns `null` to render the landing, or a redirect to the role's home.
+ */
+export async function landingLoader() {
+    const { data: session } = await fetchSession();
+    if (!session) return null;
+    const role = (session.user as { role?: Role }).role;
+    if (role === "CAREGIVER") return redirect("/home");
+    return redirect("/reviews");
+}

@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const { getSessionMock } = vi.hoisted(() => ({ getSessionMock: vi.fn() }));
 vi.mock("@/lib/auth-client", () => ({ authClient: { getSession: getSessionMock } }));
 
-import { getSessionRole, authGuardLoader } from "./auth-guard";
+import { getSessionRole, authGuardLoader, landingLoader } from "./auth-guard";
 
 describe("session read de-duplication", () => {
     beforeEach(() => getSessionMock.mockReset());
@@ -29,5 +29,30 @@ describe("session read de-duplication", () => {
         await getSessionRole();
         // Each awaited call settles and clears the in-flight promise before the next.
         expect(getSessionMock).toHaveBeenCalledTimes(2);
+    });
+});
+
+describe("landingLoader", () => {
+    beforeEach(() => getSessionMock.mockReset());
+
+    it("renders the landing (returns null) for unauthenticated visitors", async () => {
+        getSessionMock.mockResolvedValue({ data: null });
+        expect(await landingLoader()).toBeNull();
+    });
+
+    it("redirects an authenticated caregiver to /home", async () => {
+        getSessionMock.mockResolvedValue({ data: { user: { role: "CAREGIVER" } } });
+        const res = await landingLoader();
+        expect(res).toBeInstanceOf(Response);
+        expect((res as Response).headers.get("Location")).toBe("/home");
+    });
+
+    it("redirects other authenticated roles to /reviews", async () => {
+        getSessionMock.mockResolvedValue({
+            data: { user: { role: "CLINICAL_REVIEWER" } },
+        });
+        const res = await landingLoader();
+        expect(res).toBeInstanceOf(Response);
+        expect((res as Response).headers.get("Location")).toBe("/reviews");
     });
 });
