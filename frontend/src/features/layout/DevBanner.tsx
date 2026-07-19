@@ -12,20 +12,20 @@ type BannerConfig = { text: string; className: string }
 const ENV_BANNERS: Record<string, BannerConfig> = {
   "dev-preview": {
     text: "This is a Development Preview. Do NOT upload any PII or other sensitive information.",
-    className: "bg-warning",
+    className: "bg-warning text-black",
   },
   "next-preview": {
     text: "NEXT (staging). Unstable build. Do NOT upload any PII or other sensitive information.",
-    className: "bg-info",
+    className: "bg-info text-black",
   },
 }
 
 /**
  * @description Resolves which environment banner (if any) to show, from
  * build-time env. Local dev takes precedence over the Coolify preview flags;
- * production (neither set) and unknown flag values return null. Local uses the
- * vivid `bg-destructive` red — the highest-chroma theme color — so it's
- * unmistakable against the muted amber/blue of the deployed previews.
+ * production (neither set) and unknown flag values return null. Local uses a
+ * deep red (`bg-red-800`) with white text — unmistakable against the muted
+ * amber/blue of the deployed previews, and a stronger "you're on local" cue.
  * @param env - Subset of import.meta.env
  */
 export function resolveEnvBanner(env: {
@@ -33,7 +33,7 @@ export function resolveEnvBanner(env: {
   VITE_APP_ENV?: string
 }): BannerConfig | null {
   if (env.DEV) {
-    return { text: "Local Development", className: "bg-destructive" }
+    return { text: "Local Development", className: "bg-red-800 text-white" }
   }
   const flag = env.VITE_APP_ENV
   if (flag && flag in ENV_BANNERS) return ENV_BANNERS[flag]
@@ -60,7 +60,9 @@ export function DevBanner() {
       // chrome (e.g. the review page's shadcn sidebar, z-10) so it always spans
       // the full width — matching the navbar's own z-50.
       className={cn(
-        "relative z-50 w-full px-4 py-1.5 text-center text-xs font-medium text-black",
+        // Text color is per-banner (banner.className) so local can go white on
+        // deep red while the lighter amber/blue previews keep black text.
+        "relative z-50 w-full px-4 py-1.5 text-center text-xs font-medium",
         banner.className,
       )}
     >

@@ -10,35 +10,35 @@ const NEXT_PREVIEW_TEXT =
 const VERSION_RE = /v\d+\.\d+\.\d+/;
 
 describe("resolveEnvBanner", () => {
-  it("returns the local banner in vivid red when DEV is true", () => {
+  it("returns the local banner in deep red with white text when DEV is true", () => {
     expect(resolveEnvBanner({ DEV: true })).toEqual({
       text: "Local Development",
-      className: "bg-destructive",
+      className: "bg-red-800 text-white",
     });
   });
 
   it("local takes precedence over the dev-preview flag", () => {
     expect(
       resolveEnvBanner({ DEV: true, VITE_APP_ENV: "dev-preview" }),
-    ).toEqual({ text: "Local Development", className: "bg-destructive" });
+    ).toEqual({ text: "Local Development", className: "bg-red-800 text-white" });
   });
 
   it("local takes precedence over the next-preview flag", () => {
     expect(
       resolveEnvBanner({ DEV: true, VITE_APP_ENV: "next-preview" }),
-    ).toEqual({ text: "Local Development", className: "bg-destructive" });
+    ).toEqual({ text: "Local Development", className: "bg-red-800 text-white" });
   });
 
   it("returns the amber dev banner for the dev-preview flag", () => {
     expect(
       resolveEnvBanner({ DEV: false, VITE_APP_ENV: "dev-preview" }),
-    ).toEqual({ text: DEV_PREVIEW_TEXT, className: "bg-warning" });
+    ).toEqual({ text: DEV_PREVIEW_TEXT, className: "bg-warning text-black" });
   });
 
   it("returns the blue NEXT banner for the next-preview flag", () => {
     expect(
       resolveEnvBanner({ DEV: false, VITE_APP_ENV: "next-preview" }),
-    ).toEqual({ text: NEXT_PREVIEW_TEXT, className: "bg-info" });
+    ).toEqual({ text: NEXT_PREVIEW_TEXT, className: "bg-info text-black" });
   });
 
   it("gives the three environments clearly distinct colors", () => {
@@ -46,7 +46,11 @@ describe("resolveEnvBanner", () => {
     const dev = resolveEnvBanner({ DEV: false, VITE_APP_ENV: "dev-preview" })!.className;
     const next = resolveEnvBanner({ DEV: false, VITE_APP_ENV: "next-preview" })!.className;
     expect(new Set([local, dev, next]).size).toBe(3);
-    expect([local, dev, next]).toEqual(["bg-destructive", "bg-warning", "bg-info"]);
+    expect([local, dev, next]).toEqual([
+      "bg-red-800 text-white",
+      "bg-warning text-black",
+      "bg-info text-black",
+    ]);
   });
 
   it("returns null in production (no flags)", () => {
@@ -65,12 +69,13 @@ describe("DevBanner", () => {
     vi.unstubAllEnvs();
   });
 
-  it("renders the local banner in red with the version when DEV is stubbed true", () => {
+  it("renders the local banner in deep red with white text and the version when DEV is stubbed true", () => {
     vi.stubEnv("DEV", true);
     render(<DevBanner />);
     const banner = screen.getByRole("status");
     expect(banner).toHaveTextContent("Local Development");
-    expect(banner).toHaveClass("bg-destructive");
+    expect(banner).toHaveClass("bg-red-800");
+    expect(banner).toHaveClass("text-white");
     expect(banner).toHaveTextContent(VERSION_RE);
   });
 
