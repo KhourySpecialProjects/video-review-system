@@ -41,6 +41,11 @@ COPY backend/prisma.config.ts ./prisma.config.ts
 COPY backend/tsconfig.json ./tsconfig.json
 COPY --from=builder /repo/backend/src ./src
 
+# Version metadata read at runtime by src/lib/version.ts. SOURCE_COMMIT and
+# COOLIFY_BRANCH arrive as runtime env from Coolify; VERSION + BUILD_TIME are baked here.
+COPY VERSION ./VERSION
+RUN date -u +"%Y-%m-%dT%H:%M:%SZ" > ./BUILD_TIME
+
 COPY scripts/coolify-backend-entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 

@@ -25,6 +25,7 @@ export function initTelemetry(config: TelemetryConfig = telemetryConfig): void {
   Sentry.init({
     dsn: config.dsn,
     environment: config.environment,
+    release: config.release,
     sendDefaultPii: config.privacyMode === "full",
     tracesSampleRate: 0,
     initialScope: { tags: { platform: "frontend" } },

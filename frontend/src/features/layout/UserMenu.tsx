@@ -14,6 +14,7 @@ import { useAuth } from "@/context/auth-context";
 import { useTheme } from "@/hooks/use-theme";
 import { useLogout } from "@/hooks/use-logout";
 import { roleLabel } from "./role-label";
+import { AppVersion } from "./AppVersion";
 
 type UserMenuProps = {
     /**
@@ -103,6 +104,11 @@ export function UserMenu({ onOpenChange }: UserMenuProps) {
                     <LogOut className="size-4" />
                     Log out
                 </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+                <div className="px-2 py-1.5">
+                    <AppVersion link={false} />
+                </div>
             </DropdownMenuContent>
         </DropdownMenu>
     );

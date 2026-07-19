@@ -17,7 +17,17 @@ ARG VITE_GLITCHTIP_DSN=""
 ENV VITE_GLITCHTIP_DSN=$VITE_GLITCHTIP_DSN
 ARG VITE_TELEMETRY_PRIVACY="scrubbed"
 ENV VITE_TELEMETRY_PRIVACY=$VITE_TELEMETRY_PRIVACY
-RUN npm run build
+# Version metadata. SOURCE_COMMIT (requires Coolify "Include Source Commit in
+# Build") and COOLIFY_BRANCH arrive as build args; VERSION is copied from the
+# repo root. Vite bakes VITE_APP_* from process.env at build time.
+ARG SOURCE_COMMIT=""
+ARG COOLIFY_BRANCH=""
+COPY VERSION ./VERSION
+RUN VITE_APP_VERSION_BASE="$(cat ./VERSION)" \
+    VITE_APP_COMMIT="$SOURCE_COMMIT" \
+    VITE_APP_BRANCH="$COOLIFY_BRANCH" \
+    VITE_APP_BUILT_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    npm run build
 
 # ── Stage 2: Serve ────────────────────────────────────────────────
 FROM nginx:alpine

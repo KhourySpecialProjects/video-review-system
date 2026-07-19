@@ -1,3 +1,5 @@
+import { composeVersion } from "../version"
+
 export type PrivacyMode = "full" | "scrubbed"
 
 export interface TelemetryConfig {
@@ -5,6 +7,7 @@ export interface TelemetryConfig {
   dsn: string
   environment: string
   privacyMode: PrivacyMode
+  release: string
 }
 
 /**
@@ -16,6 +19,9 @@ export function resolveTelemetryConfig(env: {
   VITE_GLITCHTIP_DSN?: string
   VITE_APP_ENV?: string
   VITE_TELEMETRY_PRIVACY?: string
+  VITE_APP_VERSION_BASE?: string
+  VITE_APP_BRANCH?: string
+  VITE_APP_COMMIT?: string
 }): TelemetryConfig {
   const dsn = (env.VITE_GLITCHTIP_DSN ?? "").trim()
   return {
@@ -24,6 +30,11 @@ export function resolveTelemetryConfig(env: {
     // `||` (not `??`) so an empty/whitespace value also falls back to "local".
     environment: env.VITE_APP_ENV?.trim() || "local",
     privacyMode: env.VITE_TELEMETRY_PRIVACY === "full" ? "full" : "scrubbed",
+    release: `vmp@${composeVersion(
+      (env.VITE_APP_VERSION_BASE ?? "").trim() || "0.0.0",
+      env.VITE_APP_BRANCH,
+      env.VITE_APP_COMMIT,
+    )}`,
   }
 }
 

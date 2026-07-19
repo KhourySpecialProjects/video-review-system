@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Navbar } from "@/features/layout/Navbar";
 import { DevBanner } from "@/features/layout/DevBanner";
 import { FeedbackWidget } from "@/features/feedback/FeedbackWidget";
+import { VersionNotices } from "@/features/version/VersionNotices";
 import { useTelemetryIdentity } from "@/lib/telemetry/useTelemetryIdentity";
 
 export type MainOutletContext = {
@@ -53,6 +54,7 @@ export default function Root() {
                     </AnimatePresence>
                 </main>
                 <FeedbackWidget />
+                <VersionNotices />
             </div>
         </TooltipProvider>
     );

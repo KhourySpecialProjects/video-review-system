@@ -35,6 +35,20 @@ describe("resolveTelemetryConfig", () => {
   it("stays disabled for a whitespace-only DSN", () => {
     expect(resolveTelemetryConfig({ VITE_GLITCHTIP_DSN: "   " }).enabled).toBe(false)
   })
+
+  it("sets release from the baked version env", () => {
+    const c = resolveTelemetryConfig({
+      VITE_GLITCHTIP_DSN: "https://x@h/1",
+      VITE_APP_VERSION_BASE: "0.1.0",
+      VITE_APP_BRANCH: "next",
+      VITE_APP_COMMIT: "a1b2c3d4e5f6",
+    })
+    expect(c.release).toBe("vmp@0.1.0+next.a1b2c3d")
+  })
+
+  it("defaults release to vmp@0.0.0+local.local for an empty env", () => {
+    expect(resolveTelemetryConfig({}).release).toBe("vmp@0.0.0+local.local")
+  })
 })
 
 describe("parametrizeUrl", () => {
