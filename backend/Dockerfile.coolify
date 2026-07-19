@@ -41,10 +41,19 @@ COPY backend/prisma.config.ts ./prisma.config.ts
 COPY backend/tsconfig.json ./tsconfig.json
 COPY --from=builder /repo/backend/src ./src
 
-# Version metadata read at runtime by src/lib/version.ts. SOURCE_COMMIT and
-# COOLIFY_BRANCH arrive as runtime env from Coolify; VERSION + BUILD_TIME are baked here.
+# Version metadata read by src/lib/version.ts. All four anchors are baked into
+# the image at BUILD time. Coolify supplies SOURCE_COMMIT (requires the "Include
+# Source Commit in Build" toggle) and COOLIFY_BRANCH as build args ONLY — they
+# are NOT present in the runtime env — so we must bake them here, exactly like
+# the frontend does. Reading them from runtime env left the backend at
+# "0.1.0+local.local" while the frontend reported "0.1.0+{branch}.{sha}",
+# firing the FE/BE version-skew badge on every healthy load.
+ARG SOURCE_COMMIT=""
+ARG COOLIFY_BRANCH=""
 COPY VERSION ./VERSION
-RUN date -u +"%Y-%m-%dT%H:%M:%SZ" > ./BUILD_TIME
+RUN date -u +"%Y-%m-%dT%H:%M:%SZ" > ./BUILD_TIME \
+    && printf '%s' "$SOURCE_COMMIT" > ./COMMIT \
+    && printf '%s' "$COOLIFY_BRANCH" > ./BRANCH
 
 COPY scripts/coolify-backend-entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh

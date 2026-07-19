@@ -42,6 +42,15 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile.coolify
+      args:
+        # Git anchors for the version string, baked into the image at BUILD time
+        # (Coolify supplies these at build only, never at runtime). SOURCE_COMMIT
+        # requires the resource's "Include Source Commit in Build" toggle;
+        # COOLIFY_BRANCH is always available. Baking them here — mirroring the
+        # frontend — keeps the backend's {base}+{channel}.{sha} identical to the
+        # frontend's, so the FE/BE version-skew badge stays quiet.
+        SOURCE_COMMIT: ${SOURCE_COMMIT:-}
+        COOLIFY_BRANCH: ${COOLIFY_BRANCH:-}
     restart: unless-stopped
     expose:
       - "8080"
@@ -74,11 +83,10 @@ services:
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
       TELEMETRY_PRIVACY: ${TELEMETRY_PRIVACY:-scrubbed}
-      # Version anchors read at runtime by src/lib/version.ts. Coolify exposes
-      # COOLIFY_BRANCH for compose interpolation and injects SOURCE_COMMIT into
-      # the deploy env; map both explicitly so the backend reports the same
-      # {base}+{channel}.{sha} the frontend bakes in (otherwise it falls back to
-      # "local" and the FE/BE version-skew badge fires on every healthy load).
+      # Version anchors are baked into the image at BUILD time (see build.args
+      # above) — that is the source of truth version.ts reads. These runtime
+      # entries are only a defensive fallback for environments that DO expose
+      # them at runtime; on Coolify they resolve empty and are ignored.
       SOURCE_COMMIT: ${SOURCE_COMMIT:-}
       COOLIFY_BRANCH: ${COOLIFY_BRANCH:-}
     depends_on:

@@ -1,5 +1,23 @@
 import { describe, it, expect } from "vitest";
-import { composeVersion, resolveVersionInfo } from "../../lib/version.js";
+import { composeVersion, resolveVersionInfo, pickAnchor } from "../../lib/version.js";
+
+describe("pickAnchor", () => {
+  it("prefers a non-empty baked value over the runtime env fallback", () => {
+    // The whole bug: Coolify supplies SOURCE_COMMIT/COOLIFY_BRANCH at BUILD
+    // time (baked file), not runtime (env). Baked must win.
+    expect(pickAnchor("a1b2c3d4", "runtime-env")).toBe("a1b2c3d4");
+    expect(pickAnchor("next", undefined)).toBe("next");
+  });
+  it("falls back to the env value when the baked value is missing or blank", () => {
+    expect(pickAnchor(null, "runtime-env")).toBe("runtime-env");
+    expect(pickAnchor("", "runtime-env")).toBe("runtime-env");
+    expect(pickAnchor("   ", "runtime-env")).toBe("runtime-env");
+  });
+  it("returns undefined when neither source has a value (→ resolves to local)", () => {
+    expect(pickAnchor(null, undefined)).toBeUndefined();
+    expect(pickAnchor("", "")).toBe("");
+  });
+});
 
 describe("composeVersion", () => {
   it("composes base + channel + short sha (canonical example)", () => {
