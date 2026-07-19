@@ -84,6 +84,39 @@ function readBuiltAt(): string | null {
 }
 
 /**
+ * Read a git anchor (COMMIT/BRANCH) baked into the image at build time, across
+ * dev (cwd=backend/) and Docker (cwd=/app). Returns null when absent or blank.
+ */
+function readAnchorFile(filename: string): string | null {
+  const candidates = [
+    resolve(process.cwd(), filename),
+    resolve(process.cwd(), `../${filename}`),
+  ];
+  for (const path of candidates) {
+    try {
+      const contents = readFileSync(path, "utf8").trim();
+      if (contents) return contents;
+    } catch {
+      // try next candidate
+    }
+  }
+  return null;
+}
+
+/**
+ * Choose the effective anchor value. A non-empty value baked at BUILD time wins;
+ * the runtime env is only a fallback. This is the crux of the FE/BE parity fix:
+ * Coolify supplies SOURCE_COMMIT/COOLIFY_BRANCH as build args (baked here, like
+ * the frontend), NOT as runtime env — so reading env alone left the backend at
+ * "local" while the frontend reported the real {channel}.{sha}. Pure.
+ */
+export function pickAnchor(baked: string | null, env: string | undefined): string | undefined {
+  const trimmed = (baked ?? "").trim();
+  if (trimmed) return trimmed;
+  return env;
+}
+
+/**
  * Resolve the running app's version from the filesystem + Coolify env. Impure.
  * Memoized: VERSION/BUILD_TIME are baked into the image and the env is fixed at
  * runtime, so this reads disk once rather than on every `/api/version` hit (the
@@ -93,8 +126,8 @@ let cachedVersionInfo: VersionInfo | undefined;
 export function getVersionInfo(): VersionInfo {
   return (cachedVersionInfo ??= resolveVersionInfo({
     base: readVersionBase(),
-    branch: process.env.COOLIFY_BRANCH,
-    commit: process.env.SOURCE_COMMIT,
+    branch: pickAnchor(readAnchorFile("BRANCH"), process.env.COOLIFY_BRANCH),
+    commit: pickAnchor(readAnchorFile("COMMIT"), process.env.SOURCE_COMMIT),
     builtAt: readBuiltAt(),
   }));
 }
