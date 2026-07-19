@@ -75,6 +75,21 @@ describe("useVersionMonitor", () => {
     expect(result.current.updateAvailable).toBe(false)
   })
 
+  it("initializes on the first successful fetch even if the initial fetch failed", async () => {
+    // Backend unreachable on mount, then recovers with a version that differs
+    // from this build. The monitor must still establish its baseline + skew on
+    // that first successful poll rather than staying dead for the tab's life.
+    fetchBackendVersion
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue({ version: "0.1.0+next.bbbbbbb" })
+    const useVersionMonitor = await load()
+    const { result } = renderHook(() => useVersionMonitor())
+    await vi.advanceTimersByTimeAsync(0)
+    expect(result.current.skew).toBe(false) // initial fetch failed: no baseline yet
+    await vi.advanceTimersByTimeAsync(60_000) // poll recovers -> initialize + evaluate
+    await waitFor(() => expect(result.current.skew).toBe(true))
+  })
+
   it("flags updateAvailable when a later poll returns a new backend version", async () => {
     fetchBackendVersion
       .mockResolvedValueOnce({ version: "0.1.0+next.aaaaaaa" })

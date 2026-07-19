@@ -20,20 +20,23 @@ export function useVersionMonitor(): { skew: boolean; updateAvailable: boolean }
 
   useEffect(() => {
     let active = true
-    async function check(isInitial: boolean) {
+    // Initialize on the first SUCCESSFUL fetch, not the first call — if the
+    // initial fetch fails (backend restarting during a deploy), `firstSeen`
+    // stays null and a later poll must still be able to establish the baseline.
+    async function check() {
       const backend = await fetchBackendVersion()
       if (!active || !backend) return
-      if (isInitial) {
+      if (!firstSeen.current) {
         firstSeen.current = backend.version
         const feKnowsCommit = appVersion.shortCommit !== "local"
         setSkew(feKnowsCommit && backend.version !== appVersion.version)
-      } else if (firstSeen.current && backend.version !== firstSeen.current) {
+      } else if (backend.version !== firstSeen.current) {
         setUpdateAvailable(true)
       }
     }
-    void check(true)
-    const id = setInterval(() => void check(false), POLL_MS)
-    const onFocus = () => void check(false)
+    void check()
+    const id = setInterval(() => void check(), POLL_MS)
+    const onFocus = () => void check()
     window.addEventListener("focus", onFocus)
     return () => {
       active = false
