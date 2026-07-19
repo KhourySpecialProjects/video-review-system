@@ -1,19 +1,21 @@
 import { cn } from "@/lib/utils"
+import { appVersion } from "@/lib/version"
 
 type BannerConfig = { text: string; className: string }
 
 /**
  * Banner per `VITE_APP_ENV` value. The `bg-*` classes are written as literals
  * here so Tailwind's source scanner emits them — it cannot see classes that
- * only exist as a runtime lookup result.
+ * only exist as a runtime lookup result. Each environment gets a clearly
+ * distinct theme color: amber (`bg-warning`) for dev, blue (`bg-info`) for next.
  */
 const ENV_BANNERS: Record<string, BannerConfig> = {
   "dev-preview": {
-    text: "Asclepion 0.1 - This is a Development Preview. Do NOT upload any PII or other sensitive information.",
+    text: "This is a Development Preview. Do NOT upload any PII or other sensitive information.",
     className: "bg-warning",
   },
   "next-preview": {
-    text: "Asclepion 0.1 - NEXT (staging). Unstable build. Do NOT upload any PII or other sensitive information.",
+    text: "NEXT (staging). Unstable build. Do NOT upload any PII or other sensitive information.",
     className: "bg-info",
   },
 }
@@ -21,7 +23,9 @@ const ENV_BANNERS: Record<string, BannerConfig> = {
 /**
  * @description Resolves which environment banner (if any) to show, from
  * build-time env. Local dev takes precedence over the Coolify preview flags;
- * production (neither set) and unknown flag values return null.
+ * production (neither set) and unknown flag values return null. Local uses the
+ * vivid `bg-destructive` red — the highest-chroma theme color — so it's
+ * unmistakable against the muted amber/blue of the deployed previews.
  * @param env - Subset of import.meta.env
  */
 export function resolveEnvBanner(env: {
@@ -29,16 +33,22 @@ export function resolveEnvBanner(env: {
   VITE_APP_ENV?: string
 }): BannerConfig | null {
   if (env.DEV) {
-    return { text: "Local Development Preview", className: "bg-warning" }
+    return { text: "Local Development", className: "bg-destructive" }
   }
   const flag = env.VITE_APP_ENV
   if (flag && flag in ENV_BANNERS) return ENV_BANNERS[flag]
   return null
 }
 
+/** Compact version stamp for the banner: `v{base}`, plus the short SHA when known. */
+function versionLabel(): string {
+  const { base, shortCommit } = appVersion
+  return shortCommit === "local" ? `v${base}` : `v${base} · ${shortCommit}`
+}
+
 /**
  * @description Full-width strip above the header identifying non-production
- * environments. Renders nothing in production.
+ * environments and the running build's version. Renders nothing in production.
  */
 export function DevBanner() {
   const banner = resolveEnvBanner(import.meta.env)
@@ -54,7 +64,7 @@ export function DevBanner() {
         banner.className,
       )}
     >
-      {banner.text}
+      {banner.text} <span className="opacity-80">·</span> {versionLabel()}
     </div>
   )
 }
