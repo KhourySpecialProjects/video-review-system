@@ -21,18 +21,18 @@ export default function Home() {
     const { limit, offset } = useLoaderData() as HomeLoaderData;
     const navigate = useNavigate();
     const location = useLocation();
-    const activeTab: TabValue = location.pathname === "/search" ? "all" : "recent";
+    const activeTab: TabValue = location.pathname === "/home/search" ? "all" : "recent";
 
     const matches = useMatches();
     const rootMatch = matches.find(m => (m.data as any)?.user);
     const userName = (rootMatch?.data as any)?.user?.name || "User";
 
     /**
-     * @description Navigates to `/search` for the all-videos tab (triggers
-     * the search loader) or back to `/` for the recent tab.
+     * @description Navigates to `/home/search` for the all-videos tab
+     * (triggers the search loader) or back to `/home` for the recent tab.
      */
     function handleTabChange(tab: TabValue) {
-        navigate(tab === "all" ? "/search" : "/");
+        navigate(tab === "all" ? "/home/search" : "/home");
     }
 
     return (

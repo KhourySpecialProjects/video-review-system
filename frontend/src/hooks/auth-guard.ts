@@ -69,7 +69,7 @@ export async function caregiverGuardLoader() {
 /**
  * @description Role guard that blocks `CAREGIVER` users and allows every
  * other role (`CLINICAL_REVIEWER`, `SITE_COORDINATOR`, `SYSADMIN`).
- * Caregivers are sent back to `/`, their home dashboard.
+ * Caregivers are sent back to `/home`, their home dashboard.
  *
  * @returns `null` on success, or a redirect response when the role is
  *   wrong.
@@ -77,13 +77,13 @@ export async function caregiverGuardLoader() {
 export async function nonCaregiverGuardLoader() {
     const role = await getSessionRole();
     if (!role) return redirect("/login");
-    if (role === "CAREGIVER") return redirect("/");
+    if (role === "CAREGIVER") return redirect("/home");
     return null;
 }
 
 /**
  * @description Role guard that only lets `SYSADMIN` and `SITE_COORDINATOR`
- * users through. Caregivers are sent to `/` (their home dashboard).
+ * users through. Caregivers are sent to `/home` (their home dashboard).
  * Other authenticated roles are sent to `/reviews`.
  *
  * @returns `null` on success, or a redirect response when the role is wrong.
@@ -91,7 +91,7 @@ export async function nonCaregiverGuardLoader() {
 export async function adminGuardLoader() {
     const role = await getSessionRole();
     if (!role) return redirect("/login");
-    if (role === "CAREGIVER") return redirect("/");
+    if (role === "CAREGIVER") return redirect("/home");
     if (role !== "SYSADMIN" && role !== "SITE_COORDINATOR") {
         return redirect("/reviews");
     }

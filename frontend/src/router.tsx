@@ -18,7 +18,8 @@ import { ForgotPassword } from "./features/login/forgot-password";
 import { clientAction as forgotPasswordAction } from "./hooks/use-forgot-password";
 import { ResetPassword } from "./features/login/reset-password";
 import { clientAction as resetPasswordAction } from "./hooks/use-reset-password";
-import { authGuardLoader, caregiverGuardLoader, nonCaregiverGuardLoader, adminGuardLoader } from "./hooks/auth-guard";
+import { authGuardLoader, caregiverGuardLoader, nonCaregiverGuardLoader, adminGuardLoader, landingLoader } from "./hooks/auth-guard";
+import { Landing } from "./features/landing/Landing";
 import { homeLoader, searchLoader, videoViewLoader, videoViewAction, videoReviewLoader, videoReviewAction, videoReviewShouldRevalidate } from "./lib/video.service";
 import { adminLoader, adminAction } from "./features/admin/admin.route";
 import { inviteUserAction } from "./features/admin/invite.route";
@@ -38,6 +39,10 @@ import { myStudiesLoader } from "./features/video/videoUpload/studies.route";
 export const router = createBrowserRouter([
     {
         path: "/",
+        element: <Landing />,
+        loader: landingLoader,
+    },
+    {
         element: <Root />,
         loader: authGuardLoader,
         children: [
@@ -49,6 +54,7 @@ export const router = createBrowserRouter([
                 loader: caregiverGuardLoader,
                 children: [
                     {
+                        path: "home",
                         element: <Home />,
                         loader: homeLoader(queryClient),
                         children: [
@@ -69,7 +75,7 @@ export const router = createBrowserRouter([
                 ],
             },
             // Reviewer / coordinator / sysadmin pages. Caregivers get
-            // bounced back to `/`.
+            // bounced back to `/home`.
             {
                 loader: nonCaregiverGuardLoader,
                 children: [

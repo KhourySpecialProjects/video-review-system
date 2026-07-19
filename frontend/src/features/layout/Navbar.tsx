@@ -80,7 +80,7 @@ export function Navbar({ scrollContainerRef }: NavbarProps) {
             )}
 
             <Link
-                to={user?.role && user.role !== "CAREGIVER" ? "/reviews" : "/"}
+                to={user?.role && user.role !== "CAREGIVER" ? "/reviews" : "/home"}
                 className="flex items-center gap-2 text-lg font-bold text-text"
                 aria-label="Home"
             >
