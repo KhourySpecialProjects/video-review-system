@@ -29,13 +29,10 @@ const roleLabels: Record<string, string> = {
   SYSADMIN: "System Admin",
 };
 
-/** @description Shape of the /admin/invite action response. */
-type InviteActionData = {
-  ok: boolean;
-  fieldErrors?: Record<string, string[]>;
-  token?: string;
-  expiresAt?: string;
-};
+/** @description Shape of the /admin/invite action response (see invite.route.ts). */
+type InviteActionData =
+  | { ok: true; token?: string; expiresAt?: string }
+  | { ok: false; error?: string; fieldErrors?: Record<string, string[]> };
 
 /**
  * @description Read-only copyable signup link with a transient "Copied!"
@@ -66,7 +63,7 @@ function CopyableLink({ url }: { url: string }) {
         variant="outline"
         size="sm"
         onClick={handleCopy}
-        aria-label="Copy signup link"
+        aria-label={copied ? "Signup link copied" : "Copy signup link"}
       >
         {copied ? (
           <>
@@ -124,7 +121,8 @@ export function InviteUserDialog({
   }, [open]);
 
   const siteOptions = sitesFetcher.data?.sites ?? [];
-  const fieldErrors = fetcher.data?.fieldErrors;
+  const fieldErrors =
+    fetcher.data && !fetcher.data.ok ? fetcher.data.fieldErrors : undefined;
 
   const token = fetcher.data?.ok ? fetcher.data.token : undefined;
   const signupUrl = token
