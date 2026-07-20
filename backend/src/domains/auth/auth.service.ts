@@ -17,13 +17,19 @@ import {
 import { sendInviteEmail } from "../../lib/ses.js";
 
 /**
+ * Invitation lifetime. 5 days — long enough for a tester to share the signup
+ * link out-of-band (industry norm is 3–7 days; GitHub/GitLab use 7).
+ */
+const INVITE_TTL_MS = 5 * 24 * 60 * 60 * 1000;
+
+/**
  * Creates a new user invitation.
  *
  * Generates a secure random token and stores its SHA-256 hash in the database.
- * The invitation expires after 24 hours.
+ * The invitation expires after 5 days.
  *
  * @param input - The invitation details (email and role)
- * @returns The invitation ID, and token in non-production environments
+ * @returns The invitation ID, timestamps, and the raw signup token
  * @throws {ZodError} If input validation fails
  * @throws {Error} If database operation fails
  */
@@ -47,7 +53,7 @@ export async function createInvite(
         role,
         siteId,
         tokenHash,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        expiresAt: new Date(Date.now() + INVITE_TTL_MS),
         createdBy: audit?.actorUserId ?? "system",
       },
     });
@@ -74,8 +80,10 @@ export async function createInvite(
     id: invitation.id,
     createdAt: invitation.createdAt,
     expiresAt: invitation.expiresAt,
-    // in dev, also return token in response for API testing convenience
-    ...(process.env.NODE_ENV !== "production" && { token }),
+    // Returned in all environments so the inviter can copy/share the signup
+    // link directly from the UI. The invitee still sets a password on
+    // activation, and the token is single-use and expires in INVITE_TTL_MS.
+    token,
   };
 }
 

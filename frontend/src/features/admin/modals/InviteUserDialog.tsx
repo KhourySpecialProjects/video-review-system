@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useFetcher } from "react-router";
+import { Check, Copy } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -28,11 +29,71 @@ const roleLabels: Record<string, string> = {
   SYSADMIN: "System Admin",
 };
 
+/** @description Shape of the /admin/invite action response. */
+type InviteActionData = {
+  ok: boolean;
+  fieldErrors?: Record<string, string[]>;
+  token?: string;
+  expiresAt?: string;
+};
+
 /**
- * @description Dialog for inviting a new user. Submits via fetcher.Form
- * to the /admin/invite resource route where Zod validation runs in the
- * action. Field errors are displayed from the action response. Role
- * options are restricted for site coordinators. Closes on success.
+ * @description Read-only copyable signup link with a transient "Copied!"
+ * confirmation. Builds nothing itself — it renders the URL it is handed.
+ *
+ * @param url - The full signup URL to display and copy.
+ */
+function CopyableLink({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+
+  /** @description Copy the URL and briefly flip the button to a confirmed state. */
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard denied (e.g. non-secure context) — the URL stays visible
+      // and selectable, so the user can copy it manually.
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Input readOnly value={url} className="font-mono text-xs" />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={handleCopy}
+        aria-label="Copy signup link"
+      >
+        {copied ? (
+          <>
+            <Check className="size-4" /> Copied!
+          </>
+        ) : (
+          <>
+            <Copy className="size-4" /> Copy
+          </>
+        )}
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * @description Dialog for inviting a new user. Two states:
+ *
+ * 1. **Form** — email / role / site, submitted via fetcher.Form to the
+ *    /admin/invite resource route (Zod validation runs in the action; field
+ *    errors are rendered from the response; roles are restricted for site
+ *    coordinators).
+ * 2. **Link ready** — shown once the action returns a token. Surfaces a
+ *    copyable `/signup/:token` URL built from the inviter's own origin so it
+ *    works regardless of host, plus an expiry note and Invite another / Done.
+ *
+ * The backend also emails the link; this view is the no-email-needed path.
  *
  * @param open - Whether the dialog is open.
  * @param onOpenChange - Handler for open state changes.
@@ -47,17 +108,28 @@ export function InviteUserDialog({
   onOpenChange: (open: boolean) => void;
   actorRole: string;
 }) {
-  const fetcher = useFetcher<{ ok: boolean; fieldErrors?: Record<string, string[]> }>();
+  // A monotonically increasing key gives us a fresh fetcher (no stale token)
+  // each time the dialog opens or the user chooses "Invite another".
+  const [formKey, setFormKey] = useState(0);
+  const fetcher = useFetcher<InviteActionData>({ key: `invite-user-${formKey}` });
   const sitesFetcher = useFetcher<SiteOptionsResponse>();
 
   useEffect(() => {
     if (open) {
       sitesFetcher.load("/sites/options");
+      // Reset to a clean form whenever the dialog is (re)opened.
+      setFormKey((k) => k + 1);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const siteOptions = sitesFetcher.data?.sites ?? [];
   const fieldErrors = fetcher.data?.fieldErrors;
+
+  const token = fetcher.data?.ok ? fetcher.data.token : undefined;
+  const signupUrl = token
+    ? `${window.location.origin}/signup/${token}`
+    : undefined;
 
   /** @description Available roles based on the actor's role. */
   const availableRoles =
@@ -65,95 +137,114 @@ export function InviteUserDialog({
       ? ["CAREGIVER", "CLINICAL_REVIEWER"]
       : ["CAREGIVER", "CLINICAL_REVIEWER", "SITE_COORDINATOR", "SYSADMIN"];
 
-  /** @description Close dialog when the action completes successfully. */
-  const prevState = useRef(fetcher.state);
-  useEffect(() => {
-    if (
-      prevState.current !== "idle" &&
-      fetcher.state === "idle" &&
-      fetcher.data?.ok
-    ) {
-      onOpenChange(false);
-    }
-    prevState.current = fetcher.state;
-  }, [fetcher.state, fetcher.data, onOpenChange]);
+  /** @description Reset to a fresh form to invite another user. */
+  function handleInviteAnother() {
+    setFormKey((k) => k + 1);
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Invite User</DialogTitle>
+          <DialogTitle>
+            {signupUrl ? "Invitation created" : "Invite User"}
+          </DialogTitle>
         </DialogHeader>
 
-        <fetcher.Form
-          method="post"
-          action="/admin/invite"
-          className="space-y-4"
-        >
-          <div className="space-y-1.5">
-            <Label htmlFor="invite-email">Email</Label>
-            <Input
-              id="invite-email"
-              name="email"
-              type="email"
-              placeholder="user@example.com"
-            />
-            {fieldErrors?.email && (
-              <FieldError>{fieldErrors.email[0]}</FieldError>
-            )}
-          </div>
+        {signupUrl ? (
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Share this signup link</Label>
+              <CopyableLink url={signupUrl} />
+              <p className="text-sm text-muted-foreground">
+                Expires in 5 days.
+              </p>
+            </div>
 
-          <div className="space-y-1.5">
-            <Label>Role</Label>
-            <Select name="role">
-              <SelectTrigger>
-                <SelectValue placeholder="Select a role" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableRoles.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {roleLabels[r]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {fieldErrors?.role && (
-              <FieldError>{fieldErrors.role[0]}</FieldError>
-            )}
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleInviteAnother}
+              >
+                Invite another
+              </Button>
+              <Button type="button" onClick={() => onOpenChange(false)}>
+                Done
+              </Button>
+            </DialogFooter>
           </div>
+        ) : (
+          <fetcher.Form
+            method="post"
+            action="/admin/invite"
+            className="space-y-4"
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-email">Email</Label>
+              <Input
+                id="invite-email"
+                name="email"
+                type="email"
+                placeholder="user@example.com"
+              />
+              {fieldErrors?.email && (
+                <FieldError>{fieldErrors.email[0]}</FieldError>
+              )}
+            </div>
 
-          <div className="space-y-1.5">
-            <Label>Site</Label>
-            <Select name="siteId">
-              <SelectTrigger>
-                <SelectValue placeholder="Select a site" />
-              </SelectTrigger>
-              <SelectContent>
-                {siteOptions.map((site) => (
-                  <SelectItem key={site.id} value={site.id}>
-                    {site.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {fieldErrors?.siteId && (
-              <FieldError>{fieldErrors.siteId[0]}</FieldError>
-            )}
-          </div>
+            <div className="space-y-1.5">
+              <Label>Role</Label>
+              <Select name="role">
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableRoles.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {roleLabels[r]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {fieldErrors?.role && (
+                <FieldError>{fieldErrors.role[0]}</FieldError>
+              )}
+            </div>
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={fetcher.state !== "idle"}>
-              Send Invitation
-            </Button>
-          </DialogFooter>
-        </fetcher.Form>
+            <div className="space-y-1.5">
+              <Label>Site</Label>
+              <Select name="siteId">
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a site" />
+                </SelectTrigger>
+                <SelectContent>
+                  {siteOptions.map((site) => (
+                    <SelectItem key={site.id} value={site.id}>
+                      {site.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {fieldErrors?.siteId && (
+                <FieldError>{fieldErrors.siteId[0]}</FieldError>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={fetcher.state !== "idle"}>
+                Get Invite Link
+              </Button>
+            </DialogFooter>
+          </fetcher.Form>
+        )}
       </DialogContent>
     </Dialog>
   );
