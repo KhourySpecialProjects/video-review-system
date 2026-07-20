@@ -21,6 +21,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatRole } from "../columns/usersColumns";
 import type { UserDetailResponse, SiteOptionsResponse } from "../admin.types";
 
+/** @description Permission level display labels. */
+const levelLabels: Record<string, string> = {
+  READ: "Read",
+  WRITE: "Write",
+  EXPORT: "Export",
+  ADMIN: "Admin",
+};
+
 /**
  * @description Side sheet for viewing and editing a user's details,
  * permissions, and activation status. Data is loaded via the
@@ -208,19 +216,28 @@ export function UserSheet({
                 <div className="flex flex-wrap gap-2">
                   <Select value={permLevel} onValueChange={(v) => setPermLevel(v ?? "")}>
                     <SelectTrigger className="h-8 w-36 text-sm">
-                      <SelectValue placeholder="Level" />
+                      <SelectValue placeholder="Level">
+                        {(value: string | null) =>
+                          value ? (levelLabels[value] ?? value) : "Level"}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {availableLevels.map((level) => (
                         <SelectItem key={level} value={level}>
-                          {level}
+                          {levelLabels[level] ?? level}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   <Select value={permSiteId} onValueChange={(v) => setPermSiteId(v ?? "")}>
                     <SelectTrigger className="h-8 w-44 text-sm">
-                      <SelectValue placeholder="Site (optional)" />
+                      <SelectValue placeholder="Site (optional)">
+                        {(value: string | null) =>
+                          value
+                            ? (siteOptions.find((s) => s.id === value)?.name ??
+                              "Site (optional)")
+                            : "Site (optional)"}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">Global</SelectItem>
