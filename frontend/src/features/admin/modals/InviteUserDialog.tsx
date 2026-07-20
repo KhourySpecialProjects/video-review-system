@@ -196,8 +196,11 @@ export function InviteUserDialog({
             <div className="space-y-1.5">
               <Label>Role</Label>
               <Select name="role">
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a role" />
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a role">
+                    {(value: string | null) =>
+                      value ? roleLabels[value] : "Select a role"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {availableRoles.map((r) => (
@@ -215,8 +218,12 @@ export function InviteUserDialog({
             <div className="space-y-1.5">
               <Label>Site</Label>
               <Select name="siteId">
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a site" />
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a site">
+                    {(value: string | null) =>
+                      siteOptions.find((s) => s.id === value)?.name ??
+                      "Select a site"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {siteOptions.map((site) => (
