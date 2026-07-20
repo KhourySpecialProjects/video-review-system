@@ -13,6 +13,44 @@ import { Label } from "@/components/ui/label";
 import { siteOptionsQuery } from "@/lib/admin.service";
 import type { AdminTab } from "./admin.types";
 
+const roleFilterLabels: Record<string, string> = {
+  all: "All Roles",
+  CAREGIVER: "Caregiver",
+  CLINICAL_REVIEWER: "Clinical Reviewer",
+  SITE_COORDINATOR: "Site Coordinator",
+  SYSADMIN: "System Admin",
+};
+
+const statusFilterLabels: Record<string, string> = {
+  all: "All Statuses",
+  NOT_STARTED: "Not Started",
+  IN_PROGRESS: "In Progress",
+  FINISHED: "Finished",
+};
+
+const actionFilterLabels: Record<string, string> = {
+  all: "All Actions",
+  CREATE: "Create",
+  READ: "Read",
+  UPDATE: "Update",
+  DELETE: "Delete",
+  DOWNLOAD: "Download",
+  LOGIN: "Login",
+};
+
+const entityFilterLabels: Record<string, string> = {
+  all: "All Entities",
+  VIDEO: "Video",
+  ANNOTATION: "Annotation",
+  USER: "User",
+  STUDY: "Study",
+  SEQUENCE: "Sequence",
+  CLIP: "Clip",
+  SITE: "Site",
+  PERMISSIONS: "Permissions",
+  INVITATION: "Invitation",
+};
+
 /**
  * @description Tab-conditional toolbar for the admin data table.
  * Renders different filter controls depending on the active tab.
@@ -89,14 +127,17 @@ export function AdminTableToolbar({
           onValueChange={(v) => onFilterChange("role", v ?? "all")}
         >
           <SelectTrigger className="h-8 w-44 text-sm">
-            <SelectValue placeholder="All Roles" />
+            <SelectValue placeholder="All Roles">
+              {(value: string | null) =>
+                roleFilterLabels[value ?? "all"] ?? value}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Roles</SelectItem>
-            <SelectItem value="CAREGIVER">Caregiver</SelectItem>
-            <SelectItem value="CLINICAL_REVIEWER">Clinical Reviewer</SelectItem>
-            <SelectItem value="SITE_COORDINATOR">Site Coordinator</SelectItem>
-            <SelectItem value="SYSADMIN">System Admin</SelectItem>
+            {Object.entries(roleFilterLabels).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       )}
@@ -110,7 +151,13 @@ export function AdminTableToolbar({
           onValueChange={(v) => onFilterChange("siteId", v ?? "all")}
         >
           <SelectTrigger className="h-8 w-44 text-sm">
-            <SelectValue placeholder="All Sites" />
+            <SelectValue placeholder="All Sites">
+              {(value: string | null) =>
+                !value || value === "all"
+                  ? "All Sites"
+                  : (siteOptions.find((s) => s.id === value)?.name ??
+                    "All Sites")}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Sites</SelectItem>
@@ -130,13 +177,17 @@ export function AdminTableToolbar({
           onValueChange={(v) => onFilterChange("status", v ?? "all")}
         >
           <SelectTrigger className="h-8 w-44 text-sm">
-            <SelectValue placeholder="All Statuses" />
+            <SelectValue placeholder="All Statuses">
+              {(value: string | null) =>
+                statusFilterLabels[value ?? "all"] ?? value}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="NOT_STARTED">Not Started</SelectItem>
-            <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-            <SelectItem value="FINISHED">Finished</SelectItem>
+            {Object.entries(statusFilterLabels).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       )}
@@ -148,16 +199,17 @@ export function AdminTableToolbar({
           onValueChange={(v) => onFilterChange("actionType", v ?? "all")}
         >
           <SelectTrigger className="h-8 w-44 text-sm">
-            <SelectValue placeholder="All Actions" />
+            <SelectValue placeholder="All Actions">
+              {(value: string | null) =>
+                actionFilterLabels[value ?? "all"] ?? value}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Actions</SelectItem>
-            <SelectItem value="CREATE">Create</SelectItem>
-            <SelectItem value="READ">Read</SelectItem>
-            <SelectItem value="UPDATE">Update</SelectItem>
-            <SelectItem value="DELETE">Delete</SelectItem>
-            <SelectItem value="DOWNLOAD">Download</SelectItem>
-            <SelectItem value="LOGIN">Login</SelectItem>
+            {Object.entries(actionFilterLabels).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       )}
@@ -169,19 +221,17 @@ export function AdminTableToolbar({
           onValueChange={(v) => onFilterChange("entityType", v ?? "all")}
         >
           <SelectTrigger className="h-8 w-44 text-sm">
-            <SelectValue placeholder="All Entities" />
+            <SelectValue placeholder="All Entities">
+              {(value: string | null) =>
+                entityFilterLabels[value ?? "all"] ?? value}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Entities</SelectItem>
-            <SelectItem value="VIDEO">Video</SelectItem>
-            <SelectItem value="ANNOTATION">Annotation</SelectItem>
-            <SelectItem value="USER">User</SelectItem>
-            <SelectItem value="STUDY">Study</SelectItem>
-            <SelectItem value="SEQUENCE">Sequence</SelectItem>
-            <SelectItem value="CLIP">Clip</SelectItem>
-            <SelectItem value="SITE">Site</SelectItem>
-            <SelectItem value="PERMISSIONS">Permissions</SelectItem>
-            <SelectItem value="INVITATION">Invitation</SelectItem>
+            {Object.entries(entityFilterLabels).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       )}
