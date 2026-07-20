@@ -41,8 +41,14 @@ export function inviteUserAction(queryClient: QueryClient) {
       return { ok: false, error: body.error };
     }
 
+    const body = (await res.json().catch(() => ({}))) as {
+      token?: string;
+      expiresAt?: string;
+    };
+
     await queryClient.invalidateQueries({ queryKey: adminKeys.all });
-    toast.success("Invitation sent successfully");
-    return { ok: true };
+    // No success toast: the dialog surfaces a copyable signup link in-place so
+    // the inviter can share it directly (email is also sent by the backend).
+    return { ok: true, token: body.token, expiresAt: body.expiresAt };
   };
 }

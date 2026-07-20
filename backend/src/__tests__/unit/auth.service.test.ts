@@ -129,10 +129,10 @@ describe("auth.service", () => {
     });
   });
 
-  it("stores the hash of the returned token and a 24-hour expiration", async () => {
+  it("stores the hash of the returned token and a 5-day expiration", async () => {
     // Input: createInvite(...) succeeds at a fixed clock time.
     // Expected: Prisma stores the SHA-256 hash of the returned token and an
-    // expiration exactly 24 hours in the future.
+    // expiration exactly 5 days in the future.
     const invitation = makeInvitation();
     const now = new Date("2026-03-31T12:00:00.000Z");
 
@@ -149,7 +149,7 @@ describe("auth.service", () => {
         crypto.createHash("sha256").update(result.token!).digest("hex"),
       );
       expect(persistedInvite.expiresAt).toEqual(
-        new Date(now.getTime() + 24 * 60 * 60 * 1000),
+        new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000),
       );
     } finally {
       vi.useRealTimers();
@@ -173,10 +173,10 @@ describe("auth.service", () => {
     );
   });
 
-  it("does not return or log the activation token in production", async () => {
+  it("returns the activation token in production so the inviter can share the link", async () => {
     // Input: createInvite(...) succeeds while NODE_ENV is "production".
-    // Expected: the response only exposes the invitation id and the service
-    // does not log the dev-only token.
+    // Expected: the response still includes the raw token — the inviter needs
+    // it to copy/share the signup link from the UI (single-use, expiring).
     const invitation = makeInvitation();
     const originalNodeEnv = process.env.NODE_ENV;
 
@@ -189,9 +189,8 @@ describe("auth.service", () => {
         id: invitation.id,
         createdAt: invitation.createdAt,
         expiresAt: invitation.expiresAt,
+        token: expect.any(String),
       });
-      expect(result).not.toHaveProperty("token");
-      expect(console.log).not.toHaveBeenCalled();
     } finally {
       process.env.NODE_ENV = originalNodeEnv;
     }
