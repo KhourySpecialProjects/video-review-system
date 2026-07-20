@@ -7,6 +7,7 @@ function renderLanding() {
     const router = createMemoryRouter([
         { path: "/", element: <Landing /> },
         { path: "/login", element: <div>Login Page</div> },
+        { path: "/about", element: <div>About Page</div> },
     ]);
     return render(<RouterProvider router={router} />);
 }
@@ -35,5 +36,12 @@ describe("Landing", () => {
         expect(
             screen.getByRole("button", { name: /toggle theme/i })
         ).toBeInTheDocument();
+    });
+
+    it("renders an About Asclepion link to /about", () => {
+        renderLanding();
+        expect(
+            screen.getByRole("link", { name: /about asclepion/i })
+        ).toHaveAttribute("href", "/about");
     });
 });
