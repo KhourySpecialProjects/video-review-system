@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { CircleUser, ChevronDown, GraduationCap, LogOut, Moon, Sun } from "lucide-react";
+import { CircleUser, ChevronDown, GraduationCap, Info, LogOut, Moon, Sun } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -91,6 +91,11 @@ export function UserMenu({ onOpenChange }: UserMenuProps) {
                 <DropdownMenuItem render={<Link to="/tutorials" />}>
                     <GraduationCap className="size-4" />
                     Tutorial
+                </DropdownMenuItem>
+
+                <DropdownMenuItem render={<Link to="/about" />}>
+                    <Info className="size-4" />
+                    About
                 </DropdownMenuItem>
 
                 <DropdownMenuItem closeOnClick={false} onClick={toggleTheme}>

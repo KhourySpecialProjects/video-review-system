@@ -8,13 +8,14 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Form, Link, useActionData, useNavigation } from "react-router";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AppVersion } from "@/features/layout/AppVersion";
+import { cn } from "@/lib/utils";
 
 type ActionData =
     | { fieldErrors: Record<string, string> }
@@ -30,7 +31,15 @@ export function Login() {
 
     return (
         <div className="flex min-h-screen flex-col items-center justify-center p-4 md:p-8">
-            <ThemeToggle className="fixed top-4 right-4 z-50" />
+            <div className="fixed top-4 right-4 z-50 flex items-center gap-1">
+                <Link
+                    to="/about"
+                    className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "text-text")}
+                >
+                    About Asclepion
+                </Link>
+                <ThemeToggle />
+            </div>
 
             <Card className="w-full max-w-sm shadow-xl border-primary/10">
                 <CardHeader className="space-y-3 text-center pb-6">
