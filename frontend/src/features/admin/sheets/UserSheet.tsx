@@ -186,13 +186,14 @@ export function UserSheet({
                       >
                         <div className="flex items-center gap-2">
                           <Badge variant="outline">
-                            {perm.permissionLevel}
+                            {levelLabels[perm.permissionLevel] ??
+                              perm.permissionLevel}
                           </Badge>
                           <span className="text-muted-foreground">
                             {perm.siteId
-                              ? `Site: ${perm.siteId.slice(0, 8)}…`
+                              ? `Site: ${perm.siteName ?? `${perm.siteId.slice(0, 8)}…`}`
                               : perm.studyId
-                                ? `Study: ${perm.studyId.slice(0, 8)}…`
+                                ? `Study: ${perm.studyName ?? `${perm.studyId.slice(0, 8)}…`}`
                                 : "Global"}
                           </span>
                         </div>
