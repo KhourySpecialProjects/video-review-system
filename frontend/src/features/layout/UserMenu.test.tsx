@@ -55,6 +55,15 @@ describe("UserMenu", () => {
         expect(screen.getByText("Log out")).toBeInTheDocument();
     });
 
+    it("includes an About link to /about when opened", async () => {
+        const user = userEvent.setup();
+        authState.user = { name: "Jane Doe", role: "SYSADMIN" };
+        renderUserMenu();
+        await user.click(screen.getByLabelText("User menu"));
+        const about = await screen.findByText("About");
+        expect(about.closest("a")).toHaveAttribute("href", "/about");
+    });
+
     it("invokes logout when Log out is chosen", async () => {
         const user = userEvent.setup();
         authState.user = { name: "Jane Doe", role: "SYSADMIN" };

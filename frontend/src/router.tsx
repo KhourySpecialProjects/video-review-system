@@ -20,6 +20,8 @@ import { ResetPassword } from "./features/login/reset-password";
 import { clientAction as resetPasswordAction } from "./hooks/use-reset-password";
 import { authGuardLoader, caregiverGuardLoader, nonCaregiverGuardLoader, adminGuardLoader, landingLoader } from "./hooks/auth-guard";
 import { Landing } from "./features/landing/Landing";
+import { AboutPage } from "./features/about/AboutPage";
+import { ChangelogPage } from "./features/about/ChangelogPage";
 import { homeLoader, searchLoader, videoViewLoader, videoViewAction, videoReviewLoader, videoReviewAction, videoReviewShouldRevalidate } from "./lib/video.service";
 import { adminLoader, adminAction } from "./features/admin/admin.route";
 import { inviteUserAction } from "./features/admin/invite.route";
@@ -41,6 +43,14 @@ export const router = createBrowserRouter([
         path: "/",
         element: <Landing />,
         loader: landingLoader,
+    },
+    {
+        path: "/about",
+        element: <AboutPage />,
+    },
+    {
+        path: "/changelog",
+        element: <ChangelogPage />,
     },
     {
         element: <Root />,

@@ -21,7 +21,13 @@ export function Landing() {
                 className="pointer-events-none absolute left-1/2 top-1/3 -z-10 size-[32rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-3xl"
             />
 
-            <header className="flex justify-end p-4">
+            <header className="flex items-center justify-end gap-1 p-4">
+                <Link
+                    to="/about"
+                    className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "text-text")}
+                >
+                    About Asclepion
+                </Link>
                 <ThemeToggle />
             </header>
 

@@ -51,6 +51,14 @@ describe("Login", () => {
     expect(screen.getByText(/forgot password/i)).toBeInTheDocument();
   });
 
+  it("renders an About Asclepion link to /about", () => {
+    renderLogin();
+    expect(screen.getByRole("link", { name: /about asclepion/i })).toHaveAttribute(
+      "href",
+      "/about",
+    );
+  });
+
   it("shows 'Logging in...' and disables button while submitting", () => {
     mockUseNavigation.mockReturnValue(submittingNavigation);
     renderLogin();
