@@ -179,7 +179,7 @@ export function adminAuditQuery(params: URLSearchParams) {
 
 /**
  * @description Query options for a single user's detail including their
- * permissions. Used by the UserSheet component.
+ * permissions. Used by the EditUserDialog component.
  *
  * @param userId - The user ID to fetch.
  * @returns TanStack Query options for UserDetailResponse.

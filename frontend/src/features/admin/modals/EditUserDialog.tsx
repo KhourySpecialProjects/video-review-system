@@ -2,11 +2,13 @@ import { useState, useCallback, useEffect } from "react";
 import { useFetcher } from "react-router";
 import { X } from "lucide-react";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,17 +32,19 @@ const levelLabels: Record<string, string> = {
 };
 
 /**
- * @description Side sheet for viewing and editing a user's details,
+ * @description Modal dialog for viewing and editing a user's details,
  * permissions, and activation status. Data is loaded via the
- * user-detail resource route. Permission level options are restricted
- * for site coordinators (only READ/WRITE).
+ * user-detail resource route. Changes apply immediately (each action
+ * fires a mutation on click), so there is no Save button — only "Done".
+ * Permission level options are restricted for site coordinators
+ * (only READ/WRITE).
  *
  * @param userId - The user to display.
- * @param open - Whether the sheet is open.
+ * @param open - Whether the dialog is open.
  * @param onOpenChange - Handler for open state changes.
  * @param actorRole - The current user's role (restricts permission options).
  */
-export function UserSheet({
+export function EditUserDialog({
   userId,
   open,
   onOpenChange,
@@ -130,15 +134,14 @@ export function UserSheet({
       : ["READ", "WRITE", "EXPORT", "ADMIN"];
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex flex-col gap-0 p-0 sm:max-w-md">
-        <SheetHeader className="border-b px-6 py-4">
-          <SheetTitle className="text-base font-semibold">
-            User Details
-          </SheetTitle>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit User</DialogTitle>
+          <DialogDescription>Changes are saved automatically.</DialogDescription>
+        </DialogHeader>
 
-        <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
+        <div className="flex max-h-[70vh] flex-col gap-5 overflow-y-auto">
           {isLoading || !user ? (
             <div className="space-y-3">
               <Skeleton className="h-6 w-48" />
@@ -261,7 +264,11 @@ export function UserSheet({
             </>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+
+        <DialogFooter>
+          <Button onClick={() => onOpenChange(false)}>Done</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
