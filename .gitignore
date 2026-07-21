@@ -50,3 +50,8 @@ frontend/.vite/
 !.env.coolify.example
 !.env.coolify.next.example
 !.env.glitchtip.example
+
+# Superpowers skill scratch/session state (progress logs, task briefs, review
+# diffs, brainstorm tokens/HTML). Local working files only — the durable specs
+# and plans live in docs/superpowers/ and ARE committed. Not for GitHub.
+.superpowers/
