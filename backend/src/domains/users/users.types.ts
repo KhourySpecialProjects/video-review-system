@@ -53,6 +53,8 @@ export type UserPermissionItem = {
   siteId: string | null;
   studyId: string | null;
   videoId: string | null;
+  siteName: string | null;
+  studyName: string | null;
 };
 
 /** Response shape returned by the get user detail endpoint. */
