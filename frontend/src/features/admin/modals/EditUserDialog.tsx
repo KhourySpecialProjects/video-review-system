@@ -135,7 +135,7 @@ export function EditUserDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Edit User</DialogTitle>
           <DialogDescription>Changes are saved automatically.</DialogDescription>
@@ -162,16 +162,6 @@ export function EditUserDialog({
                   </Badge>
                 </div>
               </div>
-
-              <Button
-                variant={user.isDeactivated ? "default" : "destructive"}
-                size="sm"
-                onClick={handleToggleStatus}
-                disabled={actionFetcher.state !== "idle"}
-              >
-                {user.isDeactivated ? "Reactivate" : "Deactivate"}
-              </Button>
-
               <Separator />
 
               <div className="space-y-3">
@@ -217,9 +207,9 @@ export function EditUserDialog({
 
               <div className="space-y-3">
                 <h4 className="text-sm font-semibold">Add Permission</h4>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex gap-2">
                   <Select value={permLevel} onValueChange={(v) => setPermLevel(v ?? "")}>
-                    <SelectTrigger className="h-8 w-36 text-sm">
+                    <SelectTrigger className="h-8 flex-1 text-sm">
                       <SelectValue placeholder="Level">
                         {(value: string | null) =>
                           value ? (levelLabels[value] ?? value) : "Level"}
@@ -234,7 +224,7 @@ export function EditUserDialog({
                     </SelectContent>
                   </Select>
                   <Select value={permSiteId} onValueChange={(v) => setPermSiteId(v ?? "")}>
-                    <SelectTrigger className="h-8 w-44 text-sm">
+                    <SelectTrigger className="h-8 flex-1 text-sm">
                       <SelectValue placeholder="Site (optional)">
                         {(value: string | null) =>
                           value
@@ -265,7 +255,18 @@ export function EditUserDialog({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="sm:justify-between">
+          {user ? (
+            <Button
+              variant={user.isDeactivated ? "default" : "destructive"}
+              onClick={handleToggleStatus}
+              disabled={actionFetcher.state !== "idle"}
+            >
+              {user.isDeactivated ? "Reactivate" : "Deactivate"}
+            </Button>
+          ) : (
+            <span />
+          )}
           <Button onClick={() => onOpenChange(false)}>Done</Button>
         </DialogFooter>
       </DialogContent>
