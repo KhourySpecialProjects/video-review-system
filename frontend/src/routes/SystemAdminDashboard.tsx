@@ -25,7 +25,7 @@ import { usersColumns } from "@/features/admin/columns/usersColumns";
 import { sitesColumns } from "@/features/admin/columns/sitesColumns";
 import { studiesColumns } from "@/features/admin/columns/studiesColumns";
 import { auditColumns } from "@/features/admin/columns/auditColumns";
-import { UserSheet } from "@/features/admin/sheets/UserSheet";
+import { EditUserDialog } from "@/features/admin/modals/EditUserDialog";
 import { SiteSheet } from "@/features/admin/sheets/SiteSheet";
 import { StudySheet } from "@/features/admin/sheets/StudySheet";
 import { AuditSheet } from "@/features/admin/sheets/AuditSheet";
@@ -93,8 +93,10 @@ function UsersTab({
       columns={usersColumns}
       queryParams={queryParams}
       setSearchParams={setSearchParams}
+      rowClickable={false}
+      showEditAction
       renderSheet={(row, open, onClose) => (
-        <UserSheet
+        <EditUserDialog
           key={row.id}
           userId={row.id}
           open={open}

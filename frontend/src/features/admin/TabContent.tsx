@@ -25,6 +25,8 @@ export function TabContent<TRow extends { id: string }>({
   renderSheet,
   queryParams,
   setSearchParams,
+  rowClickable = true,
+  showEditAction = false,
 }: {
   rows: TRow[];
   total: number;
@@ -38,6 +40,8 @@ export function TabContent<TRow extends { id: string }>({
   setSearchParams: (
     setter: (prev: URLSearchParams) => URLSearchParams,
   ) => void;
+  rowClickable?: boolean;
+  showEditAction?: boolean;
 }) {
   const [selectedRow, setSelectedRow] = useState<TRow | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -112,6 +116,8 @@ export function TabContent<TRow extends { id: string }>({
         pagination={pagination}
         onPaginationChange={handlePaginationChange}
         onRowClick={handleRowClick}
+        rowClickable={rowClickable}
+        onEditRow={showEditAction ? handleRowClick : undefined}
       />
       <AdminTablePagination
         pageIndex={pageIndex}

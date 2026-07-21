@@ -5,7 +5,7 @@ import { adminUserDetailQuery } from "@/lib/admin.service";
 /**
  * @description Loader for the user detail resource route. Fetches a
  * single user's detail (including permissions) by userId from the
- * search params. Used by the UserSheet via useFetcher.load().
+ * search params. Used by the EditUserDialog via useFetcher.load().
  *
  * @param queryClient - The TanStack Query client.
  * @returns Loader function that returns UserDetailResponse.

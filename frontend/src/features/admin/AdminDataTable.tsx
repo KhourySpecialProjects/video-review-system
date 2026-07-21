@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { Pencil } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const MotionTableRow = motion.create(TableRow);
 
@@ -79,6 +81,8 @@ export function AdminDataTable<TData>({
   pagination,
   onPaginationChange,
   onRowClick,
+  onEditRow,
+  rowClickable = true,
   isLoading = false,
 }: {
   columns: ColumnDef<TData, unknown>[];
@@ -87,8 +91,12 @@ export function AdminDataTable<TData>({
   pagination: PaginationState;
   onPaginationChange: OnChangeFn<PaginationState>;
   onRowClick: (row: TData) => void;
+  onEditRow?: (row: TData) => void;
+  rowClickable?: boolean;
   isLoading?: boolean;
 }) {
+  const hasActions = !!onEditRow;
+  const columnCount = columns.length + (hasActions ? 1 : 0);
   const table = useReactTable({
     data,
     columns,
@@ -135,16 +143,21 @@ export function AdminDataTable<TData>({
                       )}
                 </TableHead>
               ))}
+              {hasActions && (
+                <TableHead className="w-12">
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              )}
             </TableRow>
           ))}
         </TableHeader>
         <TableBody>
           {isLoading ? (
-            <SkeletonRows cols={columns.length} />
+            <SkeletonRows cols={columnCount} />
           ) : table.getRowModel().rows.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={columns.length}
+                colSpan={columnCount}
                 className="py-12 text-center text-sm text-muted-foreground"
               >
                 No results found.
@@ -154,10 +167,17 @@ export function AdminDataTable<TData>({
             table.getRowModel().rows.map((row, index) => (
               <MotionTableRow
                 key={row.id}
-                className="cursor-pointer focus-visible:bg-muted/50 focus-visible:outline-none"
-                onClick={() => onRowClick(row.original)}
-                onKeyDown={handleKeyDown(row.original)}
-                tabIndex={0}
+                className={cn(
+                  "focus-visible:bg-muted/50 focus-visible:outline-none",
+                  rowClickable && "cursor-pointer",
+                )}
+                {...(rowClickable
+                  ? {
+                      onClick: () => onRowClick(row.original),
+                      onKeyDown: handleKeyDown(row.original),
+                      tabIndex: 0,
+                    }
+                  : {})}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.15, delay: index * 0.03 }}
@@ -173,6 +193,21 @@ export function AdminDataTable<TData>({
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
+                {hasActions && (
+                  <TableCell className="w-12 text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Edit user"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditRow!(row.original);
+                      }}
+                    >
+                      <Pencil />
+                    </Button>
+                  </TableCell>
+                )}
               </MotionTableRow>
             ))
           )}
