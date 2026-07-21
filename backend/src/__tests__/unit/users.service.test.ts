@@ -48,6 +48,7 @@ import {
   createUserPermission,
   deleteUserPermission,
   getManageableSiteIds,
+  getUserDetail,
   listUsers,
   resolvePermissionScopeAccess,
   updateUserStatus,
@@ -294,6 +295,8 @@ describe("users.service", () => {
         siteId: null,
         studyId: null,
         videoId: null,
+        siteName: null,
+        studyName: null,
       });
       expect(prismaMock.auditLog.create).toHaveBeenCalledWith({
         data: {
@@ -374,6 +377,71 @@ describe("users.service", () => {
       ).rejects.toThrow("Duplicate user permission already exists");
 
       expect(prismaMock.auditLog.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("getUserDetail", () => {
+    it("resolves permission site/study relations to names", async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: "user-1",
+        name: "Jane Doe",
+        email: "jane@hospital.org",
+        role: "CLINICAL_REVIEWER",
+        siteId: "11111111-1111-1111-8111-111111111111",
+        isDeactivated: false,
+        userPermissions: [
+          {
+            id: "perm-site",
+            userId: "user-1",
+            permissionLevel: "READ",
+            siteId: "site-1",
+            studyId: null,
+            videoId: null,
+            site: { name: "Boston General" },
+            study: null,
+          },
+          {
+            id: "perm-study",
+            userId: "user-1",
+            permissionLevel: "WRITE",
+            siteId: null,
+            studyId: "study-1",
+            videoId: null,
+            site: null,
+            study: { name: "Seizure Study" },
+          },
+        ],
+      });
+
+      const result = await getUserDetail("user-1");
+
+      expect(result.userPermissions).toEqual([
+        {
+          id: "perm-site",
+          userId: "user-1",
+          permissionLevel: "READ",
+          siteId: "site-1",
+          studyId: null,
+          videoId: null,
+          siteName: "Boston General",
+          studyName: null,
+        },
+        {
+          id: "perm-study",
+          userId: "user-1",
+          permissionLevel: "WRITE",
+          siteId: null,
+          studyId: "study-1",
+          videoId: null,
+          siteName: null,
+          studyName: "Seizure Study",
+        },
+      ]);
+    });
+
+    it("throws when the user does not exist", async () => {
+      prismaMock.user.findUnique.mockResolvedValue(null);
+      await expect(getUserDetail("missing")).rejects.toThrow("User not found");
     });
   });
 
