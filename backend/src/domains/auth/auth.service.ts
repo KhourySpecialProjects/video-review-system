@@ -113,7 +113,7 @@ export async function activateInvite(input: ActivateInviteInput) {
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
   const normalizedEmail = email.toLowerCase().trim();
 
-  return await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // atomic claim
     // updateMany returns count so we can check if token was valid
     const claimed = await tx.invitation.updateMany({
@@ -247,8 +247,12 @@ export async function activateInvite(input: ActivateInviteInput) {
       ipAddress: null,
     });
 
-    logger.info({ event: "auth.invite.activated", userId }, "invite activated");
-
-    return { success: true, message: "Account created. Please sign in." };
+    return { userId, success: true, message: "Account created. Please sign in." };
   });
+
+  logger.info(
+    { event: "auth.invite.activated", userId: result.userId },
+    "invite activated",
+  );
+  return { success: result.success, message: result.message };
 }

@@ -16,9 +16,8 @@ export function toastQueryError(
   _error: unknown,
   query: Query<unknown, unknown, unknown>,
 ): void {
-  Sentry.logger.warn(Sentry.logger.fmt`query failed: ${String(query.queryHash)}`, {
-    queryKey: query.queryHash,
-  });
+  const scope = Array.isArray(query.queryKey) ? String(query.queryKey[0]) : "unknown";
+  Sentry.logger.warn(Sentry.logger.fmt`query failed: ${scope}`, { queryScope: scope });
   const message = query.meta?.errorMessage;
   if (typeof message === "string") {
     toast.error(message);

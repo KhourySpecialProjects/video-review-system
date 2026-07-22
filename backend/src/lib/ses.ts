@@ -35,12 +35,12 @@ type SendEmailParams = {
  * without sending. Throws on SES errors so callers can handle failure.
  * @param params - The email parameters (to, subject, html body)
  */
-async function sendEmail({ to, subject, html }: SendEmailParams): Promise<void> {
+async function sendEmail({ to, subject, html }: SendEmailParams): Promise<boolean> {
   const from = process.env.SES_FROM_EMAIL;
 
   if (!from) {
     logger.warn("SES_FROM_EMAIL not configured — skipping email send");
-    return;
+    return false;
   }
 
   const command = new SendEmailCommand({
@@ -53,6 +53,7 @@ async function sendEmail({ to, subject, html }: SendEmailParams): Promise<void> 
   });
 
   await ses.send(command);
+  return true;
 }
 
 /**
@@ -74,7 +75,7 @@ export async function sendInviteEmail(
     logger.debug({ email, activationUrl }, "dev-only invite link");
   }
 
-  await sendEmail({
+  const sent = await sendEmail({
     to: email,
     subject: "You've been invited",
     html: `
@@ -84,7 +85,9 @@ export async function sendInviteEmail(
       <p>This link expires in 24 hours.</p>
     `,
   });
-  logger.info("invitation email sent");
+  if (sent) {
+    logger.info("invitation email sent");
+  }
 }
 
 /**
