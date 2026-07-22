@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client.js";
 import * as Sentry from "@sentry/node";
+import { logger } from "../lib/logger.js";
 
 /**
  * Custom application error with HTTP status code.
@@ -147,6 +148,12 @@ export function errorHandler(err: Error, req: Request, res: Response, next: Next
     if (!err.isOperational || err.statusCode >= 500) {
       Sentry.captureException(err);
     }
+    if (err.statusCode === 401 || err.statusCode === 403) {
+      (req.log ?? logger).warn(
+        { event: "auth.denied", statusCode: err.statusCode, path: req.originalUrl },
+        err.message,
+      );
+    }
     res.status(err.statusCode).json({
       status: "error",
       statusCode: err.statusCode,
@@ -175,7 +182,7 @@ export function errorHandler(err: Error, req: Request, res: Response, next: Next
   if (err instanceof PrismaClientKnownRequestError) {
     const { statusCode, message } = mapPrismaError(err);
     if (statusCode >= 500) {
-      console.error("Prisma error:", err);
+      (req.log ?? logger).error({ err }, "prisma error");
       Sentry.captureException(err);
     }
     res.status(statusCode).json({
@@ -198,7 +205,7 @@ export function errorHandler(err: Error, req: Request, res: Response, next: Next
   }
 
   // Unknown error — never leak internals
-  console.error("Unhandled error:", err);
+  (req.log ?? logger).error({ err }, "unhandled error");
   Sentry.captureException(err);
   res.status(500).json({
     status: "error",

@@ -7,6 +7,7 @@ import type {
     permission_level,
     review_status,
 } from "../../generated/prisma/client.js";
+import { logger } from "../../lib/logger.js";
 import type {
     ReviewPermissionLevel,
     ReviewStatus,
@@ -106,6 +107,18 @@ export async function updateReviewStatus(
     if (count === 0) {
         throw AppError.badRequest("Review status was modified concurrently");
     }
+
+    logger.info(
+        {
+            event: "review.status.changed",
+            studyId,
+            videoId,
+            siteId,
+            from: row.reviewStatus,
+            to: nextDb,
+        },
+        "review status changed",
+    );
 
     return next;
 }

@@ -15,6 +15,7 @@ import {
   type ActivateInviteInput,
 } from "./auth.types.js";
 import { sendInviteEmail } from "../../lib/ses.js";
+import { logger } from "../../lib/logger.js";
 
 /**
  * Invitation lifetime. 5 days — long enough for a tester to share the signup
@@ -75,6 +76,11 @@ export async function createInvite(
   });
 
   await sendInviteEmail(normalizedEmail, token);
+
+  logger.info(
+    { event: "auth.invite.created", role, siteId, actorUserId: audit?.actorUserId },
+    "invite created",
+  );
 
   return {
     id: invitation.id,
@@ -240,6 +246,8 @@ export async function activateInvite(input: ActivateInviteInput) {
       }),
       ipAddress: null,
     });
+
+    logger.info({ event: "auth.invite.activated", userId }, "invite activated");
 
     return { success: true, message: "Account created. Please sign in." };
   });
