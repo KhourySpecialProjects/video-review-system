@@ -1,4 +1,5 @@
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import { logger } from "./logger.js";
 
 /**
  * Shared SES client instance.
@@ -38,7 +39,7 @@ async function sendEmail({ to, subject, html }: SendEmailParams): Promise<void> 
   const from = process.env.SES_FROM_EMAIL;
 
   if (!from) {
-    console.warn("[SES] SES_FROM_EMAIL not configured — skipping email send");
+    logger.warn("SES_FROM_EMAIL not configured — skipping email send");
     return;
   }
 
@@ -58,7 +59,7 @@ async function sendEmail({ to, subject, html }: SendEmailParams): Promise<void> 
  * Sends an invitation email with an activation link.
  *
  * @description Builds the activation URL from FRONTEND_URL and sends a styled
- * invite email. In non-production, also logs the URL to console.
+ * invite email. In non-production, also emits the URL as a debug log.
  * @param email - The recipient's email address
  * @param token - The invitation activation token
  */
@@ -70,7 +71,7 @@ export async function sendInviteEmail(
   const activationUrl = `${baseUrl}/signup/${token}`;
 
   if (process.env.NODE_ENV !== "production") {
-    console.log(`[DEV-ONLY] Activation link for ${email}: ${activationUrl}`);
+    logger.debug({ email, activationUrl }, "dev-only invite link");
   }
 
   await sendEmail({
@@ -83,14 +84,14 @@ export async function sendInviteEmail(
       <p>This link expires in 24 hours.</p>
     `,
   });
-  console.log(`[SES] Sent invitation email to ${email}`);
+  logger.info("invitation email sent");
 }
 
 /**
  * Sends a password reset email with the reset link.
  *
  * @description Uses the URL provided by better-auth which already contains
- * the reset token. In non-production, also logs the URL to console.
+ * the reset token. In non-production, also emits the URL as a debug log.
  * @param email - The recipient's email address
  * @param url - The full password reset URL from better-auth
  */
@@ -99,7 +100,7 @@ export async function sendPasswordResetEmail(
   url: string
 ): Promise<void> {
   if (process.env.NODE_ENV !== "production") {
-    console.log(`[DEV-ONLY] Password reset link for ${email}: ${url}`);
+    logger.debug({ email, url }, "dev-only reset link");
   }
 
   await sendEmail({

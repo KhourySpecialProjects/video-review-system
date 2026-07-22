@@ -23,6 +23,7 @@ import { auth } from "./lib/auth.js";
 import { notFoundHandler, errorHandler } from "./middleware/errors.js";
 import { requestLogger } from "./middleware/logging.js";
 import { getVersionInfo } from "./lib/version.js";
+import { logger } from "./lib/logger.js";
 
 import videosRouter from "./domains/videos/videos.router.js";
 import authRouter from "./domains/auth/auth.router.js";
@@ -100,7 +101,7 @@ export const app = createApp();
 
 export function startServer(port = PORT) {
   return app.listen(port, () => {
-    console.log(`Listening on port ${port}`);
+    logger.info({ port }, "server listening");
   });
 }
 
