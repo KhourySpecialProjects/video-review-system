@@ -15,6 +15,24 @@ export function scrubBreadcrumb(breadcrumb: Sentry.Breadcrumb): Sentry.Breadcrum
 }
 
 /**
+ * Scrub a GlitchTip log before send. "full" is a no-op; "scrubbed" parametrizes
+ * the message and every string-valued attribute via parametrizeUrl. Symmetric
+ * with the backend scrubber (backend/src/lib/telemetry.ts).
+ */
+export function scrubLog(log: Sentry.Log, mode: TelemetryConfig["privacyMode"]): Sentry.Log {
+  if (mode === "full") return log
+  const attributes = log.attributes
+    ? Object.fromEntries(
+        Object.entries(log.attributes).map(([key, value]) => [
+          key,
+          typeof value === "string" ? parametrizeUrl(value) : value,
+        ]),
+      )
+    : log.attributes
+  return { ...log, message: parametrizeUrl(log.message), attributes }
+}
+
+/**
  * Initialize Sentry/GlitchTip for the browser. No-op when the DSN is empty, so
  * local dev runs clean. Tracing and replay are intentionally off — errors and
  * breadcrumbs only. In scrubbed mode, breadcrumb URLs are parametrized and PII
@@ -28,7 +46,10 @@ export function initTelemetry(config: TelemetryConfig = telemetryConfig): void {
     release: config.release,
     sendDefaultPii: config.privacyMode === "full",
     tracesSampleRate: 0,
+    enableLogs: true,
+    integrations: [Sentry.consoleLoggingIntegration({ levels: ["warn", "error"] })],
     initialScope: { tags: { platform: "frontend" } },
+    beforeSendLog: (log) => scrubLog(log, config.privacyMode),
     beforeBreadcrumb:
       config.privacyMode === "scrubbed"
         ? (breadcrumb) => scrubBreadcrumb(breadcrumb)

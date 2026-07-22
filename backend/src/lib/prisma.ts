@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import { logger } from "./logger.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
@@ -19,7 +20,15 @@ if (process.env.NODE_ENV == "production") {
   connectionString = process.env["RDS_SESSION_MANAGER_DATABASE_URL"]!;
 }
 
-console.log("Using database connection string:", connectionString);
+try {
+  const dbUrl = new URL(connectionString);
+  logger.info(
+    { host: dbUrl.hostname, port: dbUrl.port, database: dbUrl.pathname.replace(/^\//, "") },
+    "database connection configured",
+  );
+} catch {
+  logger.info("database connection configured");
+}
 
 // create postgres connection pool
 const pool = new pg.Pool({

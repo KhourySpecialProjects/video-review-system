@@ -14,6 +14,7 @@ import { AppError } from "../../middleware/errors.js";
 import { thumbnailKeyFor } from "../../lib/mediaKeys.js";
 import type { CreateVideoInput, CompleteUploadInput, UpdateVideoInput, UpdateVideoMetadataInput, SearchVideosInput, VideoListItem } from "./videos.types.js";
 import type { Prisma } from "../../generated/prisma/client.js";
+import { logger } from "../../lib/logger.js";
 import {
   generatePresignedGetUrl,
   generatePresignedPartUrls,
@@ -517,6 +518,10 @@ export async function initiateVideoUpload({
     expiresIn
   );
 
+  logger.info(
+    { event: "video.upload.initiated", videoId: video.id, actorUserId: audit?.actorUserId },
+    "video upload initiated",
+  );
   return { video, parts, partSize: PART_SIZE, totalParts, expiresIn, thumbnailUploadUrl };
 }
 
@@ -632,7 +637,7 @@ export async function completeVideoUpload(
     });
   }
 
-  return prisma.$transaction(async (tx) => {
+  const completed = await prisma.$transaction(async (tx) => {
     const siteId = await resolveVideoAuditSiteId(tx, videoId);
 
     return runAuditedUpdate({
@@ -657,6 +662,12 @@ export async function completeVideoUpload(
       ipAddress: audit.ipAddress,
     });
   });
+
+  logger.info(
+    { event: "video.upload.completed", videoId, actorUserId: audit.actorUserId },
+    "video upload completed",
+  );
+  return completed;
 }
 
 /**
@@ -751,6 +762,11 @@ export async function cancelVideoUpload(
       ipAddress: audit.ipAddress,
     });
   });
+
+  logger.info(
+    { event: "video.upload.canceled", videoId, actorUserId: audit.actorUserId },
+    "video upload canceled",
+  );
 }
 
 /**
@@ -908,5 +924,10 @@ export async function deleteVideo(
       getSiteId: (video) => video.auditSiteId,
       ipAddress: audit.ipAddress,
     }),
+  );
+
+  logger.info(
+    { event: "video.deleted", videoId: id, actorUserId: audit.actorUserId },
+    "video deleted",
   );
 }

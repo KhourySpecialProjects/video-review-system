@@ -15,6 +15,7 @@ import {
   type ActivateInviteInput,
 } from "./auth.types.js";
 import { sendInviteEmail } from "../../lib/ses.js";
+import { logger } from "../../lib/logger.js";
 
 /**
  * Invitation lifetime. 5 days — long enough for a tester to share the signup
@@ -76,6 +77,11 @@ export async function createInvite(
 
   await sendInviteEmail(normalizedEmail, token);
 
+  logger.info(
+    { event: "auth.invite.created", role, siteId, actorUserId: audit?.actorUserId },
+    "invite created",
+  );
+
   return {
     id: invitation.id,
     createdAt: invitation.createdAt,
@@ -107,7 +113,7 @@ export async function activateInvite(input: ActivateInviteInput) {
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
   const normalizedEmail = email.toLowerCase().trim();
 
-  return await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // atomic claim
     // updateMany returns count so we can check if token was valid
     const claimed = await tx.invitation.updateMany({
@@ -241,6 +247,12 @@ export async function activateInvite(input: ActivateInviteInput) {
       ipAddress: null,
     });
 
-    return { success: true, message: "Account created. Please sign in." };
+    return { userId, success: true, message: "Account created. Please sign in." };
   });
+
+  logger.info(
+    { event: "auth.invite.activated", userId: result.userId },
+    "invite activated",
+  );
+  return { success: result.success, message: result.message };
 }

@@ -9,6 +9,7 @@ import { buildPermissionSnapshot } from "../audit/audit.snapshots.js";
 import type { AuthenticatedAuditContext } from "../audit/audit.types.js";
 import prisma from "../../lib/prisma.js";
 import { AppError } from "../../middleware/errors.js";
+import { logger } from "../../lib/logger.js";
 import type {
   CreateUserPermissionInput,
   ListUserPermissionsResponse,
@@ -504,6 +505,10 @@ export async function createUserPermission(
         ipAddress: audit.ipAddress,
       }),
     );
+    logger.info(
+      { event: "user.permission.granted", userId, actorUserId: audit.actorUserId },
+      "user permission granted",
+    );
     return toUserPermissionItem(created);
   } catch (error) {
     if (
@@ -581,6 +586,11 @@ export async function deleteUserPermission(
       ipAddress: audit.ipAddress,
     }),
   );
+
+  logger.info(
+    { event: "user.permission.revoked", userId, permissionId, actorUserId: audit.actorUserId },
+    "user permission revoked",
+  );
 }
 
 /**
@@ -597,7 +607,7 @@ export async function updateUserStatus(
   input: UpdateUserStatusInput,
   audit: UserStatusAuditInput,
 ): Promise<UpdateUserStatusResponse> {
-  return prisma.$transaction((tx) =>
+  const result = await prisma.$transaction((tx) =>
     runAuditedUpdate({
       client: tx,
       loadBefore: () =>
@@ -627,4 +637,15 @@ export async function updateUserStatus(
       }),
     }),
   );
+
+  logger.info(
+    {
+      event: "user.status.changed",
+      userId,
+      isDeactivated: input.isDeactivated,
+      actorUserId: audit.actorUserId,
+    },
+    "user status changed",
+  );
+  return result;
 }
