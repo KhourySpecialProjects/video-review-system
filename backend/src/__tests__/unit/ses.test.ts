@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const sendMock = vi.hoisted(() => vi.fn());
+const loggerMock = vi.hoisted(() => ({
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+}));
+
+vi.mock("../../lib/logger.js", () => ({ logger: loggerMock }));
 
 vi.mock("@aws-sdk/client-ses", () => {
   return {
@@ -14,8 +22,10 @@ import { sendInviteEmail, sendPasswordResetEmail } from "../../lib/ses.js";
 describe("ses", () => {
   beforeEach(() => {
     sendMock.mockReset();
-    vi.spyOn(console, "log").mockImplementation(() => undefined);
-    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    loggerMock.debug.mockReset();
+    loggerMock.info.mockReset();
+    loggerMock.warn.mockReset();
+    loggerMock.error.mockReset();
   });
 
   // ========= sendInviteEmail =========
@@ -46,8 +56,13 @@ describe("ses", () => {
       try {
         await sendInviteEmail("user@example.com", "token123");
 
-        expect(console.log).toHaveBeenCalledWith(
-          expect.stringContaining("https://app.example.com/signup/token123"),
+        expect(loggerMock.debug).toHaveBeenCalledWith(
+          expect.objectContaining({
+            activationUrl: expect.stringContaining(
+              "https://app.example.com/signup/token123",
+            ),
+          }),
+          "dev-only invite link",
         );
       } finally {
         process.env.NODE_ENV = originalNodeEnv;
@@ -63,7 +78,7 @@ describe("ses", () => {
       try {
         await sendInviteEmail("user@example.com", "token123");
 
-        expect(console.log).not.toHaveBeenCalled();
+        expect(loggerMock.debug).not.toHaveBeenCalled();
       } finally {
         process.env.NODE_ENV = originalNodeEnv;
       }
@@ -77,7 +92,7 @@ describe("ses", () => {
         await sendInviteEmail("user@example.com", "abc123");
 
         expect(sendMock).not.toHaveBeenCalled();
-        expect(console.warn).toHaveBeenCalledWith(
+        expect(loggerMock.warn).toHaveBeenCalledWith(
           expect.stringContaining("SES_FROM_EMAIL not configured"),
         );
       } finally {
@@ -144,8 +159,11 @@ describe("ses", () => {
           "https://app.example.com/reset?token=abc",
         );
 
-        expect(console.log).toHaveBeenCalledWith(
-          expect.stringContaining("https://app.example.com/reset?token=abc"),
+        expect(loggerMock.debug).toHaveBeenCalledWith(
+          expect.objectContaining({
+            url: expect.stringContaining("https://app.example.com/reset?token=abc"),
+          }),
+          "dev-only reset link",
         );
       } finally {
         process.env.NODE_ENV = originalNodeEnv;
@@ -163,7 +181,7 @@ describe("ses", () => {
           "https://app.example.com/reset?token=abc",
         );
 
-        expect(console.log).not.toHaveBeenCalled();
+        expect(loggerMock.debug).not.toHaveBeenCalled();
       } finally {
         process.env.NODE_ENV = originalNodeEnv;
       }

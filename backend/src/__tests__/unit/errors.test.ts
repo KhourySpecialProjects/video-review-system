@@ -8,6 +8,22 @@ vi.mock("@sentry/node", () => ({
   captureException: (...args: unknown[]) => captureException(...args),
 }));
 
+const loggerMock = vi.hoisted(() => ({
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+}));
+
+vi.mock("../../lib/logger.js", () => ({ logger: loggerMock }));
+
+beforeEach(() => {
+  loggerMock.debug.mockClear();
+  loggerMock.info.mockClear();
+  loggerMock.warn.mockClear();
+  loggerMock.error.mockClear();
+});
+
 import {
   AppError,
   errorHandler,
@@ -217,9 +233,6 @@ describe("errorHandler", () => {
     // "Internal server error".
     const { res, responseState } = createMockResponse();
     const next = vi.fn() as NextFunction;
-    const consoleErrorSpy = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => undefined);
     const err = new PrismaClientKnownRequestError("unexpected", {
       code: "P9999",
       clientVersion: "test",
@@ -227,7 +240,7 @@ describe("errorHandler", () => {
 
     errorHandler(err, {} as Request, res, next);
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith("Prisma error:", err);
+    expect(loggerMock.error).toHaveBeenCalledWith({ err }, "prisma error");
     expect(responseState.statusCode).toBe(500);
     expect(responseState.body).toMatchObject({
       status: "error",
@@ -242,14 +255,11 @@ describe("errorHandler", () => {
     // response without internal details.
     const { res, responseState } = createMockResponse();
     const next = vi.fn() as NextFunction;
-    const consoleErrorSpy = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => undefined);
     const err = new Error("boom");
 
     errorHandler(err, {} as Request, res, next);
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith("Unhandled error:", err);
+    expect(loggerMock.error).toHaveBeenCalledWith({ err }, "unhandled error");
     expect(responseState.statusCode).toBe(500);
     expect(responseState.body).toMatchObject({
       status: "error",
@@ -281,6 +291,21 @@ describe("errorHandler", () => {
     } finally {
       process.env.NODE_ENV = originalNodeEnv;
     }
+  });
+
+  it("logs an auth.denied warn for a 403 AppError", () => {
+    // Input: a 403 AppError reaches the handler with a request path.
+    // Expected: a warn log tagged event:"auth.denied" with the status and path.
+    const { res } = createMockResponse();
+    const next = vi.fn() as NextFunction;
+    const req = { originalUrl: "/api/secret" } as unknown as Request;
+
+    errorHandler(AppError.forbidden(), req, res, next);
+
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      { event: "auth.denied", statusCode: 403, path: "/api/secret" },
+      "Forbidden",
+    );
   });
 });
 
@@ -318,16 +343,12 @@ describe("errorHandler telemetry", () => {
     // Expected: captureException is called once with the error.
     const { res } = createMockResponse();
     const next = vi.fn() as NextFunction;
-    const consoleErrorSpy = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => undefined);
     const err = new Error("boom");
 
     errorHandler(err, {} as Request, res, next);
 
     expect(captureException).toHaveBeenCalledTimes(1);
     expect(captureException).toHaveBeenCalledWith(err);
-    consoleErrorSpy.mockRestore();
   });
 
   it("captures a non-operational AppError", () => {

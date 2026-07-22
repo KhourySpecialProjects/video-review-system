@@ -472,6 +472,27 @@ defaults to `scrubbed`. An empty DSN disables telemetry entirely.
 deserves a ticket, create the Linear issue and cross-link (paste the GlitchTip
 URL onto the Linear issue and the Linear URL back onto the GlitchTip issue).
 
+#### Logging conventions
+
+Application logs flow to GlitchTip's **Logs** product (not just error issues)
+whenever a DSN is set. Two facades, one per side:
+
+- **Backend:** [pino](backend/src/lib/logger.ts) is the facade — import
+  `logger` for module scope (startup, services, jobs) and use `req.log` for
+  request scope. `Sentry.pinoIntegration()` forwards every emitted pino log to
+  GlitchTip; `pino-http` logs one line per request (2xx/3xx `info`, 4xx `warn`,
+  5xx `error`).
+- **Frontend:** use `Sentry.logger.warn|error|info(...)` for intentional logs;
+  `console.warn`/`console.error` are also captured via
+  `consoleLoggingIntegration`.
+
+Level guide: `logger.info` + an `event: "domain.thing.happened"` field for
+business events (e.g. `review.status.changed`, `video.upload.completed`);
+`warn` for denials/degraded paths (e.g. `auth.denied`); `error` for failures;
+`debug` for local-only detail (never forwarded). **Never** log PII (emails,
+notes, tokens, raw DSNs) or secrets. Only levels ≥ the configured `LOG_LEVEL`
+(default `info`) reach GlitchTip, so `debug` stays local.
+
 ## Versioning
 
 Every build carries a version of the form `{VERSION}+{channel}.{shortSHA}` —
