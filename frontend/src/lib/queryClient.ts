@@ -1,5 +1,6 @@
 import { QueryClient, QueryCache, type Query } from "@tanstack/react-query";
 import { toast } from "sonner";
+import * as Sentry from "@sentry/react";
 
 /**
  * @description Centralized query error handler. Fires once per query error
@@ -15,6 +16,9 @@ export function toastQueryError(
   _error: unknown,
   query: Query<unknown, unknown, unknown>,
 ): void {
+  Sentry.logger.warn(Sentry.logger.fmt`query failed: ${String(query.queryHash)}`, {
+    queryKey: query.queryHash,
+  });
   const message = query.meta?.errorMessage;
   if (typeof message === "string") {
     toast.error(message);
