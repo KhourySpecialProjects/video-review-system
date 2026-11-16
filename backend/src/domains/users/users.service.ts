@@ -29,20 +29,6 @@ const userListSelect = {
   isDeactivated: true,
 } as const;
 
-const userDetailSelect = {
-  ...userListSelect,
-  userPermissions: {
-    select: {
-      id: true,
-      userId: true,
-      permissionLevel: true,
-      siteId: true,
-      studyId: true,
-      videoId: true,
-    },
-  },
-} as const;
-
 const userPermissionSelect = {
   id: true,
   userId: true,
@@ -50,7 +36,36 @@ const userPermissionSelect = {
   siteId: true,
   studyId: true,
   videoId: true,
+  site: { select: { name: true } },
+  study: { select: { name: true } },
 } as const;
+
+const userDetailSelect = {
+  ...userListSelect,
+  userPermissions: {
+    select: userPermissionSelect,
+  },
+} as const;
+
+/**
+ * @description Flattens a permission row's site/study relations into
+ * siteName/studyName for the API response, mirroring how the reviews
+ * service resolves names at the source.
+ */
+function toUserPermissionItem(
+  perm: Prisma.UserPermissionGetPayload<{ select: typeof userPermissionSelect }>,
+): UserPermissionItem {
+  return {
+    id: perm.id,
+    userId: perm.userId,
+    permissionLevel: perm.permissionLevel,
+    siteId: perm.siteId,
+    studyId: perm.studyId,
+    videoId: perm.videoId,
+    siteName: perm.site?.name ?? null,
+    studyName: perm.study?.name ?? null,
+  };
+}
 
 const userStatusAuditSelect = {
   id: true,
@@ -143,7 +158,10 @@ export async function getUserDetail(userId: string): Promise<UserDetailResponse>
     throw AppError.notFound("User not found");
   }
 
-  return user;
+  return {
+    ...user,
+    userPermissions: user.userPermissions.map(toUserPermissionItem),
+  };
 }
 
 /**
@@ -287,7 +305,7 @@ export async function listUserPermissions(
     orderBy: { id: "asc" },
   });
 
-  return { userPermissions };
+  return { userPermissions: userPermissions.map(toUserPermissionItem) };
 }
 
 /**
@@ -449,7 +467,7 @@ export async function createUserPermission(
   await resolvePermissionScopeAccess(input);
 
   try {
-    return await prisma.$transaction((tx) =>
+    const created = await prisma.$transaction((tx) =>
       runAuditedCreate({
         client: tx,
         create: async () => {
@@ -486,6 +504,7 @@ export async function createUserPermission(
         ipAddress: audit.ipAddress,
       }),
     );
+    return toUserPermissionItem(created);
   } catch (error) {
     if (
       error instanceof PrismaClientKnownRequestError &&
@@ -522,7 +541,7 @@ export async function getUserPermission(
     throw AppError.notFound("User permission not found");
   }
 
-  return userPermission;
+  return toUserPermissionItem(userPermission);
 }
 
 /**

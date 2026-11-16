@@ -24,6 +24,8 @@ export type UserPermissionItem = {
   siteId: string | null;
   studyId: string | null;
   videoId: string | null;
+  siteName: string | null;
+  studyName: string | null;
 };
 
 /** @description Detailed user response from GET /api/domain/users/:userId. */
