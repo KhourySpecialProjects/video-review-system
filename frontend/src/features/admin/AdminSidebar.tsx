@@ -56,11 +56,7 @@ export function AdminSidebar({ actorRole }: { actorRole: string }) {
         </Sidebar>
       )}
 
-      <InviteUserDialog
-        open={inviteOpen}
-        onOpenChange={setInviteOpen}
-        actorRole={actorRole}
-      />
+      <InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} />
       <CreateSiteDialog
         open={createSiteOpen}
         onOpenChange={setCreateSiteOpen}
